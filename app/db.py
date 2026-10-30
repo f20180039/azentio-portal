@@ -2,7 +2,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-from .constants import (Audience, CommentStatus, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
+from .constants import (Audience, CommentStatus, EmailStatus, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
                         IdeaStatus, ReportStatus, RequestStatus, Role, SessionStatus, ShareState, SharedStatus, Visibility,
                         EnquiryKind, sql_in)
 
@@ -217,6 +217,13 @@ CREATE TABLE IF NOT EXISTS saved_searches (
 CREATE TABLE IF NOT EXISTS observation_attachments (
   id INTEGER PRIMARY KEY, observation_id INTEGER NOT NULL REFERENCES observations(id), uploader_id INTEGER NOT NULL REFERENCES users(id),
   filename TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL, content BLOB NOT NULL, flags TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL
+);
+-- email outbox: persisted, idempotent by key, delivered only through a configured provider (P1)
+CREATE TABLE IF NOT EXISTS email_outbox (
+  id INTEGER PRIMARY KEY, idempotency_key TEXT UNIQUE NOT NULL, user_id INTEGER REFERENCES users(id), to_email TEXT NOT NULL,
+  subject TEXT NOT NULL, body TEXT NOT NULL, notification_id INTEGER REFERENCES notifications(id),
+  status TEXT NOT NULL DEFAULT '{EmailStatus.QUEUED}' CHECK (status IN ({sql_in(EmailStatus)})),
+  attempts INTEGER NOT NULL DEFAULT 0, provider_id TEXT, last_error TEXT, created_at REAL NOT NULL, sent_at REAL
 );
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY CHECK (key IN ({sql_in(Setting)})), value TEXT NOT NULL,

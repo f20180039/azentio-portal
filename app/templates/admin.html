@@ -34,6 +34,17 @@
   </table></div>
 </section>
 
+<section class="card">
+  <div class="section-title"><h2>Email outbox</h2><span class="hint">{% if mail.configured %}Provider configured: emails are sent when you dispatch.{% else %}No email provider configured: emails stay queued. Set RESEND_API_KEY and EMAIL_FROM to send.{% endif %}</span></div>
+  <div class="kpis">{% for st, n in mail.counts.items() %}<div class="card kpi"><span class="muted">{{ st.label }}</span><b>{{ n }}</b></div>{% endfor %}</div>
+  <div class="row" style="margin:14px 0"><form method="post" action="{{ R.ADMIN_OUTBOX_SEND }}" class="inline"><button class="btn small">Send queued emails now</button></form>
+    <form method="post" action="{{ R.ADMIN_DIGEST }}" class="inline"><button class="btn small ghost">Queue this week's digest</button></form></div>
+  {% if mail.recent %}<div class="scroll"><table><tr><th>To</th><th>Subject</th><th>Status</th><th>Attempts</th><th>Queued</th></tr>
+  {% for m in mail.recent %}<tr><td class="mono">{{ m.to_email }}</td><td>{{ m.subject }}</td><td><span class="pill {{ 'ok' if m.status == EmailStatus.SENT else ('bad' if m.status == EmailStatus.FAILED else 'warn') }}">{{ m.status }}</span>{% if m.last_error %} <span class="hint">{{ m.last_error }}</span>{% endif %}</td><td>{{ m.attempts }}</td><td>{{ m.created_at|ago }}</td></tr>{% endfor %}
+  </table></div>{% endif %}
+  <p class="hint">Every message has an idempotency key, so a repeated event or a retried dispatch never sends twice.</p>
+</section>
+
 <section class="cols">
   <div class="card">
     <h2>Support access</h2>

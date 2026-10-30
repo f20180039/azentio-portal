@@ -53,6 +53,10 @@ def request_code(conn, email: str) -> None:
             "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",
             (email, "Your azentio.ai sign-in code", f"Your code is {code}. It expires in 10 minutes.", time.time()),
         )
+        from .outbox import enqueue
+
+        enqueue(conn, f"signin:{email}:{int(now * 1000)}", None, email, "Your azentio.ai sign-in code",
+                f"Your code is {code}. It expires in 10 minutes. If you did not ask for it, ignore this email.")
 
 
 def latest_demo_mail(conn, email: str):
@@ -176,6 +180,18 @@ def load_ctx(conn, token: str | None) -> Ctx:
     ctx.grants = {r["permission"] for r in conn.execute("SELECT permission FROM grants WHERE user_id=?", (user["id"],))}
     ctx.support_orgs = {r["org_id"] for r in conn.execute(
         f"SELECT org_id FROM support_grants WHERE admin_id=? AND status='{RequestStatus.APPROVED}' AND expires_at > ?", (user["id"], time.time()))}
+    return ctx
+
+
+def load_ctx_for_user(conn, user_id: int) -> Ctx:
+    """Server-side context for background work (digests): the user's first active workspace, with their real grants."""
+    user = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    memberships = active_memberships(conn, user_id)
+    ctx = Ctx(user=user, memberships=memberships)
+    if memberships:
+        ctx.org = conn.execute("SELECT * FROM orgs WHERE id=?", (memberships[0]["org_id"],)).fetchone()
+        ctx.role = memberships[0]["role"]
+    ctx.grants = {r["permission"] for r in conn.execute("SELECT permission FROM grants WHERE user_id=?", (user_id,))}
     return ctx
 
 

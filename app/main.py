@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, attachments, audit, auth, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
+from . import aira, attachments, audit, auth, outbox, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
 from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
@@ -395,8 +395,9 @@ def notifications(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_signed_in(ctx)
     rows = conn.execute("SELECT * FROM notifications WHERE user_id=? ORDER BY id DESC LIMIT 50", (ctx.user_id,)).fetchall()
+    email_status = outbox.status_for_notifications(conn, [r["id"] for r in rows])
     conn.execute("UPDATE notifications SET read=1 WHERE user_id=?", (ctx.user_id,))
-    return render(request, "notifications.html", {"rows": rows})
+    return render(request, "notifications.html", {"rows": rows, "email_status": email_status})
 
 
 # ---- observations ---------------------------------------------------------------------------------------------
@@ -969,7 +970,21 @@ def admin_console(request: Request):
     return render(request, "admin.html", {
         "requests": iam.access_requests(conn, ctx), "staff": iam.staff(conn, ctx), "permissions": iam.PERMISSIONS,
         "labels": iam.PERMISSION_LABELS, "orgs": iam.organisations(conn, ctx), "support": iam.support_grants_for_admin(conn, ctx),
-        "offerings": conn.execute("SELECT slug, name FROM offerings").fetchall(), "now": time.time()})
+        "offerings": conn.execute("SELECT slug, name FROM offerings").fetchall(), "now": time.time(), "mail": outbox.summary(conn, ctx)})
+
+
+@app.post(Route.ADMIN_OUTBOX_SEND)
+def admin_outbox_send(request: Request):
+    r = outbox.deliver_pending(request.state.conn, request.state.ctx)
+    msg = ("No email provider is configured, so queued emails stay queued." if r["skipped"]
+           else f"Provider accepted {r['sent']} email(s); {r['failed']} failed and will be retried.")
+    return back(Route.ADMIN, msg)
+
+
+@app.post(Route.ADMIN_DIGEST)
+def admin_digest(request: Request):
+    n = outbox.queue_weekly_digest(request.state.conn, request.state.ctx)
+    return back(Route.ADMIN, f"Queued {n} weekly digest(s). Anyone already queued this week is skipped.")
 
 
 def _int(value) -> int:

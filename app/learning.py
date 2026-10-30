@@ -5,7 +5,7 @@ import re
 import time
 from dataclasses import dataclass, field
 
-from . import audit, settings
+from . import audit, outbox, settings
 from .constants import (Setting, Route, Category, ConsentEvent, EvidenceQuality, EvidenceVote, parse, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
                         ShareState, SharedStatus, Visibility)
 from .auth import Ctx
@@ -65,7 +65,9 @@ def validate(fields: dict) -> dict:
 
 
 def notify(conn, user_id: int, text: str, link: str | None = None) -> None:
-    conn.execute("INSERT INTO notifications (user_id, text, link, created_at) VALUES (?,?,?,?)", (user_id, text, link, time.time()))
+    """In-app notification (P0) plus a queued email in the outbox (P1); the email is sent only by a configured provider."""
+    nid = conn.execute("INSERT INTO notifications (user_id, text, link, created_at) VALUES (?,?,?,?)", (user_id, text, link, time.time())).lastrowid
+    outbox.enqueue_notification(conn, nid, user_id, text, link)
 
 
 def notify_moderators(conn, text: str, link: str) -> None:

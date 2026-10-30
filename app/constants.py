@@ -97,6 +97,8 @@ class Route(StrEnum):
     ADMIN_GRANTS = "/admin/grants"
     ADMIN_ENTITLEMENTS = "/admin/entitlements"
     ADMIN_SUPPORT = "/admin/support"
+    ADMIN_OUTBOX_SEND = "/admin/outbox/send"
+    ADMIN_DIGEST = "/admin/outbox/digest"
     ADMIN_SUPPORT_RECORDS = "/admin/support/{gid}"
 
     LEARNING_EXPORT = "/learning/export.csv"
@@ -326,6 +328,18 @@ class CommentStatus(StrEnum):
     HELD = "held"  # flagged by the restricted-data screen, waiting for a moderator
     REPORTED = "reported"
     HIDDEN = "hidden"
+
+
+class EmailStatus(StrEnum):
+    """Outbox state. Only SENT means the provider accepted the message; nothing is ever labelled delivered before that."""
+
+    QUEUED = "queued"
+    SENT = "sent"
+    FAILED = "failed"
+
+    @property
+    def label(self) -> str:
+        return {"queued": "Email queued, not sent yet", "sent": "Email accepted by the provider", "failed": "Email could not be sent"}[self.value]
 
 
 class ConsentEvent(StrEnum):

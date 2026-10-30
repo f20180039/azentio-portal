@@ -3,7 +3,7 @@ import hashlib
 import secrets
 import time
 
-from . import audit, settings
+from . import audit, outbox, settings
 from .constants import parse, CLIENT_ROLES, Route, Setting, InviteStatus, MembershipStatus, Role
 from .auth import Ctx, normalise_email
 from .db import tx
@@ -53,6 +53,9 @@ def invite(conn, ctx: Ctx, email: str, raw_role: str) -> str:
             "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",
             (email, f"Invitation to join {ctx.org['name']} on azentio.ai", Route.INVITE.url(token=token), time.time()),
         )
+        outbox.enqueue(conn, f"invite:{inv_id}", None, email, f"Invitation to join {ctx.org['name']} on azentio.ai",
+                       f"You were invited to join {ctx.org['name']} as {role}. Accept within the expiry period: "
+                       f"{outbox.public_url()}{Route.INVITE.url(token=token)}")
         audit.record(conn, ctx.user_id, "org.invited", f"org:{ctx.org_id}", {"invitation": inv_id, "role": role})
     return token
 
