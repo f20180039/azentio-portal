@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% from "_ui.html" import head, empty %}
+{% block title %}Live sessions · azentio.ai{% endblock %}
+{% block band %}{{ head("Live sessions", "Webinars, demo days and recordings. You see the sessions your audience allows.", "azentio.ai LIVE") }}{% endblock %}
+{% macro card(s) -%}
+<article class="card session">
+  {% set parts = (s.starts_at|when).replace(',', '').split(' ') %}<div class="datebox" aria-hidden="true"><span>{{ parts[0] }}</span><b>{{ parts[1] }}</b><span>{{ parts[2] }}</span></div>
+  <div><div class="row"><span class="pill {{ 'live' if s.status=='live' else ('ok' if s.audience_type=='public' else 'warn') }}">{{ 'Live now' if s.status=='live' else {'public':'Public','employees':'Employees only','org':'Invitation only','entitled':'Entitled clients'}[s.audience_type] }}</span>{% if s.status in ('ended','cancelled') %}<span class="pill {{ 'bad' if s.status=='cancelled' else '' }}">{{ s.status }}</span>{% endif %}</div>
+    <h3 style="margin-top:8px"><a href="/live/{{ s.id }}">{{ s.title }}</a></h3><p class="muted" style="margin:0">{{ s.description }}</p>
+    <div class="meta"><span>{{ s.starts_at|when }}</span><span>{{ s.duration_min }} min</span><span>{{ s.host }}</span>{% if s.registered %}<span>{{ s.registered }} registered</span>{% endif %}</div></div>
+  <a class="btn small {{ '' if s.status in ('scheduled','live') else 'ghost' }}" href="/live/{{ s.id }}">{{ 'Join' if s.status=='live' else ('Details' if s.status=='scheduled' else ('Watch recording' if s.recording_id else 'Details')) }}</a>
+</article>
+{%- endmacro %}
+{% block content %}
+<div class="cols">
+<div class="stack">
+  <section><h2>Upcoming</h2><div class="stack">{% for s in upcoming %}{{ card(s) }}{% else %}{{ empty("No upcoming sessions for your audience.") }}{% endfor %}</div></section>
+  <section><h2>Past and recordings</h2><div class="stack">{% for s in past %}{{ card(s) }}{% else %}<p class="muted">Nothing yet.</p>{% endfor %}</div></section>
+</div>
+<aside class="stack">
+{% if ctx.has('publish_content') %}
+<form method="post" action="/live" class="card">
+  <h2>Schedule a session</h2>
+  <div class="field"><label for="title">Title</label><input id="title" name="title" type="text" required minlength="5" maxlength="120"></div>
+  <div class="field"><label for="description">Description</label><textarea id="description" name="description" required minlength="10" maxlength="600" style="min-height:80px"></textarea></div>
+  <div class="field"><label for="host">Host</label><input id="host" name="host" type="text" required maxlength="80"></div>
+  <div class="two"><div class="field"><label for="starts_at">Starts (IST)</label><input id="starts_at" name="starts_at" type="datetime-local" required></div>
+  <div class="field"><label for="duration_min">Minutes</label><input id="duration_min" name="duration_min" type="number" min="15" max="240" value="45" required></div></div>
+  <div class="field"><label for="audience">Audience</label><select id="audience" name="audience">{% for v, label in choices %}<option value="{{ v }}" {% if v=='employees' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <button class="btn">Schedule</button>
+  <p class="hint">The recording inherits this audience, so it can never reach more people than the live session.</p>
+</form>
+{% else %}
+<div class="card"><h3>Who sees what</h3><ul class="ticks"><li>Public sessions are open to everyone.</li><li>Employee sessions and recordings stay inside Azentio.</li><li>Client sessions reach only invited or entitled organisations.</li></ul>
+{% if not ctx.signed_in %}<a class="btn small ghost" href="/signin?next=/live">Sign in for more sessions</a>{% endif %}</div>
+{% endif %}
+</aside>
+</div>
+{% endblock %}

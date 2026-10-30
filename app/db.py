@@ -126,6 +126,28 @@ CREATE TABLE IF NOT EXISTS playground_runs (
   offering TEXT NOT NULL REFERENCES offerings(slug), inputs TEXT NOT NULL, result TEXT NOT NULL, created_at REAL NOT NULL,
   rating INTEGER CHECK (rating BETWEEN 1 AND 5), accuracy TEXT, comment TEXT NOT NULL DEFAULT ''
 );
+-- live sessions use the same audience model as resources; recordings become resources with the same audience
+CREATE TABLE IF NOT EXISTS live_sessions (
+  id INTEGER PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL, host TEXT NOT NULL,
+  starts_at REAL NOT NULL, duration_min INTEGER NOT NULL,
+  audience_type TEXT NOT NULL CHECK (audience_type IN ('public','employees','org','entitled')), audience_ref TEXT,
+  status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','live','ended','cancelled')),
+  recording_id INTEGER REFERENCES resources(id), created_by INTEGER REFERENCES users(id), created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS live_registrations (
+  session_id INTEGER NOT NULL REFERENCES live_sessions(id), user_id INTEGER NOT NULL REFERENCES users(id),
+  PRIMARY KEY (session_id, user_id)
+);
+-- internal knowledge library: employees only, never indexed for client search or AIRA
+CREATE TABLE IF NOT EXISTS library_items (
+  id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, team TEXT NOT NULL,
+  owner_id INTEGER NOT NULL REFERENCES users(id), review_by REAL NOT NULL, updated_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS library_feedback (
+  item_id INTEGER NOT NULL REFERENCES library_items(id), user_id INTEGER NOT NULL REFERENCES users(id),
+  verdict TEXT NOT NULL CHECK (verdict IN ('accurate','outdated')), comment TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL,
+  PRIMARY KEY (item_id, user_id)
+);
 CREATE TABLE IF NOT EXISTS enquiries (
   id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('demo','hackathon')), name TEXT NOT NULL,
   email TEXT NOT NULL, company TEXT NOT NULL, interest TEXT NOT NULL, message TEXT NOT NULL, created_at REAL NOT NULL

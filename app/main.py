@@ -1,6 +1,6 @@
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, audit, auth, iam, ideas, learning, orgadmin, playground, policy
+from . import aira, audit, auth, iam, ideas, learning, library, live, orgadmin, playground, policy
 from .db import connect, tx
 from .policy import Denied
 from .seed import DEMO_PERSONAS, seed
@@ -34,6 +34,8 @@ def _ago(ts) -> str:
 templates.env.filters["ago"] = _ago
 # stylesheet URL changes whenever the file changes, so browsers never keep a stale copy
 templates.env.globals["asset_version"] = max(int(f.stat().st_mtime) for f in (BASE / "static").iterdir())
+IST = timezone(timedelta(hours=5, minutes=30))
+templates.env.filters["when"] = lambda ts: datetime.fromtimestamp(ts, IST).strftime("%a %d %b, %H:%M IST") if ts else ""
 templates.env.filters["date"] = lambda ts: datetime.fromtimestamp(ts, timezone.utc).strftime("%d %b %Y") if ts else ""
 
 
@@ -422,6 +424,75 @@ async def observation_share(request: Request, oid: int):
 def observation_withdraw(request: Request, oid: int):
     n = learning.withdraw(request.state.conn, request.state.ctx, oid)
     return back(f"/observations/{oid}", f"Withdrawn. {n} shared version(s) removed from search and AIRA immediately.")
+
+
+# ---- live sessions and knowledge library -----------------------------------------------------------------------
+
+@app.get("/live", response_class=HTMLResponse)
+def live_list(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    rows = live.visible(conn, ctx)
+    return render(request, "live.html", {"upcoming": [r for r in rows if r["status"] in ("scheduled", "live")],
+                                         "past": [r for r in rows if r["status"] in ("ended", "cancelled")][::-1],
+                                         "choices": iam.audience_choices(conn) if ctx.has("publish_content") else []})
+
+
+@app.post("/live")
+async def live_create(request: Request):
+    sid = live.create(request.state.conn, request.state.ctx, await form(request))
+    return back(f"/live/{sid}", "Session scheduled. Only its audience can see it.")
+
+
+@app.get("/live/{sid}", response_class=HTMLResponse)
+def live_view(request: Request, sid: int):
+    conn, ctx = request.state.conn, request.state.ctx
+    s = live.get(conn, ctx, sid)
+    return render(request, "live_session.html", {"s": s, "registered": live.is_registered(conn, ctx, sid),
+                                                 "audience": dict(iam.audience_choices(conn)).get(s["audience_type"] + (":" + s["audience_ref"] if s["audience_ref"] else ""), s["audience_type"])})
+
+
+@app.post("/live/{sid}/register")
+async def live_register(request: Request, sid: int):
+    on = (await form(request)).get("action") != "cancel"
+    live.register(request.state.conn, request.state.ctx, sid, on)
+    return back(f"/live/{sid}", "You are registered. We will notify you when it starts." if on else "Registration cancelled.")
+
+
+@app.post("/live/{sid}/status")
+async def live_status(request: Request, sid: int):
+    f = await form(request)
+    live.set_status(request.state.conn, request.state.ctx, sid, f.get("status") or "", f.get("recording_note") or "")
+    return back(f"/live/{sid}", "Session updated.")
+
+
+@app.get("/library", response_class=HTMLResponse)
+def library_list(request: Request):
+    return render(request, "library.html", {"items": library.items(request.state.conn, request.state.ctx), "now": time.time()})
+
+
+@app.post("/library")
+async def library_create(request: Request):
+    iid = library.create(request.state.conn, request.state.ctx, await form(request))
+    return back(f"/library/{iid}", "Added. You own it; it is due for review in 90 days.")
+
+
+@app.get("/library/{iid}", response_class=HTMLResponse)
+def library_view(request: Request, iid: int):
+    item, fb = library.get(request.state.conn, request.state.ctx, iid)
+    return render(request, "library_item.html", {"item": item, "feedback": fb, "now": time.time()})
+
+
+@app.post("/library/{iid}/review")
+def library_review(request: Request, iid: int):
+    library.mark_reviewed(request.state.conn, request.state.ctx, iid)
+    return back(f"/library/{iid}", "Review confirmed. Next review in 90 days.")
+
+
+@app.post("/library/{iid}/feedback")
+async def library_feedback(request: Request, iid: int):
+    f = await form(request)
+    library.feedback(request.state.conn, request.state.ctx, iid, f.get("verdict") or "", f.get("comment") or "")
+    return back(f"/library/{iid}", "Thanks. The owner sees your feedback.")
 
 
 # ---- playground -----------------------------------------------------------------------------------------------

@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% from "_ui.html" import head %}
+{% block title %}{{ s.title }} · Live{% endblock %}
+{% block band %}{{ head(s.title, s.starts_at|when ~ " · " ~ s.duration_min ~ " minutes · " ~ s.host, "Live session") }}{% endblock %}
+{% block content %}
+<div class="cols">
+<section class="stack">
+  <div class="card">
+    <div class="row"><span class="pill {{ 'live' if s.status=='live' else '' }}">{{ {'scheduled':'Scheduled','live':'Live now','ended':'Ended','cancelled':'Cancelled'}[s.status] }}</span><span class="pill warn">{{ audience }}</span></div>
+    <p style="margin-top:12px">{{ s.description }}</p>
+    {% if s.status == 'live' %}<div class="demo-note">Streaming is simulated in this build. In production this opens the stream for registered members of the audience only.</div>{% endif %}
+    {% if s.recording_id %}<p><a class="btn" href="/resources/{{ s.recording_id }}">Watch the recording</a></p>{% endif %}
+  </div>
+  {% if ctx.has('publish_content') %}
+  <form method="post" action="/live/{{ s.id }}/status" class="card">
+    <h2>Run this session</h2>
+    <div class="field"><label for="status">Status</label><select id="status" name="status">{% for st in ['scheduled','live','ended','cancelled'] %}<option value="{{ st }}" {% if st==s.status %}selected{% endif %}>{{ st|capitalize }}</option>{% endfor %}</select></div>
+    {% if not s.recording_id %}<div class="field"><label for="rn">Recording summary (when ending)</label><input id="rn" name="recording_note" type="text" maxlength="600" placeholder="Adds a recording with the same audience"></div>{% endif %}
+    <button class="btn">Update</button>
+    <p class="hint">Registered people are notified when it goes live or is cancelled.</p>
+  </form>
+  {% endif %}
+</section>
+<aside class="stack">
+  <div class="card"><h3>Attend</h3>
+    <p class="muted">{{ s.registered }} registered.</p>
+    {% if s.status in ('scheduled','live') %}
+      {% if not ctx.signed_in %}<a class="btn" href="/signin?next=/live/{{ s.id }}">Sign in to register</a>
+      {% elif registered %}<form method="post" action="/live/{{ s.id }}/register"><button class="btn ghost" name="action" value="cancel">Cancel registration</button></form>
+      {% else %}<form method="post" action="/live/{{ s.id }}/register"><button class="btn">Register</button></form>{% endif %}
+    {% else %}<p class="muted" style="margin:0">Registration is closed.</p>{% endif %}
+  </div>
+  <a href="/live">All sessions</a>
+</aside>
+</div>
+{% endblock %}

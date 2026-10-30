@@ -224,5 +224,30 @@ def seed(conn) -> None:
     conn.execute("INSERT INTO idea_themes VALUES (?,?)", (idea, themes["Scanned statement extraction"]))
     conn.execute("INSERT INTO access_requests (user_id, reason, created_at) VALUES (12, ?, ?)",
                  ("Joined the Financial Analysis squad this week; need the employee workspace.", now - 1800))
+    day = 86400
+    sessions = [
+        ("AI Lab demo day", "Teams demo agent prototypes built in the October AI Lab sprint.", "AI Lab", now - 6 * day, 60, "employees", None, "ended", 4),
+        ("Seasonality module: design review", "Walk through the same-season comparison prototype and its open questions.", "Financial Analysis squad",
+         now + 2 * day, 45, "employees", None, "scheduled", None),
+        ("Explainable credit decisions in practice", "How policy evidence, human review and audit trails fit together. Open to everyone.", "Priya Nair",
+         now + 3 * day, 45, "public", None, "scheduled", None),
+        ("SME Workbench 4.2 walkthrough", "What changed in the Workbench, shown on synthetic applicants. For entitled clients.", "Product team",
+         now + 1 * day, 30, "entitled", "sme-credit-decisioning", "scheduled", None),
+        ("Northwind Finance: reporting automation roadmap", "Invitation-only session for Northwind Finance on RIVA validation plans.", "RIVA team",
+         now + 5 * day, 45, "org", "3", "scheduled", None),
+    ]
+    for t, d, host, starts, dur, atype, aref, status, rec in sessions:
+        conn.execute("INSERT INTO live_sessions (title, description, host, starts_at, duration_min, audience_type, audience_ref, status, recording_id, created_by, created_at)"
+                     " VALUES (?,?,?,?,?,?,?,?,?,3,?)", (t, d, host, starts, dur, atype, aref, status, rec, now))
+    library = [
+        ("Credit policy glossary", "Plain definitions of DSCR, leverage, current ratio and the sandbox thresholds used in demos, with the reason for each threshold.",
+         "Financial Analysis squad", 1, now + 40 * day),
+        ("How we redact shared observations", "Checklist for moderators: remove names, account and card numbers, exact amounts and rare locations; coarsen region and sector; "
+         "never publish when the scan still flags something without a manual check.", "Learning moderation", 2, now - 5 * day),
+        ("Generating synthetic sandbox data", "How the Playground scenarios are generated, why no client data is used, and how to add a new scenario safely.",
+         "AI Lab", 5, now + 10 * day),
+    ]
+    for t, body, team, owner, review in library:
+        conn.execute("INSERT INTO library_items (title, body, team, owner_id, review_by, updated_at) VALUES (?,?,?,?,?,?)", (t, body, team, owner, review, now - 20 * day))
     audit.record(conn, None, "system.seeded", "portal", {"note": "synthetic demo data"})
     conn.execute("COMMIT")

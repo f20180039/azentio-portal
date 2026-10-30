@@ -16,8 +16,16 @@
   <div class="wrap">
     <a class="brand" href="/" aria-label="azentio.ai home"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#3ecf8e" stroke-width="2"/><circle cx="13" cy="13" r="4" fill="#3ecf8e"/><circle cx="21" cy="6" r="2.4" fill="#5aa9e6"/></svg><span>azent<span class="g">i</span>o<span class="g">.ai</span></span></a>
     <nav class="nav" aria-label="Site">
-      {% for href, label in [('/products','Products'),('/media','Media & insights'),('/about','About'),('/hackathon/register','Hackathons')] %}
-      <a href="{{ href }}" {% if path.startswith(href) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+      <a href="/products" {% if path.startswith('/products') %}aria-current="page"{% endif %}>Products</a>
+      <div class="menu">
+        <button type="button" class="menu-btn" aria-haspopup="true" {% if path.startswith('/media') or path.startswith('/live') %}aria-current="page"{% endif %}>Explore <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <div class="menu-panel">
+          <a href="/media"><b>Media &amp; insights</b><span>Videos, demos and perspectives</span></a>
+          <a href="/live"><b>Live sessions</b><span>Webinars, demo days and recordings</span></a>
+        </div>
+      </div>
+      <a href="/about" {% if path.startswith('/about') %}aria-current="page"{% endif %}>About</a>
+      <a href="/hackathon/register" {% if path.startswith('/hackathon') %}aria-current="page"{% endif %}>Hackathons</a>
       {% if demo_mailbox %}<a href="/demo" class="demo-link" {% if path == '/demo' %}aria-current="page"{% endif %}>Demo guide</a>{% endif %}
     </nav>
     <div class="who">
@@ -48,6 +56,7 @@
   {% if ctx.org %}
     {% set links = [('/dashboard','Dashboard')] %}
     {% set links = links + [('/playground','Playground')] %}
+    {% if ctx.is_employee %}{% set links = links + [('/library','Library')] %}{% endif %}
     {% if ctx.is_client %}{% set links = links + [('/observations','Observations')] %}{% endif %}
     {% set links = links + [('/learning','Shared learning'),('/learning/ask','Ask AIRA')] %}
     {% if ctx.has('moderate') %}{% set links = links + [('/moderation','Moderation')] %}{% endif %}

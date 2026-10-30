@@ -359,3 +359,28 @@ input[type=number] { width: 100%; padding: 10px 12px; border: 1px solid var(--li
   .nav { order: 3; flex-basis: 100%; overflow-x: auto; gap: 18px; scrollbar-width: none; }
   .who { margin-left: auto; }
 }
+
+/* header menus: open on hover or keyboard focus */
+.menu { position: relative; }
+.menu-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 4px 0; font: inherit; font-weight: 600; color: var(--on-navy-soft); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+.menu-btn svg { width: 14px; height: 14px; transition: transform .15s; }
+.menu-btn:hover, .menu:focus-within .menu-btn, .menu-btn[aria-current="page"] { color: #fff; }
+.menu-btn[aria-current="page"] { border-bottom-color: var(--accent-bright); }
+.menu-panel { display: none; position: absolute; top: 100%; left: -14px; z-index: 30; min-width: 270px; padding: 8px; margin-top: 8px;
+  background: #10294a; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; box-shadow: 0 18px 40px -16px rgba(0,0,0,.5); }
+.menu-panel::before { content: ""; position: absolute; left: 0; right: 0; top: -10px; height: 10px; }
+.menu:hover .menu-panel, .menu:focus-within .menu-panel { display: block; }
+.menu:hover .menu-btn svg, .menu:focus-within .menu-btn svg { transform: rotate(180deg); }
+.menu-panel a { display: block; padding: 8px 10px; border-radius: 8px; border: 0; text-decoration: none; color: var(--on-navy); white-space: normal; }
+.menu-panel a:hover, .menu-panel a:focus-visible { background: rgba(255,255,255,.08); }
+.menu-panel b { display: block; color: #fff; }
+.menu-panel span { font-size: .85rem; color: var(--on-navy-soft); font-weight: 400; }
+@media (max-width: 1023px) { .nav { overflow: visible; } .menu-panel { position: fixed; left: 16px; right: 16px; top: auto; } }
+
+/* sessions */
+.session { display: grid; grid-template-columns: 92px 1fr auto; gap: 16px; align-items: center; }
+.datebox { text-align: center; border-radius: 10px; background: var(--accent-wash); color: var(--accent-ink); padding: 8px 4px; }
+.datebox b { display: block; font-family: var(--display); font-size: 1.6rem; line-height: 1; }
+.datebox span { font-size: .8rem; font-weight: 700; }
+.pill.live { background: var(--bad); color: #fff; }
+@media (max-width: 640px) { .session { grid-template-columns: 70px 1fr; } .session > :last-child { grid-column: 1 / -1; } }
