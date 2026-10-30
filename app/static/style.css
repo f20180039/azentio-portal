@@ -480,3 +480,10 @@ input[type=file]::file-selector-button:hover { background: var(--accent); color:
   .top.open .menu-panel span { display: none; }
 }
 @media (max-width: 480px) { .viewas .dd { width: 132px; } .top .brand { font-size: 1.2rem; } }
+.foot .wrap { flex-direction: column; }
+.foot-cols { display: flex; flex-wrap: wrap; gap: 18px 32px; }
+.foot-cols nav { flex: 1 1 160px; }
+.foot-cols h2 { font-size: .95rem; color: #fff; margin: 0 0 6px; }
+.foot-cols a { display: block; padding-block: 2px; text-decoration: none; }
+.foot-cols a:hover { text-decoration: underline; }
+.foot-base { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; border-top: 1px solid rgba(255,255,255,.12); padding-top: 16px; }

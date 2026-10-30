@@ -42,3 +42,14 @@ def test_new_public_pages_show_only_public_content(client, login):
     lab = client.get("/lab").text
     assert "Same-season comparisons" in lab and "design review" not in lab  # employee-only session stays hidden
     assert "Seasonality module: design review" in login("dev@azentio.com").get("/lab").text
+
+
+def test_footer_links_and_placeholder_policy_pages(client):
+    home = client.get("/").text
+    for heading in ("Explore", "Discover", "Connect"):
+        assert f"<h2>{heading}</h2>" in home
+    assert 'href="https://www.azentio.com/"' in home and "Part of Azentio" in home
+    for path in ("/privacy", "/terms", "/accessibility"):
+        assert f'href="{path}"' in home
+        page = client.get(path)
+        assert page.status_code == 200 and "prototype placeholder" in page.text and "synthetic" in page.text

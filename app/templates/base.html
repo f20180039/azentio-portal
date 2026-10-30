@@ -86,8 +86,17 @@
   {% block content %}{% endblock %}
 </main>
 <footer class="foot"><div class="wrap">
-  <span>azentio.ai hackathon build. Synthetic data only; every organisation shown is fictional.</span>
-  <span class="row"><a href="{{ R.ABOUT }}">How shared learning works</a><a href="{{ R.API_DOCS }}">API reference</a></span>
+  <div class="foot-cols">
+    {% for heading, links in [
+      ("Explore", [(R.PRODUCTS, "Products"), (R.SOLUTIONS, "Solutions"), (R.LAB, "AI Lab"), (R.TECHNOLOGY, "Technology")]),
+      ("Discover", [(R.INSIGHTS, "Insights"), (R.MEDIA, "Media"), (R.LIVE, "Live sessions"), (R.RELEASES, "Release notes"), (R.ABOUT, "How shared learning works")]),
+      ("Connect", [(R.CONNECT, "Contact and demo requests"), (R.HACKATHON, "Hackathons"), (R.API_DOCS, "API reference")]),
+    ] %}<nav aria-label="{{ heading }}"><h2>{{ heading }}</h2>{% for href, label in links %}<a href="{{ href }}">{{ label }}</a>{% endfor %}</nav>{% endfor %}
+  </div>
+  <div class="foot-base">
+    <span>azentio.ai hackathon build. Synthetic data only; every organisation shown is fictional.</span>
+    <span class="row"><a href="{{ R.PRIVACY }}">Privacy</a><a href="{{ R.TERMS }}">Terms</a><a href="{{ R.ACCESSIBILITY }}">Accessibility</a><a href="https://www.azentio.com/" rel="noopener">Part of Azentio</a></span>
+  </div>
 </div></footer>
 {% if path != R.ASK %}
 <div class="aira-dock" id="aira-dock" data-api="{{ R.API_AIRA }}" data-scope="{{ (ctx.user_id ~ ':' ~ (ctx.org.id if ctx.org else 'none')) if ctx.signed_in else 'visitor' }}"

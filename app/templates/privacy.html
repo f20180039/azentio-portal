@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% from "_ui.html" import head %}{% block title %}Privacy · azentio.ai{% endblock %}
+{% block band %}{{ head("Privacy", "How this hackathon prototype handles data.", "Prototype placeholder") }}{% endblock %}
+{% block content %}
+<div class="demo-note">This is a prototype placeholder, not Azentio's privacy policy. Azentio's own policy is on <a href="https://www.azentio.com/">azentio.com</a>.</div>
+<p>Everything in this prototype is synthetic: the organisations, people, observations and figures are fictional. Please do not enter real personal or customer data.</p>
+<h2>What the prototype stores</h2>
+<p>An email address and a hashed session token when you sign in, what you type into forms, and an audit log of changes. Sign-in codes and invitations for the demo personas are shown on screen; other email is queued, not sent, unless an email provider is configured.</p>
+<h2>What it shares</h2>
+<p>Client observations stay private to their organisation unless the author proposes a de-identified copy and a moderator publishes it. Shared copies carry no names or organisation, month-level dates, and sector and region only when enough organisations share them.</p>
+<h2>AI providers</h2>
+<p>AIRA sends only moderator-approved shared copies, or one synthetic sandbox run, to the AI provider to answer a question. Questions and answers are kept in your browser tab, not stored by the portal.</p>
+{% endblock %}

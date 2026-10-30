@@ -231,6 +231,21 @@ def about(request: Request):
     return render(request, "about.html")
 
 
+@app.get(Route.PRIVACY, response_class=HTMLResponse)
+def privacy(request: Request):
+    return render(request, "privacy.html")
+
+
+@app.get(Route.TERMS, response_class=HTMLResponse)
+def terms(request: Request):
+    return render(request, "terms.html")
+
+
+@app.get(Route.ACCESSIBILITY, response_class=HTMLResponse)
+def accessibility(request: Request):
+    return render(request, "accessibility.html")
+
+
 def _enquiry(request: Request, kind: str, f: dict):
     fields = {k: (f.get(k) or "").strip() for k in ("name", "email", "company", "interest", "message")}
     if not (2 <= len(fields["name"]) <= 80 and "@" in fields["email"] and 2 <= len(fields["company"]) <= 120 and len(fields["message"]) <= 1000):

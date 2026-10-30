@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% from "_ui.html" import head %}{% block title %}Terms of use · azentio.ai{% endblock %}
+{% block band %}{{ head("Terms of use", "Terms for this hackathon prototype.", "Prototype placeholder") }}{% endblock %}
+{% block content %}
+<div class="demo-note">This is a prototype placeholder, not Azentio's terms. It has no legal effect.</div>
+<ul class="ticks">
+  <li>This is a demonstration built for a hackathon, using synthetic data only. Do not enter real personal, customer or confidential information.</li>
+  <li>The live demo is a shared sandbox: other visitors may use it at the same time, and anyone can reset it.</li>
+  <li>Sandbox results and AIRA answers are illustrations, not credit, risk or business decisions.</li>
+  <li>The service may be unavailable, slow or reset at any time, and data is not kept.</li>
+</ul>
+{% endblock %}

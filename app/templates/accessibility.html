@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% from "_ui.html" import head %}{% block title %}Accessibility · azentio.ai{% endblock %}
+{% block band %}{{ head("Accessibility", "What this prototype does for accessibility, and what it does not yet do.", "Prototype placeholder") }}{% endblock %}
+{% block content %}
+<div class="demo-note">This is a prototype placeholder, not a formal accessibility statement. The prototype uses synthetic data and has not been audited against WCAG.</div>
+<h2>What we aimed for</h2>
+<ul class="ticks">
+  <li>Every control works with a keyboard, with a visible focus outline, including the dropdowns, the site menu and the AIRA panel.</li>
+  <li>Pages use headings, labelled form fields and landmarks; new AIRA answers are announced to screen readers.</li>
+  <li>Light and dark themes, reduced motion respected, and layouts that fit a phone screen without sideways scrolling.</li>
+</ul>
+<h2>Known gaps</h2>
+<p>No formal audit or assistive-technology testing has been done. Some data tables scroll sideways on small screens.</p>
+{% endblock %}

@@ -19,6 +19,9 @@ class Route(StrEnum):
     HACKATHON = "/hackathon/register"
     RESOURCE = "/resources/{rid}"
     MEDIA_FILE = "/media/{rid}"
+    PRIVACY = "/privacy"
+    TERMS = "/terms"
+    ACCESSIBILITY = "/accessibility"
 
     SIGNIN = "/signin"
     SIGNIN_VERIFY = "/signin/verify"
