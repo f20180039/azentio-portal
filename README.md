@@ -61,6 +61,7 @@ flowchart LR
 | `live.py`, `library.py`, `innovation.py` | Sessions and recordings, knowledge library, experiments, team spaces, release notes |
 | `aira.py` | Retrieval over approved items, prompt, citation check, rate limit |
 | `llm.py` | Provider chain: Groq then Gemini, several keys each, skipping rejected keys |
+| `static/aira.js` | Floating AIRA panel: open state and conversation kept across pages for the current tab |
 | `audit.py` | Hash-chained audit log and verification |
 | `federated.py` | Optional federated-learning track: client environments, validation, FedAvg, evaluation, model registry |
 | `trends.py`, `discussion.py`, `attachments.py`, `outbox.py`, `entra.py` | Trends and prioritisation, comments and bookmarks, attachments, email outbox, Microsoft sign-in |
@@ -73,7 +74,7 @@ flowchart LR
 - **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then Google `gemini-2.5-flash` and `gemini-2.5-flash-lite`, then to a non-AI listing. Each provider accepts several keys.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
-- **Front end:** no framework. A small `select.js` for accessible dropdowns, hand-written CSS, and Google Fonts (Sora, Source Sans 3, JetBrains Mono).
+- **Front end:** no framework. A small `select.js` for accessible dropdowns, `aira.js` for the floating AIRA panel, hand-written CSS, and Google Fonts (Sora, Source Sans 3, JetBrains Mono).
 - **Hosting:** Render free web service from `render.yaml`.
 
 ## Key prompts and workflows
@@ -182,7 +183,7 @@ Settings (environment variables):
    - Contributors are notified. Clients see the status and public note, never the internal problem statement.
 6. **Sam (Northwind).**
    - Withdraw the shared contribution.
-   - It leaves the feed, search, theme counts and AIRA **in the same transaction**. Ask AIRA again to show this.
+   - It leaves the feed, search, theme counts and AIRA **in the same transaction**. Ask AIRA again from the floating **✦ AIRA** button, without leaving the page, to show this.
 7. **Arjun (portal admin).**
    - The audit log shows every step, with the hash chain verified.
    - Arjun cannot open any client's private draft.
@@ -300,10 +301,21 @@ stateDiagram-v2
 - **Relevance gate:** a question needs topic words (not just numbers or filler like "tell me more"), and at least one visible approved item must contain one of them, ranked by relevance. Otherwise the model is never called. No unrelated items are added to pad thin results (tested).
 - **Refusal:** the model is told to reply `NO_ANSWER` when no item addresses the question or the request is off-topic (code, maths, writing, other topics). A refusal or an answer with no valid citation is replaced by "the approved contributions do not answer this question" (tested).
 - **Citations** (`[S12]`) are checked after the answer: any ID that was not retrieved is stripped (tested).
-- **Floating panel:** an AIRA button sits on every page for signed-in participants (`Ctx.is_participant`, the same rule the API enforces). The conversation stays open across pages for the current tab only, stored under the user and workspace, and is wiped on sign-out or when switching persona or workspace. Answers are inserted as text, never as HTML.
 - **Limits:** 8 questions per user per minute, counted for every question, including ones that match nothing. Public visitors cannot use AIRA.
 - **Failover:** for each Groq model, every Groq key in turn; then the same for Gemini; then a non-AI listing of the matching items. A key the provider rejects (401/403, e.g. expired) is skipped for the rest of that request; a rate-limited key just passes to the next one (tested in `tests/test_llm.py`).
 - Summaries do not retrain any model. This is not federated learning.
+
+### Floating AIRA panel
+
+- **Where:** a **✦ AIRA** button in the bottom-right corner of every page, for signed-in employees and client members. It is left off the full **Ask AIRA** page (`/learning/ask`), which has its own form.
+- **Use:** click the button (or Tab to it and press Enter), type a question, press **Ask**. Answers show their cited items (`S5 · title`) and the model used. **Clear** empties the conversation; **×** or Esc closes the panel.
+- **Kept across pages:** the panel's open state and the last 20 messages survive navigation, so a question can be asked on the dashboard and read on the feed.
+- **Who gets it:** the server renders the panel only when `Ctx.is_participant` is true. That is the same property `require_participant` uses for the API, so the button and the access rule cannot drift apart. Public visitors and signed-in users without a participant workspace never receive it, and every question still goes through `POST /api/v1/aira` with the full server-side checks.
+- **Where the conversation lives:** in the browser tab's `sessionStorage`, under a key made of the user and workspace. It is never written to the server or shared with other tabs. It is wiped on sign-out, and switching persona or workspace removes the previous identity's conversation, so one persona never sees another's answers.
+- **Safe rendering:** answers and titles are inserted as text, never as HTML, so a contribution cannot inject markup into the page.
+- **Errors:** rate limits, a session that has ended and network failures are shown as plain messages in the panel.
+- **Accessibility:** the panel is a labelled dialog, new answers are announced (`aria-live`), focus is visible and moves to the question box when opened; it is hidden when printing and fits phone widths.
+- Tested: the panel is present for a participant and absent for public visitors and on the full AIRA page (`tests/test_aira.py`). Checked in Chrome on desktop and phone width, including that the conversation survives moving between pages.
 
 ## Requirement coverage
 
@@ -322,6 +334,7 @@ stateDiagram-v2
 | Sharing choices, separate consents, de-identified shared copy, cohort threshold | Built |
 | Themes, improvement ideas, audited status, contributor updates | Built |
 | AIRA with checked citations | Built |
+| AIRA reachable from every page (floating panel, participants only, conversation kept across pages) | Built |
 | Employee dashboard, employee-only content excluded from client search and AIRA | Built (internal notes, recordings, release notes) |
 | Guided Playground (employees: all sandboxes; clients: entitled only), evidence, AIRA explanation, structured feedback | Built |
 | Sandbox saved scenarios (private or organisation) and CSV uploads (type, size, declaration, restricted-data screen; private to the uploader) | Built |
@@ -342,6 +355,7 @@ stateDiagram-v2
 - **Hosting:** the free Render instance uses an ephemeral SQLite file. Each restart reseeds the demo data, and the instance sleeps after 15 idle minutes, so the first request is slow.
 - **CSRF:** protection relies on `SameSite=Lax` cookies. A per-form token is the next step.
 - **Rate limiting:** the AIRA limit is in memory, per process.
+- **Floating AIRA panel:** the conversation is kept per browser tab, so a new tab starts empty and closing the tab loses it. This is deliberate: nothing about a question is stored on the server.
 
 ## AI tools used
 
