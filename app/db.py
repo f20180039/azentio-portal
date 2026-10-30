@@ -2,7 +2,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-from .constants import (Audience, CommentStatus, ModelStatus, EmailStatus, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
+from .constants import (Audience, CommentStatus, ModelStatus, EmailStatus, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, OrgStatus, Permission, Priority,
                         IdeaStatus, ReportStatus, RequestStatus, Role, SessionStatus, ShareState, SharedStatus, Visibility,
                         EnquiryKind, sql_in)
 
@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE TABLE IF NOT EXISTS orgs (
   id INTEGER PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL CHECK (kind IN ({sql_in(OrgKind)})),
-  industry TEXT, region TEXT
+  industry TEXT, region TEXT,
+  status TEXT NOT NULL DEFAULT '{OrgStatus.ACTIVE}' CHECK (status IN ({sql_in(OrgStatus)}))
 );
 -- role: employee (azentio org), member / admin (client orgs)
 CREATE TABLE IF NOT EXISTS memberships (
@@ -298,3 +299,5 @@ def tx(conn: sqlite3.Connection):
 
 def init(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    if "status" not in {r["name"] for r in conn.execute("PRAGMA table_info(orgs)")}:  # databases created before organisation status
+        conn.execute(f"ALTER TABLE orgs ADD COLUMN status TEXT NOT NULL DEFAULT '{OrgStatus.ACTIVE}' CHECK (status IN ({sql_in(OrgStatus)}))")

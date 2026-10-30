@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import audit, outbox, settings
-from .constants import (Setting, Route, Category, ConsentEvent, EvidenceQuality, EvidenceVote, parse, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
+from .constants import (Industry, Setting, Route, Category, ConsentEvent, EvidenceQuality, EvidenceVote, parse, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
                         ShareState, SharedStatus, Visibility)
 from .auth import Ctx
 from .db import tx
@@ -19,8 +19,8 @@ EVIDENCE_TYPES = list(EvidenceType)
 CONFIDENCE = list(Confidence)
 # shared copies carry a coarse sector, never the organisation's own industry label
 SECTORS = list(Sector)
-SECTOR_OF = {"Retail & SME banking": Sector.BANKING, "Cooperative banking": Sector.BANKING, "Non-bank lender": Sector.LENDING,
-             "Microfinance": Sector.LENDING}
+SECTOR_OF = {Industry.RETAIL_SME_BANKING: Sector.BANKING, Industry.COOPERATIVE_BANKING: Sector.BANKING, Industry.NON_BANK_LENDER: Sector.LENDING,
+             Industry.MICROFINANCE: Sector.LENDING, Industry.INSURANCE: Sector.INSURANCE, Industry.OTHER: Sector.FINANCIAL_SERVICES}
 LIMITS = {"title": (5, 120), "body": (20, 2000), "topic": (2, 60), "period": (4, 40)}
 
 SENSITIVE_PATTERNS = [

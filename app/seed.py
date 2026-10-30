@@ -191,7 +191,7 @@ def seed(conn) -> None:
     now = time.time()
     conn.execute("BEGIN")
     conn.executemany("INSERT INTO offerings VALUES (?,?,?,?)", OFFERINGS)
-    conn.executemany("INSERT INTO orgs VALUES (?,?,?,?,?)", ORGS)
+    conn.executemany("INSERT INTO orgs (id, name, kind, industry, region) VALUES (?,?,?,?,?)", ORGS)
     for uid, email, name, memberships, grants in USERS:
         conn.execute("INSERT INTO users (id, email, name) VALUES (?,?,?)", (uid, email, name))
         for org, role in memberships:

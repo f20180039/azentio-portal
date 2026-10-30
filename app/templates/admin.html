@@ -25,13 +25,25 @@
 
 <section class="card">
   <div class="section-title"><h2>Client organisations and entitlements</h2><span class="hint">Entitlements decide which demos and sandboxes a client sees.</span></div>
-  <div class="scroll"><table class="grants"><tr><th>Organisation</th><th>Members</th>{% for o in offerings %}<th>{{ o.name }}</th>{% endfor %}</tr>
+  <div class="scroll"><table class="grants"><tr><th>Organisation</th><th>Members</th><th>Status</th>{% for o in offerings %}<th>{{ o.name }}</th>{% endfor %}</tr>
   {% for g in orgs %}<tr><td><b>{{ g.name }}</b><br><span class="muted">{{ g.industry }}, {{ g.region }}</span></td><td>{{ g.members }}</td>
+    <td><form method="post" action="{{ R.ADMIN_ORG_STATUS.url(oid=g.id) }}">{% if g.status == OrgStatus.ACTIVE %}<button class="toggle on" name="status" value="{{ OrgStatus.SUSPENDED }}" aria-label="Suspend {{ g.name }}">Active</button>
+      {% else %}<button class="toggle" name="status" value="{{ OrgStatus.ACTIVE }}" aria-label="Reactivate {{ g.name }}">Suspended</button>{% endif %}</form></td>
     {% for o in offerings %}<td><form method="post" action="{{ R.ADMIN_ENTITLEMENTS }}"><input type="hidden" name="org_id" value="{{ g.id }}"><input type="hidden" name="offering" value="{{ o.slug }}">
       {% if o.slug in g.entitlements %}<button class="toggle on" name="action" value="{{ Action.REMOVE }}" aria-label="Remove {{ o.name }} from {{ g.name }}">Entitled</button>
       {% else %}<button class="toggle" name="action" value="{{ Action.GRANT }}" aria-label="Entitle {{ g.name }} to {{ o.name }}">Grant</button>{% endif %}
     </form></td>{% endfor %}</tr>{% endfor %}
   </table></div>
+  <p class="hint">Suspending an organisation removes its members' workspace at their next request. Contributions it already shared stay published until withdrawn or moderated.</p>
+  <form method="post" action="{{ R.ADMIN_ORGS }}" style="margin-top:14px">
+    <h3>Add a client organisation</h3>
+    <div class="two">
+      <div class="field"><label for="org-name">Name</label><input id="org-name" name="name" type="text" required minlength="3" maxlength="80"></div>
+      <div class="field"><label for="org-industry">Industry</label><select id="org-industry" name="industry">{% for i in Industry %}<option value="{{ i }}">{{ i }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="org-region">Region</label><input id="org-region" name="region" type="text" required minlength="2" maxlength="40" placeholder="e.g. Gulf"></div>
+    </div>
+    <button class="btn small">Create organisation</button>
+  </form>
 </section>
 
 <section class="card">

@@ -3,7 +3,7 @@ resource audiences. Every privileged change is audited."""
 import time
 
 from . import audit, settings
-from .constants import parse, Route, Setting, Audience, MembershipStatus, OrgKind, Permission, RequestStatus, Role, Visibility
+from .constants import parse, Route, Setting, Audience, Industry, MembershipStatus, OrgKind, OrgStatus, Permission, RequestStatus, Role, Visibility
 from .auth import Ctx
 from .db import tx
 from .learning import notify
@@ -108,6 +108,34 @@ def organisations(conn, ctx: Ctx):
                     "members": conn.execute(f"SELECT COUNT(*) FROM memberships WHERE org_id=? AND status='{MembershipStatus.ACTIVE}'", (o["id"],)).fetchone()[0],
                     "entitlements": {r["offering"] for r in conn.execute("SELECT offering FROM entitlements WHERE org_id=?", (o["id"],))}})
     return out
+
+
+def create_org(conn, ctx: Ctx, name: str, raw_industry: str, region: str) -> int:
+    require_grant(ctx, Permission.PORTAL_ADMIN)
+    name, region = name.strip(), region.strip()
+    industry = parse(Industry, raw_industry)
+    if not 3 <= len(name) <= 80 or not 2 <= len(region) <= 40:
+        raise Denied(422, "Give the organisation a name (3–80 characters) and a region (2–40 characters).")
+    if industry is None:
+        raise Denied(422, "Choose an industry from the list.")
+    if conn.execute("SELECT 1 FROM orgs WHERE lower(name)=lower(?)", (name,)).fetchone():
+        raise Denied(409, "An organisation with that name already exists.")
+    with tx(conn):
+        oid = conn.execute("INSERT INTO orgs (name, kind, industry, region) VALUES (?,?,?,?)", (name, OrgKind.CLIENT, industry, region)).lastrowid
+        audit.record(conn, ctx.user_id, "iam.org_created", f"org:{oid}", {"industry": industry, "region": region})
+    return oid
+
+
+def set_org_status(conn, ctx: Ctx, org_id: int, raw_status: str) -> None:
+    """Suspension removes members' access at their next request; shared copies already published stay published."""
+    require_grant(ctx, Permission.PORTAL_ADMIN)
+    status = parse(OrgStatus, raw_status)
+    if status is None:
+        raise Denied(422, "Choose active or suspended.")
+    with tx(conn):
+        if not conn.execute(f"UPDATE orgs SET status=? WHERE id=? AND kind='{OrgKind.CLIENT}'", (status, org_id)).rowcount:
+            raise Denied(404, "Organisation not found.")
+        audit.record(conn, ctx.user_id, f"iam.org_{status}", f"org:{org_id}")
 
 
 def set_entitlement(conn, ctx: Ctx, org_id: int, offering: str, on: bool) -> None:

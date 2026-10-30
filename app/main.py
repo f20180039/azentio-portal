@@ -1169,6 +1169,19 @@ async def admin_entitlement(request: Request):
     return back(Route.ADMIN, "Entitlement updated and audited.")
 
 
+@app.post(Route.ADMIN_ORGS)
+async def admin_create_org(request: Request):
+    f = await form(request)
+    iam.create_org(request.state.conn, request.state.ctx, f.get("name") or "", f.get("industry") or "", f.get("region") or "")
+    return back(Route.ADMIN, "Organisation created and audited.")
+
+
+@app.post(Route.ADMIN_ORG_STATUS)
+async def admin_org_status(request: Request, oid: int):
+    iam.set_org_status(request.state.conn, request.state.ctx, oid, (await form(request)).get("status") or "")
+    return back(Route.ADMIN, "Organisation status updated and audited.")
+
+
 @app.post(Route.ADMIN_SUPPORT)
 async def admin_support_request(request: Request):
     f = await form(request)

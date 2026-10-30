@@ -229,3 +229,38 @@ def test_demo_reset_keeps_the_audit_log_and_is_rate_limited(app, db):
 def test_demo_page_says_it_is_a_shared_sandbox(client):
     page = client.get("/demo").text.lower()
     assert "shared sandbox" in page and "synthetic data" in page and "other visitors" in page
+
+
+NEW_ORG = {"name": "Lagoon Insurance", "industry": "Insurance", "region": "West Africa"}
+
+
+def test_only_portal_admins_create_organisations_and_it_is_audited(login, db):
+    assert login("dev@azentio.com").post("/admin/orgs", data=NEW_ORG).status_code == 403
+    assert login("asha@kestrel.example").post("/admin/orgs", data=NEW_ORG).status_code == 403
+    admin = login("admin@azentio.com")
+    assert admin.post("/admin/orgs", data=NEW_ORG | {"industry": "Crypto"}).status_code == 422
+    assert admin.post("/admin/orgs", data=NEW_ORG | {"name": "x"}).status_code == 422
+    assert admin.post("/admin/orgs", data=NEW_ORG, follow_redirects=False).status_code == 303
+    row = db.execute("SELECT * FROM orgs WHERE name='Lagoon Insurance'").fetchone()
+    assert (row["kind"], row["industry"], row["region"], row["status"]) == ("client", "Insurance", "West Africa", "active")
+    assert admin.post("/admin/orgs", data=NEW_ORG).status_code == 409  # names are unique
+    assert db.execute("SELECT COUNT(*) FROM audit WHERE action='iam.org_created' AND target=?", (f"org:{row['id']}",)).fetchone()[0] == 1
+    assert "Lagoon Insurance" in admin.get("/admin").text
+
+
+def test_suspending_a_client_cuts_its_members_off_at_the_next_request(login, db):
+    asha = login("asha@kestrel.example")
+    assert asha.get("/api/v1/observations").status_code == 200
+    kestrel = org(db, "Kestrel Bank")
+    assert login("dev@azentio.com").post(f"/admin/orgs/{kestrel}/status", data={"status": "suspended"}).status_code == 403
+    admin = login("admin@azentio.com")
+    assert admin.post(f"/admin/orgs/{org(db, 'Azentio')}/status", data={"status": "suspended"}).status_code == 404  # client orgs only
+    assert admin.post(f"/admin/orgs/{kestrel}/status", data={"status": "bogus"}).status_code == 422
+    assert admin.post(f"/admin/orgs/{kestrel}/status", data={"status": "suspended"}, follow_redirects=False).status_code == 303
+    assert asha.get("/api/v1/observations").status_code == 403
+    me = asha.get("/api/v1/me").json()
+    assert me["activeOrganisation"] is None and me["memberships"] == []
+    assert db.execute("SELECT COUNT(*) FROM audit WHERE action='iam.org_suspended'").fetchone()[0] == 1
+    assert login("ravi@kestrel.example").get("/dashboard", follow_redirects=False).status_code != 200
+    admin.post(f"/admin/orgs/{kestrel}/status", data={"status": "active"})
+    assert asha.get("/api/v1/observations").status_code == 200  # same session, access back at once

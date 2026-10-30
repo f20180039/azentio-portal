@@ -230,6 +230,7 @@ Settings (environment variables):
 - **Platform grants.** Moderator, publisher, product owner and portal administrator are toggled separately.
   - They can be granted only to approved employees.
   - An administrator cannot remove their own admin grant. Every change is audited.
+- **Organisations.** Portal administrators add client organisations (name, industry from a fixed list, region) and suspend or reactivate them (`iam.create_org`, `iam.set_org_status`, both audited). A suspended organisation's memberships stop counting at the member's next request, so they get no workspace. A new organisation starts with no members: client invitations come from that organisation's own administrator, so adding the first administrator is not built yet.
 - **Entitlements.** Administrators grant or remove offerings per client organisation. Entitled demos and media follow immediately.
 - **Support access** (brief §03: "explicit support authorisation, not merely a broad UI role"):
   1. An administrator requests access to one client organisation and gives a reason.
@@ -370,6 +371,7 @@ stateDiagram-v2
 - **Hosting:** the free Render instance uses an ephemeral SQLite file. Each restart reseeds the demo data, and the instance sleeps after 15 idle minutes, so the first request is slow.
 - **CSRF:** there are no per-form tokens. Protection is the same-origin check described under the access model, plus `SameSite=Lax` cookies. A client that strips both `Origin` and `Referer` cannot post with a session at all.
 - **Rate limiting:** the AIRA limit is in memory, per process.
+- **Suspended organisations:** contributions they already shared stay published (de-identified, cohort rules unchanged) until they are withdrawn or moderated.
 - **Floating AIRA panel:** the conversation is kept per browser tab, so a new tab starts empty and closing the tab loses it. This is deliberate: the portal does not store questions or answers (a question is sent to the AI provider only to be answered).
 
 ## AI tools used

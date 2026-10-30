@@ -104,6 +104,8 @@ class Route(StrEnum):
     ADMIN_OUTBOX_SEND = "/admin/outbox/send"
     ADMIN_DIGEST = "/admin/outbox/digest"
     ADMIN_SUPPORT_RECORDS = "/admin/support/{gid}"
+    ADMIN_ORGS = "/admin/orgs"
+    ADMIN_ORG_STATUS = "/admin/orgs/{oid}/status"
 
     LEARNING_EXPORT = "/learning/export.csv"
     CONFIGURATOR = "/configurator"
@@ -150,6 +152,24 @@ class Route(StrEnum):
 class OrgKind(StrEnum):
     AZENTIO = "azentio"
     CLIENT = "client"
+
+
+class OrgStatus(StrEnum):
+    """A suspended organisation's memberships stop counting at the next request."""
+
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+
+
+class Industry(StrEnum):
+    """A client organisation's own industry label; shared copies carry only its coarse Sector."""
+
+    RETAIL_SME_BANKING = "Retail & SME banking"
+    COOPERATIVE_BANKING = "Cooperative banking"
+    NON_BANK_LENDER = "Non-bank lender"
+    MICROFINANCE = "Microfinance"
+    INSURANCE = "Insurance"
+    OTHER = "Other financial services"
 
 
 class Role(StrEnum):

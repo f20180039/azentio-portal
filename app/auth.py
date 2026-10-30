@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from . import audit
 from .db import tx
-from .constants import CLIENT_ROLES, MembershipStatus, OrgKind, Permission, RequestStatus, Role
+from .constants import CLIENT_ROLES, MembershipStatus, OrgKind, OrgStatus, Permission, RequestStatus, Role
 
 CODE_TTL = 600
 MAX_ATTEMPTS = 5
@@ -114,7 +114,7 @@ def set_active_org(conn, token: str, user_id: int, org_id: int) -> bool:
 def active_memberships(conn, user_id: int):
     return conn.execute(
         "SELECT m.org_id, m.role, o.name, o.kind FROM memberships m JOIN orgs o ON o.id = m.org_id "
-        f"WHERE m.user_id=? AND m.status='{MembershipStatus.ACTIVE}' ORDER BY o.kind, o.name",
+        f"WHERE m.user_id=? AND m.status='{MembershipStatus.ACTIVE}' AND o.status='{OrgStatus.ACTIVE}' ORDER BY o.kind, o.name",
         (user_id,),
     ).fetchall()
 
