@@ -5,7 +5,7 @@
 <h1>Join {{ inv.org_name }} as {{ inv.role }}</h1>
 <p>Issued to <b>{{ inv.email }}</b>. Single use; expires {{ inv.expires_at|date }}.</p>
 {% if not ctx.signed_in %}
-<p><a class="btn" href="/signin?next=/invite/{{ token }}&email={{ inv.email }}">Verify {{ inv.email }} to continue</a></p>
+<p><a class="btn" href="{{ R.SIGNIN }}?next={{ R.INVITE.url(token=token) }}&email={{ inv.email }}">Verify {{ inv.email }} to continue</a></p>
 {% else %}
 <form method="post" class="card">
   <h2>Workspace terms</h2>

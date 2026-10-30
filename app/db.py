@@ -2,25 +2,31 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-SCHEMA = """
+from .constants import (Audience, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
+                        IdeaStatus, ReportStatus, RequestStatus, Role, SessionStatus, ShareState, SharedStatus, Visibility,
+                        EnquiryKind, sql_in)
+
+CLIENT_ROLE_LIST = ",".join(f"'{r.value}'" for r in (Role.MEMBER, Role.ADMIN))
+
+SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS orgs (
-  id INTEGER PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL CHECK (kind IN ('azentio','client')),
+  id INTEGER PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL CHECK (kind IN ({sql_in(OrgKind)})),
   industry TEXT, region TEXT
 );
 -- role: employee (azentio org), member / admin (client orgs)
 CREATE TABLE IF NOT EXISTS memberships (
   user_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
-  role TEXT NOT NULL CHECK (role IN ('employee','member','admin')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked')),
+  role TEXT NOT NULL CHECK (role IN ({sql_in(Role)})),
+  status TEXT NOT NULL DEFAULT '{MembershipStatus.ACTIVE}' CHECK (status IN ({sql_in(MembershipStatus)})),
   PRIMARY KEY (user_id, org_id)
 );
 -- platform permissions are separate grants, never implied by employee status (IAM-02)
 CREATE TABLE IF NOT EXISTS grants (
   user_id INTEGER NOT NULL REFERENCES users(id),
-  permission TEXT NOT NULL CHECK (permission IN ('moderate','publish_content','portal_admin','product_owner')),
+  permission TEXT NOT NULL CHECK (permission IN ({sql_in(Permission)})),
   PRIMARY KEY (user_id, permission)
 );
 CREATE TABLE IF NOT EXISTS offerings (
@@ -30,10 +36,10 @@ CREATE TABLE IF NOT EXISTS entitlements (
   org_id INTEGER NOT NULL REFERENCES orgs(id), offering TEXT NOT NULL REFERENCES offerings(slug),
   PRIMARY KEY (org_id, offering)
 );
--- audience_type: public | employees | org | entitled ; there is no default: missing audience = deny
+-- there is no default audience: missing audience = deny
 CREATE TABLE IF NOT EXISTS resources (
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL,
-  audience_type TEXT NOT NULL CHECK (audience_type IN ('public','employees','org','entitled')),
+  audience_type TEXT NOT NULL CHECK (audience_type IN ({sql_in(Audience)})),
   audience_ref TEXT, media_name TEXT, media_type TEXT, media_bytes BLOB
 );
 CREATE TABLE IF NOT EXISTS site_content (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -50,9 +56,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE TABLE IF NOT EXISTS invitations (
   id INTEGER PRIMARY KEY, token_hash TEXT UNIQUE NOT NULL, org_id INTEGER NOT NULL REFERENCES orgs(id),
-  email TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ('member','admin')),
+  email TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ({CLIENT_ROLE_LIST})),
   invited_by INTEGER NOT NULL REFERENCES users(id), expires_at REAL NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','revoked','expired'))
+  status TEXT NOT NULL DEFAULT '{InviteStatus.PENDING}' CHECK (status IN ({sql_in(InviteStatus)}))
 );
 
 -- the private source record; never leaves its organisation
@@ -60,9 +66,8 @@ CREATE TABLE IF NOT EXISTS observations (
   id INTEGER PRIMARY KEY, org_id INTEGER NOT NULL REFERENCES orgs(id), author_id INTEGER NOT NULL REFERENCES users(id),
   category TEXT NOT NULL, offering TEXT NOT NULL REFERENCES offerings(slug), topic TEXT NOT NULL,
   title TEXT NOT NULL, body TEXT NOT NULL, period TEXT NOT NULL, evidence_type TEXT NOT NULL, confidence TEXT NOT NULL,
-  visibility TEXT NOT NULL CHECK (visibility IN ('private','org')),
-  share_state TEXT NOT NULL DEFAULT 'none'
-    CHECK (share_state IN ('none','submitted','returned','published','rejected','withdrawn','suspended')),
+  visibility TEXT NOT NULL CHECK (visibility IN ({sql_in(Visibility)})),
+  share_state TEXT NOT NULL DEFAULT '{ShareState.NONE}' CHECK (share_state IN ({sql_in(ShareState)})),
   consent_publish INTEGER NOT NULL DEFAULT 0, consent_attribution INTEGER NOT NULL DEFAULT 0,
   consent_training INTEGER NOT NULL DEFAULT 0,
   sensitive_flags TEXT NOT NULL DEFAULT '', moderator_note TEXT,
@@ -73,13 +78,13 @@ CREATE TABLE IF NOT EXISTS shared_items (
   id INTEGER PRIMARY KEY, observation_id INTEGER NOT NULL REFERENCES observations(id), version INTEGER NOT NULL,
   title TEXT NOT NULL, body TEXT NOT NULL, offering TEXT NOT NULL, topic TEXT NOT NULL, period TEXT NOT NULL,
   evidence_type TEXT NOT NULL, confidence TEXT NOT NULL, industry TEXT NOT NULL, region TEXT NOT NULL,
-  attribution TEXT, status TEXT NOT NULL CHECK (status IN ('published','suspended','withdrawn','superseded')),
+  attribution TEXT, status TEXT NOT NULL CHECK (status IN ({sql_in(SharedStatus)})),
   published_at REAL NOT NULL, moderator_id INTEGER NOT NULL REFERENCES users(id)
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS shared_fts USING fts5(title, body, topic);
 CREATE TABLE IF NOT EXISTS reports (
   id INTEGER PRIMARY KEY, shared_id INTEGER NOT NULL REFERENCES shared_items(id), reporter_id INTEGER NOT NULL,
-  reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','upheld','dismissed')),
+  reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT '{ReportStatus.OPEN}' CHECK (status IN ({sql_in(ReportStatus)})),
   decision TEXT, created_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS themes (
@@ -92,8 +97,8 @@ CREATE TABLE IF NOT EXISTS theme_items (
 CREATE TABLE IF NOT EXISTS ideas (
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, problem TEXT NOT NULL, offering TEXT NOT NULL,
   proposed_outcome TEXT NOT NULL, owner_team TEXT NOT NULL, owner_id INTEGER NOT NULL REFERENCES users(id),
-  priority TEXT NOT NULL CHECK (priority IN ('Low','Medium','High')),
-  status TEXT NOT NULL CHECK (status IN ('Proposed','Under review','Planned','In progress','Released','Not proceeding')),
+  priority TEXT NOT NULL CHECK (priority IN ({sql_in(Priority)})),
+  status TEXT NOT NULL CHECK (status IN ({sql_in(IdeaStatus)})),
   public_note TEXT NOT NULL DEFAULT '', updated_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS idea_themes (
@@ -111,13 +116,13 @@ CREATE TABLE IF NOT EXISTS audit (
 -- employees who signed in with a work address but have no approved membership yet (brief §04)
 CREATE TABLE IF NOT EXISTS access_requests (
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), reason TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','denied')),
+  status TEXT NOT NULL DEFAULT '{RequestStatus.PENDING}' CHECK (status IN ({sql_in(RequestStatus)})),
   decided_by INTEGER REFERENCES users(id), created_at REAL NOT NULL
 );
 -- a portal admin's time-boxed, client-approved access to one organisation's records (brief §03)
 CREATE TABLE IF NOT EXISTS support_grants (
   id INTEGER PRIMARY KEY, admin_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
-  reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','denied','revoked')),
+  reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT '{RequestStatus.PENDING}' CHECK (status IN ({sql_in(RequestStatus)})),
   approved_by INTEGER REFERENCES users(id), expires_at REAL, created_at REAL NOT NULL
 );
 -- sandbox runs are private to their author within the workspace they ran in
@@ -130,8 +135,8 @@ CREATE TABLE IF NOT EXISTS playground_runs (
 CREATE TABLE IF NOT EXISTS live_sessions (
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL, host TEXT NOT NULL,
   starts_at REAL NOT NULL, duration_min INTEGER NOT NULL,
-  audience_type TEXT NOT NULL CHECK (audience_type IN ('public','employees','org','entitled')), audience_ref TEXT,
-  status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','live','ended','cancelled')),
+  audience_type TEXT NOT NULL CHECK (audience_type IN ({sql_in(Audience)})), audience_ref TEXT,
+  status TEXT NOT NULL DEFAULT '{SessionStatus.SCHEDULED}' CHECK (status IN ({sql_in(SessionStatus)})),
   recording_id INTEGER REFERENCES resources(id), created_by INTEGER REFERENCES users(id), created_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS live_registrations (
@@ -145,11 +150,11 @@ CREATE TABLE IF NOT EXISTS library_items (
 );
 CREATE TABLE IF NOT EXISTS library_feedback (
   item_id INTEGER NOT NULL REFERENCES library_items(id), user_id INTEGER NOT NULL REFERENCES users(id),
-  verdict TEXT NOT NULL CHECK (verdict IN ('accurate','outdated')), comment TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL,
+  verdict TEXT NOT NULL CHECK (verdict IN ({sql_in(LibraryVerdict)})), comment TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL,
   PRIMARY KEY (item_id, user_id)
 );
 CREATE TABLE IF NOT EXISTS enquiries (
-  id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('demo','hackathon')), name TEXT NOT NULL,
+  id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ({sql_in(EnquiryKind)})), name TEXT NOT NULL,
   email TEXT NOT NULL, company TEXT NOT NULL, interest TEXT NOT NULL, message TEXT NOT NULL, created_at REAL NOT NULL
 );
 """

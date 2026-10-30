@@ -2,21 +2,22 @@
 import time
 
 from . import audit
+from .constants import parse, Route, IdeaStatus, Permission, Priority, SharedStatus
 from .auth import Ctx
 from .db import tx
 from .learning import notify, themes
 from .policy import Denied, require_grant, require_participant
 
-STATUSES = ["Proposed", "Under review", "Planned", "In progress", "Released", "Not proceeding"]
-PRIORITIES = ["Low", "Medium", "High"]
+STATUSES = list(IdeaStatus)
+PRIORITIES = list(Priority)
 
 
 def create_idea(conn, ctx: Ctx, fields: dict, theme_ids: list[int]) -> int:
-    require_grant(ctx, "product_owner")
+    require_grant(ctx, Permission.PRODUCT_OWNER)
     f = {k: (fields.get(k) or "").strip() for k in ("title", "problem", "offering", "proposed_outcome", "owner_team", "priority", "status", "public_note")}
     if not (5 <= len(f["title"]) <= 120) or len(f["problem"]) < 10 or len(f["proposed_outcome"]) < 10 or not f["owner_team"]:
         raise Denied(422, "Title (5–120), problem and proposed outcome (10+ characters) and owner team are required.")
-    if f["priority"] not in PRIORITIES or f["status"] not in STATUSES:
+    if parse(Priority, f["priority"]) is None or parse(IdeaStatus, f["status"]) is None:
         raise Denied(422, "Choose a priority and a status.")
     allowed = {t["id"] for t in themes(conn, ctx) if t["meets_cohort"]}
     if not theme_ids or not set(theme_ids) <= allowed:
@@ -35,9 +36,10 @@ def create_idea(conn, ctx: Ctx, fields: dict, theme_ids: list[int]) -> int:
     return idea_id
 
 
-def update_status(conn, ctx: Ctx, idea_id: int, status: str, public_note: str) -> None:
-    require_grant(ctx, "product_owner")
-    if status not in STATUSES:
+def update_status(conn, ctx: Ctx, idea_id: int, raw_status: str, public_note: str) -> None:
+    require_grant(ctx, Permission.PRODUCT_OWNER)
+    status = parse(IdeaStatus, raw_status)
+    if status is None:
         raise Denied(422, "Choose a valid status.")
     idea = conn.execute("SELECT * FROM ideas WHERE id=?", (idea_id,)).fetchone()
     if not idea:
@@ -52,11 +54,11 @@ def update_status(conn, ctx: Ctx, idea_id: int, status: str, public_note: str) -
 def _tell_contributors(conn, idea_id: int, text: str) -> None:
     authors = conn.execute(
         "SELECT DISTINCT o.author_id FROM idea_themes it JOIN theme_items ti ON ti.theme_id=it.theme_id"
-        " JOIN shared_items s ON s.id=ti.shared_id AND s.status='published' JOIN observations o ON o.id=s.observation_id"
+        f" JOIN shared_items s ON s.id=ti.shared_id AND s.status='{SharedStatus.PUBLISHED}' JOIN observations o ON o.id=s.observation_id"
         " WHERE it.idea_id=?", (idea_id,)
     ).fetchall()
     for a in authors:
-        notify(conn, a["author_id"], text, "/learning/ideas")
+        notify(conn, a["author_id"], text, Route.IDEAS)
 
 
 def list_ideas(conn, ctx: Ctx):

@@ -1,5 +1,6 @@
 """Server-side access rules. Every page and API route goes through these; the UI only hides what they deny."""
 from .auth import Ctx
+from .constants import Audience, Permission, ShareState, Visibility
 
 
 class Denied(Exception):
@@ -41,7 +42,7 @@ def require_participant(ctx: Ctx) -> None:
         raise Denied(403, "Shared learning is for signed-in participants.")
 
 
-def require_grant(ctx: Ctx, permission: str) -> None:
+def require_grant(ctx: Ctx, permission: Permission) -> None:
     require_workspace(ctx)
     if not ctx.has(permission):
         raise Denied(403, f"This action needs the '{permission}' permission.")
@@ -55,13 +56,13 @@ def entitled(conn, org_id, offering: str) -> bool:
 
 def can_view_resource(conn, ctx: Ctx, res) -> bool:
     kind = res["audience_type"]
-    if kind == "public":
+    if kind == Audience.PUBLIC:
         return True
-    if kind == "employees":
+    if kind == Audience.EMPLOYEES:
         return ctx.is_employee
-    if kind == "org":
+    if kind == Audience.ORG:
         return ctx.is_client and res["audience_ref"] is not None and str(ctx.org_id) == res["audience_ref"]
-    if kind == "entitled":
+    if kind == Audience.ENTITLED:
         if ctx.is_employee:
             return True
         return ctx.is_client and entitled(conn, ctx.org_id, res["audience_ref"])
@@ -69,16 +70,16 @@ def can_view_resource(conn, ctx: Ctx, res) -> bool:
 
 
 # a returned or rejected record may be edited privately again, so moderators lose sight of it until it is resubmitted
-MODERATOR_VISIBLE = ("submitted", "published", "suspended")
+MODERATOR_VISIBLE = (ShareState.SUBMITTED, ShareState.PUBLISHED, ShareState.SUSPENDED)
 
 
 def can_view_observation(ctx: Ctx, obs) -> bool:
     if ctx.is_client and obs["org_id"] == ctx.org_id:
         if obs["author_id"] == ctx.user_id:
             return True
-        return obs["visibility"] == "org"
+        return obs["visibility"] == Visibility.ORG
     # moderators see only what was explicitly submitted for shared review, never private drafts
-    if ctx.has("moderate") and obs["share_state"] in MODERATOR_VISIBLE:
+    if ctx.has(Permission.MODERATE) and obs["share_state"] in MODERATOR_VISIBLE:
         return True
     if via_support(ctx, obs):
         return True
@@ -88,7 +89,7 @@ def can_view_observation(ctx: Ctx, obs) -> bool:
 def via_support(ctx: Ctx, obs) -> bool:
     """Support access needs the portal-admin grant AND a client-approved, unexpired grant for that organisation.
     It covers records shared inside the organisation, never an author's private drafts."""
-    return ctx.has("portal_admin") and obs["org_id"] in ctx.support_orgs and obs["visibility"] == "org"
+    return ctx.has(Permission.PORTAL_ADMIN) and obs["org_id"] in ctx.support_orgs and obs["visibility"] == Visibility.ORG
 
 
 def can_edit_observation(ctx: Ctx, obs) -> bool:

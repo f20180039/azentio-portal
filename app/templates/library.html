@@ -6,13 +6,13 @@
 <section class="card">
   {% if items %}<div class="scroll"><table><tr><th>Item</th><th>Owner</th><th>Review</th><th>Feedback</th></tr>
   {% for i in items %}{% set overdue = i.review_by < now %}<tr>
-    <td><a href="/library/{{ i.id }}"><b>{{ i.title }}</b></a><br><span class="muted">{{ i.team }}</span></td>
+    <td><a href="{{ R.LIBRARY_ITEM.url(iid=i.id) }}"><b>{{ i.title }}</b></a><br><span class="muted">{{ i.team }}</span></td>
     <td>{{ i.owner }}</td>
     <td><span class="pill {{ 'bad' if overdue else ('warn' if i.review_by - now < 14*86400 else 'ok') }}">{{ 'Overdue' if overdue else 'Due ' ~ (i.review_by|date) }}</span></td>
     <td>{% if i.accurate %}<span class="pill ok">{{ i.accurate }} accurate</span> {% endif %}{% if i.outdated %}<span class="pill bad">{{ i.outdated }} outdated</span>{% endif %}{% if not i.accurate and not i.outdated %}<span class="muted">none yet</span>{% endif %}</td>
   </tr>{% endfor %}</table></div>{% else %}{{ empty("No items yet.") }}{% endif %}
 </section>
-<form method="post" action="/library" class="card">
+<form method="post" action="{{ R.LIBRARY }}" class="card">
   <h2>Add an item</h2>
   <div class="field"><label for="title">Title</label><input id="title" name="title" type="text" required minlength="5" maxlength="120"></div>
   <div class="field"><label for="team">Owning team</label><input id="team" name="team" type="text" required maxlength="60"></div>

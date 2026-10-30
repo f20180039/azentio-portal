@@ -4,6 +4,6 @@
 {% block content %}
 <div class="demo-note">Reason given to the client: {{ g.reason }}. Records an author kept private are not included.</div>
 <div class="card">{% if rows %}<div class="scroll"><table><tr><th>Record</th><th>Category</th><th>Sharing</th><th>Updated</th></tr>
-{% for r in rows %}<tr><td><a href="/observations/{{ r.id }}">{{ r.title }}</a></td><td>{{ r.category }}</td><td><span class="pill {{ r.share_state }}">{{ 'not shared' if r.share_state=='none' else r.share_state }}</span></td><td>{{ r.updated_at|ago }}</td></tr>{% endfor %}
+{% for r in rows %}<tr><td><a href="{{ R.OBSERVATION.url(oid=r.id) }}">{{ r.title }}</a></td><td>{{ r.category }}</td><td><span class="pill {{ r.share_state }}">{{ 'not shared' if r.share_state == ShareState.NONE else r.share_state }}</span></td><td>{{ r.updated_at|ago }}</td></tr>{% endfor %}
 </table></div>{% else %}{{ empty("This organisation has no records shared inside it.") }}{% endif %}</div>
 {% endblock %}

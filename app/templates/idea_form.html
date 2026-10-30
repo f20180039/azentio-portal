@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}New improvement idea{% endblock %}
 {% block content %}
 <div style="max-width:760px"><h1>New improvement idea</h1>
-<form method="post" action="/ideas" class="card">
+<form method="post" action="{{ R.IDEA_CREATE }}" class="card">
   <div class="field"><label for="title">Title</label><input id="title" name="title" type="text" required minlength="5" maxlength="120"></div>
   <div class="field"><label for="problem">Problem statement (internal)</label><textarea id="problem" name="problem" required minlength="10"></textarea></div>
   <div class="field"><label for="po">Proposed outcome (internal)</label><textarea id="po" name="proposed_outcome" required minlength="10" style="min-height:80px"></textarea></div>

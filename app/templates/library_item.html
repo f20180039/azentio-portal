@@ -11,21 +11,21 @@
     <div class="meta"><span>Updated {{ item.updated_at|date }}</span><span>Review by {{ item.review_by|date }}</span></div>
   </div>
   <div class="card"><h2>Feedback</h2>
-  {% for f in feedback %}<div class="stripe {{ 'ok' if f.verdict=='accurate' else 'bad' }}" style="padding-left:12px;margin-bottom:10px"><b>{{ f.name }}</b> <span class="pill {{ 'ok' if f.verdict=='accurate' else 'bad' }}">{{ f.verdict }}</span><p class="muted" style="margin:2px 0 0">{{ f.comment }}</p></div>
+  {% for f in feedback %}<div class="stripe {{ 'ok' if f.verdict == LibraryVerdict.ACCURATE else 'bad' }}" style="padding-left:12px;margin-bottom:10px"><b>{{ f.name }}</b> <span class="pill {{ 'ok' if f.verdict == LibraryVerdict.ACCURATE else 'bad' }}">{{ f.verdict }}</span><p class="muted" style="margin:2px 0 0">{{ f.comment }}</p></div>
   {% else %}<p class="muted">No feedback yet.</p>{% endfor %}</div>
 </section>
 <aside class="stack">
-  <form method="post" action="/library/{{ item.id }}/feedback" class="card">
+  <form method="post" action="{{ R.LIBRARY_FEEDBACK.url(iid=item.id) }}" class="card">
     <h3>Is this still accurate?</h3>
-    <label class="check"><input type="radio" name="verdict" value="accurate" checked> Yes, still accurate</label>
-    <label class="check"><input type="radio" name="verdict" value="outdated"> Out of date</label>
+    <label class="check"><input type="radio" name="verdict" value="{{ LibraryVerdict.ACCURATE }}" checked> Yes, still accurate</label>
+    <label class="check"><input type="radio" name="verdict" value="{{ LibraryVerdict.OUTDATED }}"> Out of date</label>
     <div class="field"><label for="c">What changed? (needed for out of date)</label><input id="c" name="comment" type="text" maxlength="500"></div>
     <button class="btn small">Send</button>
   </form>
   {% if item.owner_id == ctx.user_id %}
-  <form method="post" action="/library/{{ item.id }}/review" class="card"><h3>You own this</h3><p class="muted">Confirm the content is current. This clears out-of-date flags and sets the next review in 90 days.</p><button class="btn small">Confirm review</button></form>
+  <form method="post" action="{{ R.LIBRARY_REVIEW.url(iid=item.id) }}" class="card"><h3>You own this</h3><p class="muted">Confirm the content is current. This clears out-of-date flags and sets the next review in 90 days.</p><button class="btn small">Confirm review</button></form>
   {% endif %}
-  <a href="/library">Back to the library</a>
+  <a href="{{ R.LIBRARY }}">Back to the library</a>
 </aside>
 </div>
 {% endblock %}

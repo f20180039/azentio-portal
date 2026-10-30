@@ -3,12 +3,12 @@
 <h1>Choose your active workspace</h1>
 {% if not ctx.memberships %}
 <div class="card"><p>Your account has no approved memberships yet.</p>
-{% if ctx.user.email.endswith('@azentio.com') %}<p class="muted">A work email alone grants nothing. Request employee access and a portal administrator will review it.</p><a class="btn" href="/access">Request employee access</a>
+{% if ctx.user.email.endswith('@azentio.com') %}<p class="muted">A work email alone grants nothing. Request employee access and a portal administrator will review it.</p><a class="btn" href="{{ R.ACCESS }}">Request employee access</a>
 {% else %}<p class="muted">Clients join by invitation from their organisation's administrator.</p>{% endif %}</div>
 {% else %}
 <p class="muted">You belong to more than one organisation. Everything you see and write applies to the workspace you pick.</p>
 <div class="grid">{% for m in ctx.memberships %}
-<form method="post" action="/workspace" class="card"><input type="hidden" name="org_id" value="{{ m.org_id }}">
+<form method="post" action="{{ R.WORKSPACE }}" class="card"><input type="hidden" name="org_id" value="{{ m.org_id }}">
 <h3>{{ m.name }}</h3><p class="muted">{{ m.role }}</p><button class="btn small">{% if ctx.org and ctx.org.id == m.org_id %}Active{% else %}Switch to this{% endif %}</button></form>
 {% endfor %}</div>
 {% endif %}

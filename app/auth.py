@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from . import audit
 from .db import tx
+from .constants import CLIENT_ROLES, MembershipStatus, OrgKind, Permission, RequestStatus, Role
 
 CODE_TTL = 600
 MAX_ATTEMPTS = 5
@@ -108,7 +109,7 @@ def set_active_org(conn, token: str, user_id: int, org_id: int) -> bool:
 def active_memberships(conn, user_id: int):
     return conn.execute(
         "SELECT m.org_id, m.role, o.name, o.kind FROM memberships m JOIN orgs o ON o.id = m.org_id "
-        "WHERE m.user_id=? AND m.status='active' ORDER BY o.kind, o.name",
+        f"WHERE m.user_id=? AND m.status='{MembershipStatus.ACTIVE}' ORDER BY o.kind, o.name",
         (user_id,),
     ).fetchall()
 
@@ -134,21 +135,21 @@ class Ctx:
 
     @property
     def is_employee(self) -> bool:
-        return self.org is not None and self.org["kind"] == "azentio" and self.role == "employee"
+        return self.org is not None and self.org["kind"] == OrgKind.AZENTIO and self.role == Role.EMPLOYEE
 
     @property
     def is_client(self) -> bool:
-        return self.org is not None and self.org["kind"] == "client" and self.role in ("member", "admin")
+        return self.org is not None and self.org["kind"] == OrgKind.CLIENT and self.role in CLIENT_ROLES
 
     @property
     def is_client_admin(self) -> bool:
-        return self.is_client and self.role == "admin"
+        return self.is_client and self.role == Role.ADMIN
 
     @property
     def org_id(self):
         return self.org["id"] if self.org else None
 
-    def has(self, permission: str) -> bool:
+    def has(self, permission: Permission) -> bool:
         # platform grants are only honoured inside an active Azentio employee workspace
         return self.is_employee and permission in self.grants
 
@@ -174,7 +175,7 @@ def load_ctx(conn, token: str | None) -> Ctx:
         ctx.role = membership["role"]
     ctx.grants = {r["permission"] for r in conn.execute("SELECT permission FROM grants WHERE user_id=?", (user["id"],))}
     ctx.support_orgs = {r["org_id"] for r in conn.execute(
-        "SELECT org_id FROM support_grants WHERE admin_id=? AND status='approved' AND expires_at > ?", (user["id"], time.time()))}
+        f"SELECT org_id FROM support_grants WHERE admin_id=? AND status='{RequestStatus.APPROVED}' AND expires_at > ?", (user["id"], time.time()))}
     return ctx
 
 

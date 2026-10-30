@@ -5,6 +5,7 @@ import random
 import time
 
 from . import audit
+from .constants import Accuracy, Permission, parse
 from .auth import Ctx
 from .db import tx
 from .policy import Denied, entitled, require_grant, require_participant
@@ -224,12 +225,13 @@ def my_runs(conn, ctx: Ctx, limit: int = 10):
                         " rating FROM playground_runs WHERE user_id=? AND org_id=? ORDER BY id DESC LIMIT ?", (ctx.user_id, ctx.org_id, limit)).fetchall()
 
 
-ACCURACY = ["As expected", "Partly as expected", "Not as expected"]
+ACCURACY = list(Accuracy)
 
 
-def feedback(conn, ctx: Ctx, run_id: int, rating: str, accuracy: str, comment: str) -> None:
+def feedback(conn, ctx: Ctx, run_id: int, rating: str, raw_accuracy: str, comment: str) -> None:
     get_run(conn, ctx, run_id)
-    if rating not in {"1", "2", "3", "4", "5"} or accuracy not in ACCURACY:
+    accuracy = parse(Accuracy, raw_accuracy)
+    if rating not in {"1", "2", "3", "4", "5"} or accuracy is None:
         raise Denied(422, "Choose a rating from 1 to 5 and how the result compared with your expectation.")
     with tx(conn):
         conn.execute("UPDATE playground_runs SET rating=?, accuracy=?, comment=? WHERE id=?", (int(rating), accuracy, comment.strip()[:500], run_id))
@@ -238,9 +240,9 @@ def feedback(conn, ctx: Ctx, run_id: int, rating: str, accuracy: str, comment: s
 
 def feedback_summary(conn, ctx: Ctx):
     """Aggregated for product owners: counts and averages per offering, no names, organisations or comments' authors."""
-    require_grant(ctx, "product_owner")
+    require_grant(ctx, Permission.PRODUCT_OWNER)
     rows = conn.execute("SELECT offering, COUNT(*) runs, COUNT(rating) rated, AVG(rating) avg_rating,"
-                        " SUM(accuracy='Not as expected') unexpected FROM playground_runs GROUP BY offering ORDER BY runs DESC").fetchall()
+                        f" SUM(accuracy='{Accuracy.NOT_EXPECTED}') unexpected FROM playground_runs GROUP BY offering ORDER BY runs DESC").fetchall()
     comments = conn.execute("SELECT offering, comment, rating FROM playground_runs WHERE comment <> '' ORDER BY id DESC LIMIT 10").fetchall()
     return rows, comments
 

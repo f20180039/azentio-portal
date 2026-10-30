@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}{{ r.title }} · azentio.ai{% endblock %}
 {% block content %}
 <p class="eyebrow">{{ r.kind }}</p><h1>{{ r.title }}</h1>
-{% if r.media_name %}<img class="poster" style="max-width:720px" src="/media/{{ r.id }}" alt="">{% endif %}
+{% if r.media_name %}<img class="poster" style="max-width:720px" src="{{ R.MEDIA_FILE.url(rid=r.id) }}" alt="">{% endif %}
 <p>{{ r.body }}</p>
 {% if r.kind == 'demo' %}<div class="demo-note">Sample data and simulated outputs. Nothing here is an approved credit or business decision.</div>{% endif %}
 {% endblock %}

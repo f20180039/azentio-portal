@@ -10,8 +10,8 @@
   <p class="hint">Consents: publish {{ 'yes' if o.consent_publish else 'no' }} · attribution {{ 'yes' if o.consent_attribution else 'no' }} · training {{ 'yes' if o.consent_training else 'no' }}</p>
 </section>
 <aside class="stack">
-{% if o.share_state == 'submitted' %}
-<form method="post" action="/moderation/{{ o.id }}/publish" class="card shared-zone">
+{% if o.share_state == ShareState.SUBMITTED %}
+<form method="post" action="{{ R.MODERATION_PUBLISH.url(oid=o.id) }}" class="card shared-zone">
   <h2>Shared copy</h2><p class="hint">Only these reviewed fields are published. Remove names, identifiers, exact figures and overly specific dates or places.</p>
   <div class="field"><label for="t">Title</label><input id="t" name="title" type="text" value="{{ o.title }}" required maxlength="120"></div>
   <div class="field"><label for="b">Text</label><textarea id="b" name="body" required maxlength="2000">{{ o.body }}</textarea></div>
@@ -24,10 +24,10 @@
   <label class="check"><input type="checkbox" name="override_flags"> Publish even if the scan still flags something (I checked it)</label>
   <p></p><button class="btn">Publish shared copy</button>
 </form>
-<form method="post" action="/moderation/{{ o.id }}/return" class="card">
+<form method="post" action="{{ R.MODERATION_RETURN.url(oid=o.id) }}" class="card">
   <h2>Return or reject</h2>
   <div class="field"><label for="n">Reason for the contributor</label><textarea id="n" name="note" required minlength="5" maxlength="500" style="min-height:80px"></textarea></div>
-  <button class="btn ghost" name="action" value="return">Ask for clarification</button> <button class="btn danger" name="action" value="reject">Reject</button>
+  <button class="btn ghost" name="action" value="{{ Action.RETURN }}">Ask for clarification</button> <button class="btn danger" name="action" value="{{ Action.REJECT }}">Reject</button>
 </form>
 {% else %}<div class="card"><p>Current state: <span class="pill {{ o.share_state }}">{{ o.share_state }}</span></p></div>{% endif %}
 </aside></div>

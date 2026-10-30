@@ -2,6 +2,6 @@
 {% block band %}{{ head("Products", "Sandbox demonstrations use synthetic data. A sandbox recommendation is never an approved credit or business decision.", "What we build") }}{% endblock %}
 {% block content %}
 <div class="grid">{% for o in offerings %}
-<article class="card link product-card">{{ glyph(o.slug) }}<span class="cat">{{ o.category }}</span><h3><a href="/products/{{ o.slug }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p><a class="more" href="/products/{{ o.slug }}" aria-label="View {{ o.name }}">View product</a></article>
+<article class="card link product-card">{{ glyph(o.slug) }}<span class="cat">{{ o.category }}</span><h3><a href="{{ R.PRODUCT.url(slug=o.slug) }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p><a class="more" href="{{ R.PRODUCT.url(slug=o.slug) }}" aria-label="View {{ o.name }}">View product</a></article>
 {% endfor %}</div>
 {% endblock %}

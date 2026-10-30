@@ -64,6 +64,15 @@ Settings (environment variables):
    - The audit log shows every step, with the hash chain verified.
    - Arjun cannot open any client's private draft.
 
+## Code conventions
+
+- **`app/constants.py`** is the single source for fixed values:
+  - every URL as a `Route` enum, used for route decorators, redirects and links (`Route.OBSERVATION.url(oid=7)`);
+  - roles, permissions, audiences and lifecycle states as `StrEnum`s.
+- **Schema checks:** the database `CHECK` constraints are generated from the same enums, so the schema cannot drift from the code.
+- **Form input:** untrusted values are turned into enum members at the service boundary with `parse()`.
+- **Templates:** they use the same enums as Jinja globals (`R.LEARNING`, `ShareState.PUBLISHED`). No template hardcodes a path.
+
 ## Access model (server-side, every request)
 
 - **Sign-in codes.** Each address can request at most 5 codes per 15 minutes. A new code does not reset failed attempts on an unexpired one.

@@ -15,7 +15,7 @@
 <aside class="stack"><h2>Improvement ideas</h2>
 {% for i in ideas %}<div class="card"><span class="pill {{ i.status }}">{{ i.status }}</span><h3>{{ i.title }}</h3><p class="muted">{{ i.public_note }}</p><div class="meta"><span>{{ i.owner_team }}</span><span>{{ i.updated_at|ago }}</span></div></div>
 {% else %}<p class="muted">No idea linked yet.</p>{% endfor %}
-{% if ctx.has('product_owner') and t.meets_cohort %}<a class="btn" href="/ideas/new?theme={{ t.id }}">Create improvement idea</a>{% endif %}
-<form method="post" action="/learning/ask" class="card"><input type="hidden" name="question" value="Summarise the {{ t.name }} theme"><button class="btn ghost">Summarise with AIRA</button></form>
+{% if ctx.has(Permission.PRODUCT_OWNER) and t.meets_cohort %}<a class="btn" href="{{ R.IDEA_NEW }}?theme={{ t.id }}">Create improvement idea</a>{% endif %}
+<form method="post" action="{{ R.ASK }}" class="card"><input type="hidden" name="question" value="Summarise the {{ t.name }} theme"><button class="btn ghost">Summarise with AIRA</button></form>
 </aside></div>
 {% endblock %}

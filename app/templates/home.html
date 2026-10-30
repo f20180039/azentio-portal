@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% from "_ui.html" import glyph %}
 {% block title %}azentio.ai{% endblock %}
-{% block banner %}<div class="banner"><div class="wrap">{{ banner }} <a href="/hackathon/register">Open the form</a></div></div>{% endblock %}
+{% block banner %}<div class="banner"><div class="wrap">{{ banner }} <a href="{{ R.HACKATHON }}">Open the form</a></div></div>{% endblock %}
 {% block band %}
 <section class="band hero">
   <span class="orb a"></span><span class="orb b"></span>
@@ -9,7 +9,7 @@
       <p class="eyebrow">Enterprise AI for banks, lenders and insurers</p>
       <h1>Build intelligence. <span class="g">Create shared value.</span></h1>
       <p class="lead">Explainable credit, reporting and document intelligence, plus a governed portal where clients and Azentio learn from each other without exposing private data.</p>
-      <div class="row"><a class="btn bright" href="/products">Explore products</a><a class="btn ghost" href="/connect">Request a demo</a></div>
+      <div class="row"><a class="btn bright" href="{{ R.PRODUCTS }}">Explore products</a><a class="btn ghost" href="{{ R.CONNECT }}">Request a demo</a></div>
       <div class="hero-stats">
         <div><b>{{ offerings|length }}</b><span>products</span></div>
         <div><b>3+</b><span>organisations before a theme is shown</span></div>
@@ -49,15 +49,15 @@
 {% endblock %}
 {% block content %}
 <section>
-  <div class="section-title"><h2>Products</h2><a href="/products">All products</a></div>
+  <div class="section-title"><h2>Products</h2><a href="{{ R.PRODUCTS }}">All products</a></div>
   <div class="grid">
   {% for o in offerings %}
-    <article class="card link product-card">{{ glyph(o.slug) }}<span class="cat">{{ o.category }}</span><h3><a href="/products/{{ o.slug }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p><a class="more" href="/products/{{ o.slug }}" aria-label="View {{ o.name }}">View product</a></article>
+    <article class="card link product-card">{{ glyph(o.slug) }}<span class="cat">{{ o.category }}</span><h3><a href="{{ R.PRODUCT.url(slug=o.slug) }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p><a class="more" href="{{ R.PRODUCT.url(slug=o.slug) }}" aria-label="View {{ o.name }}">View product</a></article>
   {% endfor %}
   </div>
 </section>
 <section class="card">
-  <div class="section-title"><h2>How shared learning works</h2><a href="/about">Read the details</a></div>
+  <div class="section-title"><h2>How shared learning works</h2><a href="{{ R.ABOUT }}">Read the details</a></div>
   <ol class="flow flow-wrap">
     <li><h3>Write privately</h3><p>A client records a market observation. It starts private to the author or their organisation.</p></li>
     <li><h3>Review a separate copy</h3><p>With consent, a moderator redacts identifying detail and publishes only the reviewed copy.</p></li>
@@ -66,11 +66,11 @@
   </ol>
 </section>
 <section>
-  <div class="section-title"><h2>See it in action</h2><a href="/media">Media and insights</a></div>
+  <div class="section-title"><h2>See it in action</h2><a href="{{ R.MEDIA }}">Media and insights</a></div>
   <div class="grid media-grid">
   {% for m in media %}
-    <article class="card link">{% if m.media_name %}<img class="poster" src="/media/{{ m.id }}" alt="">{% endif %}
-      <span class="pill">{{ m.kind|capitalize }}</span><h3 style="margin-top:8px"><a href="/resources/{{ m.id }}">{{ m.title }}</a></h3><p class="muted">{{ m.body }}</p></article>
+    <article class="card link">{% if m.media_name %}<img class="poster" src="{{ R.MEDIA_FILE.url(rid=m.id) }}" alt="">{% endif %}
+      <span class="pill">{{ m.kind|capitalize }}</span><h3 style="margin-top:8px"><a href="{{ R.RESOURCE.url(rid=m.id) }}">{{ m.title }}</a></h3><p class="muted">{{ m.body }}</p></article>
   {% endfor %}
   </div>
 </section>

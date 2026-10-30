@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Improvement ideas · azentio.ai{% endblock %}
-{% block band %}{% call head("Improvement ideas", "Status shows where an idea stands. It is not a delivery commitment.", "From themes to offerings") %}{% if ctx.has('product_owner') %}<a class="btn bright" href="/ideas/new">New idea</a>{% endif %}{% endcall %}{% endblock %}
+{% block band %}{% call head("Improvement ideas", "Status shows where an idea stands. It is not a delivery commitment.", "From themes to offerings") %}{% if ctx.has(Permission.PRODUCT_OWNER) %}<a class="btn bright" href="{{ R.IDEA_NEW }}">New idea</a>{% endif %}{% endcall %}{% endblock %}
 {% block content %}
 <div class="stack">{% for i in ideas %}
 <div class="card">
@@ -7,8 +7,8 @@
   <div class="meta"><span>{{ offering_names[i.offering] }}</span><span>{{ i.owner_team }}</span><span>themes: {{ i.themes|join(', ') }}</span><span>updated {{ i.updated_at|ago }}</span></div>
   {% if i.public_note %}<p style="margin-top:8px">{{ i.public_note }}</p>{% endif %}
   {% if ctx.is_employee %}<details><summary class="muted">Internal detail</summary><p><b>Problem:</b> {{ i.problem }}</p><p><b>Proposed outcome:</b> {{ i.proposed_outcome }}</p><p><b>Priority:</b> {{ i.priority }}</p></details>{% endif %}
-  {% if ctx.has('product_owner') %}
-  <form method="post" action="/ideas/{{ i.id }}/status" class="row" style="margin-top:10px">
+  {% if ctx.has(Permission.PRODUCT_OWNER) %}
+  <form method="post" action="{{ R.IDEA_STATUS.url(iid=i.id) }}" class="row" style="margin-top:10px">
     <select name="status" aria-label="Status" style="max-width:180px">{% for s in statuses %}<option {% if s==i.status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
     <input type="text" name="public_note" value="{{ i.public_note }}" maxlength="300" placeholder="Update shown to clients" style="flex:1;min-width:200px" aria-label="Public note">
     <button class="btn small">Update</button></form>

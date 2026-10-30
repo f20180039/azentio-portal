@@ -1,5 +1,6 @@
 import os
 import time
+from enum import StrEnum
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -9,13 +10,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import aira, audit, auth, iam, ideas, learning, library, live, orgadmin, playground, policy
+from . import constants
+from .constants import Action, Audience, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
 from .policy import Denied
 from .seed import DEMO_PERSONAS, seed
 
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=BASE / "templates")
-app = FastAPI(title="azentio.ai portal", docs_url="/api/docs", redoc_url=None)
+app = FastAPI(title="azentio.ai portal", docs_url=Route.API_DOCS, redoc_url=None)
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 
 
@@ -32,6 +35,10 @@ def _ago(ts) -> str:
 
 
 templates.env.filters["ago"] = _ago
+# templates read routes and fixed values from the same enums as the server: R.X for links, Enum.MEMBER for states
+templates.env.globals["R"] = Route
+templates.env.globals.update({name: obj for name, obj in vars(constants).items() if isinstance(obj, type) and issubclass(obj, StrEnum)})
+templates.env.globals["CLIENT_ROLES"] = constants.CLIENT_ROLES
 # stylesheet URL changes whenever the file changes, so browsers never keep a stale copy
 templates.env.globals["asset_version"] = max(int(f.stat().st_mtime) for f in (BASE / "static").iterdir())
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -70,9 +77,9 @@ async def _denied(request: Request, exc: Denied):
     if _wants_json(request):
         return JSONResponse({"error": exc.message, "status": exc.status}, status_code=exc.status)
     if exc.status == 401:
-        return RedirectResponse(f"/signin?next={request.url.path}", status_code=303)
+        return RedirectResponse(f"{Route.SIGNIN}?next={request.url.path}", status_code=303)
     if exc.status == 403 and request.method == "GET" and request.state.ctx.needs_workspace:
-        return RedirectResponse(f"/workspace?next={request.url.path}", status_code=303)
+        return RedirectResponse(f"{Route.WORKSPACE}?next={request.url.path}", status_code=303)
     return render(request, "error.html", {"status": exc.status, "message": exc.message}, status=exc.status)
 
 
@@ -99,12 +106,12 @@ async def form(request: Request) -> dict:
 
 # ---- public site ----------------------------------------------------------------------------------------------
 
-@app.get("/health")
+@app.get(Route.HEALTH)
 def health():
     return {"ok": True}
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get(Route.HOME, response_class=HTMLResponse)
 def home(request: Request):
     conn = request.state.conn
     return render(request, "home.html", {
@@ -114,12 +121,12 @@ def home(request: Request):
     })
 
 
-@app.get("/products", response_class=HTMLResponse)
+@app.get(Route.PRODUCTS, response_class=HTMLResponse)
 def products(request: Request):
     return render(request, "products.html", {"offerings": request.state.conn.execute("SELECT * FROM offerings").fetchall()})
 
 
-@app.get("/products/{slug}", response_class=HTMLResponse)
+@app.get(Route.PRODUCT, response_class=HTMLResponse)
 def product(request: Request, slug: str):
     conn, ctx = request.state.conn, request.state.ctx
     off = conn.execute("SELECT * FROM offerings WHERE slug=?", (slug,)).fetchone()
@@ -130,14 +137,14 @@ def product(request: Request, slug: str):
     return render(request, "product.html", {"o": off, "demos": demos})
 
 
-@app.get("/media", response_class=HTMLResponse)
+@app.get(Route.MEDIA, response_class=HTMLResponse)
 def media_page(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     items = [r for r in conn.execute("SELECT * FROM resources ORDER BY id") if policy.can_view_resource(conn, ctx, r)]
     return render(request, "media.html", {"items": items})
 
 
-@app.get("/about", response_class=HTMLResponse)
+@app.get(Route.ABOUT, response_class=HTMLResponse)
 def about(request: Request):
     return render(request, "about.html")
 
@@ -152,36 +159,36 @@ def _enquiry(request: Request, kind: str, f: dict):
                      (kind, fields["name"], fields["email"], fields["company"], fields["interest"] or "", fields["message"], time.time()))
 
 
-@app.get("/connect", response_class=HTMLResponse)
+@app.get(Route.CONNECT, response_class=HTMLResponse)
 def connect_page(request: Request):
-    return render(request, "enquiry.html", {"kind": "demo", "offerings": request.state.conn.execute("SELECT * FROM offerings").fetchall()})
+    return render(request, "enquiry.html", {"kind": EnquiryKind.DEMO, "offerings": request.state.conn.execute("SELECT * FROM offerings").fetchall()})
 
 
-@app.post("/connect")
+@app.post(Route.CONNECT)
 async def connect_submit(request: Request):
-    _enquiry(request, "demo", await form(request))
-    return back("/connect", "Thanks. Your demo request is recorded; the team will reply by email.")
+    _enquiry(request, EnquiryKind.DEMO, await form(request))
+    return back(Route.CONNECT, "Thanks. Your demo request is recorded; the team will reply by email.")
 
 
-@app.get("/hackathon/register", response_class=HTMLResponse)
+@app.get(Route.HACKATHON, response_class=HTMLResponse)
 def hackathon_page(request: Request):
-    return render(request, "enquiry.html", {"kind": "hackathon", "offerings": []})
+    return render(request, "enquiry.html", {"kind": EnquiryKind.HACKATHON, "offerings": []})
 
 
-@app.post("/hackathon/register")
+@app.post(Route.HACKATHON)
 async def hackathon_submit(request: Request):
-    _enquiry(request, "hackathon", await form(request))
-    return back("/hackathon/register", "Registration recorded. We will confirm your team's place by email.")
+    _enquiry(request, EnquiryKind.HACKATHON, await form(request))
+    return back(Route.HACKATHON, "Registration recorded. We will confirm your team's place by email.")
 
 
 # ---- sign-in and workspaces -----------------------------------------------------------------------------------
 
-@app.get("/signin", response_class=HTMLResponse)
-def signin_page(request: Request, next: str = "/dashboard", email: str = ""):
+@app.get(Route.SIGNIN, response_class=HTMLResponse)
+def signin_page(request: Request, next: str = Route.DASHBOARD, email: str = ""):
     return render(request, "signin.html", {"next": next, "email": email, "step": "email"})
 
 
-@app.post("/signin", response_class=HTMLResponse)
+@app.post(Route.SIGNIN, response_class=HTMLResponse)
 async def signin_request(request: Request):
     f = await form(request)
     email = auth.normalise_email(f.get("email") or "")
@@ -189,36 +196,36 @@ async def signin_request(request: Request):
         raise Denied(422, "Enter a valid email address.")
     auth.request_code(request.state.conn, email)
     mail = auth.latest_demo_mail(request.state.conn, email) if auth.demo_mailbox_enabled() else None
-    return render(request, "signin.html", {"next": f.get("next") or "/dashboard", "email": email, "step": "code", "mail": mail})
+    return render(request, "signin.html", {"next": f.get("next") or Route.DASHBOARD, "email": email, "step": "code", "mail": mail})
 
 
-@app.post("/signin/verify")
+@app.post(Route.SIGNIN_VERIFY)
 async def signin_verify(request: Request):
     f = await form(request)
     conn = request.state.conn
     user_id = auth.verify_code(conn, f.get("email") or "", f.get("code") or "")
     if not user_id:
-        return render(request, "signin.html", {"next": f.get("next") or "/dashboard", "email": f.get("email"), "step": "code",
+        return render(request, "signin.html", {"next": f.get("next") or Route.DASHBOARD, "email": f.get("email"), "step": "code",
                                                "error": "That code is wrong or has expired. Request a new one."}, status=401)
     token = auth.create_session(conn, user_id)
-    nxt = f.get("next") or "/dashboard"
+    nxt = f.get("next") or Route.DASHBOARD
     if not nxt.startswith("/") or nxt.startswith("//"):
-        nxt = "/dashboard"
+        nxt = Route.DASHBOARD
     resp = RedirectResponse(nxt, status_code=303)
     resp.set_cookie(auth.COOKIE, token, httponly=True, samesite="lax", secure=request.url.scheme == "https" or os.environ.get("SECURE_COOKIES") == "1", max_age=auth.SESSION_TTL)
     return resp
 
 
-@app.post("/signout")
+@app.post(Route.SIGNOUT)
 def signout(request: Request):
     auth.end_session(request.state.conn, request.cookies.get(auth.COOKIE))
-    resp = RedirectResponse("/", status_code=303)
+    resp = RedirectResponse(Route.HOME, status_code=303)
     resp.delete_cookie(auth.COOKIE)
     return resp
 
 
-@app.get("/workspace", response_class=HTMLResponse)
-def workspace_page(request: Request, next: str = "/dashboard"):
+@app.get(Route.WORKSPACE, response_class=HTMLResponse)
+def workspace_page(request: Request, next: str = Route.DASHBOARD):
     policy.require_signed_in(request.state.ctx)
     return render(request, "workspace.html", {"next": next, "access_request": iam.access_request_state(request.state.conn, request.state.ctx)})
 
@@ -227,24 +234,24 @@ def _safe_next(nxt: str | None, default: str) -> str:
     return nxt if nxt and nxt.startswith("/") and not nxt.startswith("//") and "\\" not in nxt else default
 
 
-@app.post("/demo/view-as")
+@app.post(Route.DEMO_VIEW_AS)
 async def demo_view_as(request: Request):
     f = await form(request)
     email = f.get("email") or ""
     conn = request.state.conn
     if not email:
         auth.end_session(conn, request.cookies.get(auth.COOKIE))
-        resp = RedirectResponse(_safe_next(f.get("next"), "/"), status_code=303)
+        resp = RedirectResponse(_safe_next(f.get("next"), Route.HOME), status_code=303)
         resp.delete_cookie(auth.COOKIE)
         return resp
     token = auth.switch_to(conn, request.cookies.get(auth.COOKIE), email)
-    resp = RedirectResponse(_safe_next(f.get("next"), "/access"), status_code=303)
+    resp = RedirectResponse(_safe_next(f.get("next"), Route.ACCESS), status_code=303)
     resp.set_cookie(auth.COOKIE, token, httponly=True, samesite="lax",
                     secure=request.url.scheme == "https" or os.environ.get("SECURE_COOKIES") == "1", max_age=auth.SESSION_TTL)
     return resp
 
 
-@app.get("/demo", response_class=HTMLResponse)
+@app.get(Route.DEMO, response_class=HTMLResponse)
 def demo_guide(request: Request):
     if not auth.demo_mailbox_enabled():
         raise Denied(404, "Not found.")
@@ -255,19 +262,19 @@ def demo_guide(request: Request):
     return render(request, "demo.html", {"ids": ids, "seasonality": seasonality})
 
 
-@app.post("/demo/reset")
+@app.post(Route.DEMO_RESET)
 def demo_reset(request: Request):
     if not auth.demo_mailbox_enabled():
         raise Denied(404, "Not found.")
     from .seed import reset
 
     reset(request.state.conn)
-    resp = RedirectResponse("/demo?flash=Demo data reset to its starting state. Everyone was signed out.", status_code=303)
+    resp = RedirectResponse(f"{Route.DEMO}?flash=Demo data reset to its starting state. Everyone was signed out.", status_code=303)
     resp.delete_cookie(auth.COOKIE)
     return resp
 
 
-@app.get("/access", response_class=HTMLResponse)
+@app.get(Route.ACCESS, response_class=HTMLResponse)
 def my_access(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_signed_in(ctx)
@@ -276,13 +283,13 @@ def my_access(request: Request):
                                            "access_request": iam.access_request_state(conn, ctx)})
 
 
-@app.post("/access/request")
+@app.post(Route.ACCESS_REQUEST)
 async def access_request(request: Request):
     iam.request_employee_access(request.state.conn, request.state.ctx, (await form(request)).get("reason") or "")
-    return back("/access", "Request sent. A portal administrator will review it; until then you have no workspace.")
+    return back(Route.ACCESS, "Request sent. A portal administrator will review it; until then you have no workspace.")
 
 
-@app.post("/workspace")
+@app.post(Route.WORKSPACE)
 async def workspace_set(request: Request):
     ctx = request.state.ctx
     policy.require_signed_in(ctx)
@@ -290,10 +297,10 @@ async def workspace_set(request: Request):
     org_id = f.get("org_id") or ""
     if not org_id.isdigit() or not auth.set_active_org(request.state.conn, request.cookies.get(auth.COOKIE), ctx.user_id, int(org_id)):
         raise Denied(403, "You are not a member of that organisation.")
-    return back("/dashboard")
+    return back(Route.DASHBOARD)
 
 
-@app.get("/mailbox", response_class=HTMLResponse)
+@app.get(Route.MAILBOX, response_class=HTMLResponse)
 def mailbox(request: Request, email: str = ""):
     if not auth.demo_mailbox_enabled():
         raise Denied(404, "Not found.")
@@ -302,30 +309,30 @@ def mailbox(request: Request, email: str = ""):
     return render(request, "mailbox.html", {"email": email, "mails": mails})
 
 
-@app.get("/invite/{token}", response_class=HTMLResponse)
+@app.get(Route.INVITE, response_class=HTMLResponse)
 def invite_page(request: Request, token: str):
     inv = orgadmin.find_invite(request.state.conn, token)
     return render(request, "invite.html", {"inv": inv, "token": token})
 
 
-@app.post("/invite/{token}")
+@app.post(Route.INVITE)
 async def invite_accept(request: Request, token: str):
     f = await form(request)
     conn, ctx = request.state.conn, request.state.ctx
     org_id = orgadmin.accept_invite(conn, ctx, token, f.get("terms") == "on")
     auth.set_active_org(conn, request.cookies.get(auth.COOKIE), ctx.user_id, org_id)
-    return back("/dashboard", "Welcome. You joined the workspace. Nothing you write is shared unless you choose to share it.")
+    return back(Route.DASHBOARD, "Welcome. You joined the workspace. Nothing you write is shared unless you choose to share it.")
 
 
 # ---- dashboards -----------------------------------------------------------------------------------------------
 
-@app.get("/dashboard", response_class=HTMLResponse)
+@app.get(Route.DASHBOARD, response_class=HTMLResponse)
 def dashboard(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_workspace(ctx)
     if ctx.is_employee:
         resources = [r for r in conn.execute("SELECT * FROM resources WHERE audience_type='employees'")]
-        queue = len(learning.moderation_queue(conn, ctx)) if ctx.has("moderate") else None
+        queue = len(learning.moderation_queue(conn, ctx)) if ctx.has(Permission.MODERATE) else None
         return render(request, "dash_employee.html", {
             "resources": resources, "queue": queue, "themes": learning.themes(conn, ctx), "ideas": ideas.list_ideas(conn, ctx)[:5],
         })
@@ -339,7 +346,7 @@ def dashboard(request: Request):
     })
 
 
-@app.get("/resources/{rid}", response_class=HTMLResponse)
+@app.get(Route.RESOURCE, response_class=HTMLResponse)
 def resource_page(request: Request, rid: int):
     conn, ctx = request.state.conn, request.state.ctx
     res = conn.execute("SELECT * FROM resources WHERE id=?", (rid,)).fetchone()
@@ -348,17 +355,17 @@ def resource_page(request: Request, rid: int):
     return render(request, "resource.html", {"r": res})
 
 
-@app.get("/media/{rid}")
+@app.get(Route.MEDIA_FILE)
 def media_file(request: Request, rid: int):
     conn, ctx = request.state.conn, request.state.ctx
     res = conn.execute("SELECT * FROM resources WHERE id=?", (rid,)).fetchone()
     if not res or not res["media_bytes"] or not policy.can_view_resource(conn, ctx, res):
         raise Denied(404, "Media not found.")
-    cache = "public, max-age=300" if res["audience_type"] == "public" else "private, no-store"
+    cache = "public, max-age=300" if res["audience_type"] == Audience.PUBLIC else "private, no-store"
     return Response(res["media_bytes"], media_type=res["media_type"], headers={"Cache-Control": cache})
 
 
-@app.get("/notifications", response_class=HTMLResponse)
+@app.get(Route.NOTIFICATIONS, response_class=HTMLResponse)
 def notifications(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_signed_in(ctx)
@@ -374,7 +381,7 @@ def _obs_form_data(conn):
             "offerings": conn.execute("SELECT * FROM offerings").fetchall()}
 
 
-@app.get("/observations", response_class=HTMLResponse)
+@app.get(Route.OBSERVATIONS, response_class=HTMLResponse)
 def observations(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_client(ctx)
@@ -384,19 +391,19 @@ def observations(request: Request):
     return render(request, "observations.html", {"mine": mine, "org": org})
 
 
-@app.get("/observations/new", response_class=HTMLResponse)
+@app.get(Route.OBSERVATION_NEW, response_class=HTMLResponse)
 def observation_new(request: Request):
     policy.require_client(request.state.ctx)
     return render(request, "observation_form.html", _obs_form_data(request.state.conn) | {"o": None})
 
 
-@app.post("/observations")
+@app.post(Route.OBSERVATIONS)
 async def observation_create(request: Request):
     oid = learning.create_observation(request.state.conn, request.state.ctx, await form(request))
-    return back(f"/observations/{oid}", "Saved as a private record. Nothing has been shared.")
+    return back(Route.OBSERVATION.url(oid=oid), "Saved as a private record. Nothing has been shared.")
 
 
-@app.get("/observations/{oid}", response_class=HTMLResponse)
+@app.get(Route.OBSERVATION, response_class=HTMLResponse)
 def observation_view(request: Request, oid: int):
     conn, ctx = request.state.conn, request.state.ctx
     obs = learning.get_observation(conn, ctx, oid)
@@ -406,44 +413,44 @@ def observation_view(request: Request, oid: int):
         "o": obs, "versions": versions, "can_edit": policy.can_edit_observation(ctx, obs)})
 
 
-@app.post("/observations/{oid}/edit")
+@app.post(Route.OBSERVATION_EDIT)
 async def observation_edit(request: Request, oid: int):
     learning.update_observation(request.state.conn, request.state.ctx, oid, await form(request))
-    return back(f"/observations/{oid}", "Changes saved.")
+    return back(Route.OBSERVATION.url(oid=oid), "Changes saved.")
 
 
-@app.post("/observations/{oid}/share")
+@app.post(Route.OBSERVATION_SHARE)
 async def observation_share(request: Request, oid: int):
     f = await form(request)
     learning.propose_share(request.state.conn, request.state.ctx, oid, f.get("consent_publish") == "on",
                            f.get("consent_attribution") == "on", f.get("consent_training") == "on")
-    return back(f"/observations/{oid}", "Sent to a moderator. It is not shared until it is reviewed and published.")
+    return back(Route.OBSERVATION.url(oid=oid), "Sent to a moderator. It is not shared until it is reviewed and published.")
 
 
-@app.post("/observations/{oid}/withdraw")
+@app.post(Route.OBSERVATION_WITHDRAW)
 def observation_withdraw(request: Request, oid: int):
     n = learning.withdraw(request.state.conn, request.state.ctx, oid)
-    return back(f"/observations/{oid}", f"Withdrawn. {n} shared version(s) removed from search and AIRA immediately.")
+    return back(Route.OBSERVATION.url(oid=oid), f"Withdrawn. {n} shared version(s) removed from search and AIRA immediately.")
 
 
 # ---- live sessions and knowledge library -----------------------------------------------------------------------
 
-@app.get("/live", response_class=HTMLResponse)
+@app.get(Route.LIVE, response_class=HTMLResponse)
 def live_list(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     rows = live.visible(conn, ctx)
-    return render(request, "live.html", {"upcoming": [r for r in rows if r["status"] in ("scheduled", "live")],
-                                         "past": [r for r in rows if r["status"] in ("ended", "cancelled")][::-1],
-                                         "choices": iam.audience_choices(conn) if ctx.has("publish_content") else []})
+    return render(request, "live.html", {"upcoming": [r for r in rows if r["status"] in (SessionStatus.SCHEDULED, SessionStatus.LIVE)],
+                                         "past": [r for r in rows if r["status"] in (SessionStatus.ENDED, SessionStatus.CANCELLED)][::-1],
+                                         "choices": iam.audience_choices(conn) if ctx.has(Permission.PUBLISH_CONTENT) else []})
 
 
-@app.post("/live")
+@app.post(Route.LIVE)
 async def live_create(request: Request):
     sid = live.create(request.state.conn, request.state.ctx, await form(request))
-    return back(f"/live/{sid}", "Session scheduled. Only its audience can see it.")
+    return back(Route.LIVE_SESSION.url(sid=sid), "Session scheduled. Only its audience can see it.")
 
 
-@app.get("/live/{sid}", response_class=HTMLResponse)
+@app.get(Route.LIVE_SESSION, response_class=HTMLResponse)
 def live_view(request: Request, sid: int):
     conn, ctx = request.state.conn, request.state.ctx
     s = live.get(conn, ctx, sid)
@@ -451,100 +458,100 @@ def live_view(request: Request, sid: int):
                                                  "audience": dict(iam.audience_choices(conn)).get(s["audience_type"] + (":" + s["audience_ref"] if s["audience_ref"] else ""), s["audience_type"])})
 
 
-@app.post("/live/{sid}/register")
+@app.post(Route.LIVE_REGISTER)
 async def live_register(request: Request, sid: int):
-    on = (await form(request)).get("action") != "cancel"
+    on = (await form(request)).get("action") != Action.CANCEL
     live.register(request.state.conn, request.state.ctx, sid, on)
-    return back(f"/live/{sid}", "You are registered. We will notify you when it starts." if on else "Registration cancelled.")
+    return back(Route.LIVE_SESSION.url(sid=sid), "You are registered. We will notify you when it starts." if on else "Registration cancelled.")
 
 
-@app.post("/live/{sid}/status")
+@app.post(Route.LIVE_STATUS)
 async def live_status(request: Request, sid: int):
     f = await form(request)
     live.set_status(request.state.conn, request.state.ctx, sid, f.get("status") or "", f.get("recording_note") or "")
-    return back(f"/live/{sid}", "Session updated.")
+    return back(Route.LIVE_SESSION.url(sid=sid), "Session updated.")
 
 
-@app.get("/library", response_class=HTMLResponse)
+@app.get(Route.LIBRARY, response_class=HTMLResponse)
 def library_list(request: Request):
     return render(request, "library.html", {"items": library.items(request.state.conn, request.state.ctx), "now": time.time()})
 
 
-@app.post("/library")
+@app.post(Route.LIBRARY)
 async def library_create(request: Request):
     iid = library.create(request.state.conn, request.state.ctx, await form(request))
-    return back(f"/library/{iid}", "Added. You own it; it is due for review in 90 days.")
+    return back(Route.LIBRARY_ITEM.url(iid=iid), "Added. You own it; it is due for review in 90 days.")
 
 
-@app.get("/library/{iid}", response_class=HTMLResponse)
+@app.get(Route.LIBRARY_ITEM, response_class=HTMLResponse)
 def library_view(request: Request, iid: int):
     item, fb = library.get(request.state.conn, request.state.ctx, iid)
     return render(request, "library_item.html", {"item": item, "feedback": fb, "now": time.time()})
 
 
-@app.post("/library/{iid}/review")
+@app.post(Route.LIBRARY_REVIEW)
 def library_review(request: Request, iid: int):
     library.mark_reviewed(request.state.conn, request.state.ctx, iid)
-    return back(f"/library/{iid}", "Review confirmed. Next review in 90 days.")
+    return back(Route.LIBRARY_ITEM.url(iid=iid), "Review confirmed. Next review in 90 days.")
 
 
-@app.post("/library/{iid}/feedback")
+@app.post(Route.LIBRARY_FEEDBACK)
 async def library_feedback(request: Request, iid: int):
     f = await form(request)
     library.feedback(request.state.conn, request.state.ctx, iid, f.get("verdict") or "", f.get("comment") or "")
-    return back(f"/library/{iid}", "Thanks. The owner sees your feedback.")
+    return back(Route.LIBRARY_ITEM.url(iid=iid), "Thanks. The owner sees your feedback.")
 
 
 # ---- playground -----------------------------------------------------------------------------------------------
 
-@app.get("/playground", response_class=HTMLResponse)
+@app.get(Route.PLAYGROUND, response_class=HTMLResponse)
 def playground_home(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     return render(request, "playground.html", {"items": playground.available(conn, ctx), "runs": playground.my_runs(conn, ctx)})
 
 
-@app.get("/playground/feedback", response_class=HTMLResponse)
+@app.get(Route.PLAYGROUND_FEEDBACK, response_class=HTMLResponse)
 def playground_feedback_summary(request: Request):
     rows, comments = playground.feedback_summary(request.state.conn, request.state.ctx)
     return render(request, "playground_feedback.html", {"rows": rows, "comments": comments})
 
 
-@app.get("/playground/runs/{rid}", response_class=HTMLResponse)
+@app.get(Route.PLAYGROUND_RUN, response_class=HTMLResponse)
 def playground_run_view(request: Request, rid: int):
     r = playground.get_run(request.state.conn, request.state.ctx, rid)
     return render(request, "playground_run.html", {"r": r, "accuracy": playground.ACCURACY, "explanation": None})
 
 
-@app.post("/playground/runs/{rid}/feedback")
+@app.post(Route.PLAYGROUND_RUN_FEEDBACK)
 async def playground_run_feedback(request: Request, rid: int):
     f = await form(request)
     playground.feedback(request.state.conn, request.state.ctx, rid, f.get("rating") or "", f.get("accuracy") or "", f.get("comment") or "")
-    return back(f"/playground/runs/{rid}", "Thanks. Your feedback goes to the product owner without your name or organisation.")
+    return back(Route.PLAYGROUND_RUN.url(rid=rid), "Thanks. Your feedback goes to the product owner without your name or organisation.")
 
 
-@app.post("/playground/runs/{rid}/explain", response_class=HTMLResponse)
+@app.post(Route.PLAYGROUND_RUN_EXPLAIN, response_class=HTMLResponse)
 def playground_run_explain(request: Request, rid: int):
     conn, ctx = request.state.conn, request.state.ctx
     r = playground.get_run(conn, ctx, rid)
     return render(request, "playground_run.html", {"r": r, "accuracy": playground.ACCURACY, "explanation": playground.explain(conn, ctx, rid)})
 
 
-@app.get("/playground/{slug}", response_class=HTMLResponse)
+@app.get(Route.PLAYGROUND_SCENARIO, response_class=HTMLResponse)
 def playground_scenario(request: Request, slug: str):
     conn, ctx = request.state.conn, request.state.ctx
     sc = playground.scenario(conn, ctx, slug)
     return render(request, "playground_form.html", {"slug": slug, "sc": sc})
 
 
-@app.post("/playground/{slug}")
+@app.post(Route.PLAYGROUND_SCENARIO)
 async def playground_execute(request: Request, slug: str):
     rid = playground.run(request.state.conn, request.state.ctx, slug, await form(request))
-    return back(f"/playground/runs/{rid}")
+    return back(Route.PLAYGROUND_RUN.url(rid=rid))
 
 
 # ---- shared learning ------------------------------------------------------------------------------------------
 
-@app.get("/learning", response_class=HTMLResponse)
+@app.get(Route.LEARNING, response_class=HTMLResponse)
 def learning_feed(request: Request, q: str = "", offering: str = "", industry: str = "", region: str = "", topic: str = "", period: str = ""):
     conn, ctx = request.state.conn, request.state.ctx
     items = learning.search_shared(conn, ctx, q, offering, industry, region, topic, period)
@@ -552,14 +559,14 @@ def learning_feed(request: Request, q: str = "", offering: str = "", industry: s
                                              "f": {"q": q, "offering": offering, "industry": industry, "region": region, "topic": topic, "period": period}})
 
 
-@app.get("/learning/themes", response_class=HTMLResponse)
+@app.get(Route.THEMES, response_class=HTMLResponse)
 def theme_list(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     return render(request, "themes.html", {"themes": learning.themes(conn, ctx), "hidden": learning.suppressed_theme_count(conn, ctx),
                                            "min_cohort": learning.min_cohort()})
 
 
-@app.get("/learning/themes/{tid}", response_class=HTMLResponse)
+@app.get(Route.THEME, response_class=HTMLResponse)
 def theme_view(request: Request, tid: int):
     conn, ctx = request.state.conn, request.state.ctx
     t = learning.theme(conn, ctx, tid)
@@ -567,44 +574,44 @@ def theme_view(request: Request, tid: int):
     return render(request, "theme.html", {"t": t, "ideas": linked, "min_cohort": learning.min_cohort()})
 
 
-@app.get("/learning/ideas", response_class=HTMLResponse)
+@app.get(Route.IDEAS, response_class=HTMLResponse)
 def idea_list(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     return render(request, "ideas.html", {"ideas": ideas.list_ideas(conn, ctx), "statuses": ideas.STATUSES})
 
 
-@app.post("/learning/ask", response_class=HTMLResponse)
+@app.post(Route.ASK, response_class=HTMLResponse)
 async def learning_ask(request: Request):
     f = await form(request)
     result = aira.ask(request.state.conn, request.state.ctx, f.get("question") or "")
     return render(request, "aira.html", {"question": f.get("question"), "r": result})
 
 
-@app.get("/learning/ask", response_class=HTMLResponse)
+@app.get(Route.ASK, response_class=HTMLResponse)
 def learning_ask_page(request: Request):
     policy.require_participant(request.state.ctx)
     return render(request, "aira.html", {"question": "", "r": None})
 
 
-@app.post("/learning/shared/{sid}/report")
+@app.post(Route.SHARED_REPORT)
 async def shared_report(request: Request, sid: int):
     f = await form(request)
     learning.report(request.state.conn, request.state.ctx, sid, f.get("reason") or "")
-    return back("/learning", "Report sent to the moderators. Your identity is not shown to the contributor.")
+    return back(Route.LEARNING, "Report sent to the moderators. Your identity is not shown to the contributor.")
 
 
 # ---- moderation -----------------------------------------------------------------------------------------------
 
-@app.get("/moderation", response_class=HTMLResponse)
+@app.get(Route.MODERATION, response_class=HTMLResponse)
 def moderation(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     return render(request, "moderation.html", {"queue": learning.moderation_queue(conn, ctx), "reports": learning.open_reports(conn, ctx)})
 
 
-@app.get("/moderation/{oid}", response_class=HTMLResponse)
+@app.get(Route.MODERATION_REVIEW, response_class=HTMLResponse)
 def moderation_review(request: Request, oid: int):
     conn, ctx = request.state.conn, request.state.ctx
-    policy.require_grant(ctx, "moderate")
+    policy.require_grant(ctx, Permission.MODERATE)
     obs = learning.get_observation(conn, ctx, oid)
     org = conn.execute("SELECT industry, region FROM orgs WHERE id=?", (obs["org_id"],)).fetchone()
     return render(request, "moderation_review.html", {"o": obs, "org": org, "themes": conn.execute("SELECT id, name FROM themes").fetchall(),
@@ -612,108 +619,108 @@ def moderation_review(request: Request, oid: int):
                                                        "sectors": learning.SECTORS, "default_sector": learning.SECTOR_OF.get(org["industry"], "Financial services")})
 
 
-@app.post("/moderation/{oid}/publish")
+@app.post(Route.MODERATION_PUBLISH)
 async def moderation_publish(request: Request, oid: int):
     f = await form(request)
     f["attribute"] = f.get("attribute") == "on"
     f["override_flags"] = f.get("override_flags") == "on"
     learning.publish(request.state.conn, request.state.ctx, oid, f)
-    return back("/moderation", "Published. The contributor has been notified.")
+    return back(Route.MODERATION, "Published. The contributor has been notified.")
 
 
-@app.post("/moderation/{oid}/return")
+@app.post(Route.MODERATION_RETURN)
 async def moderation_return(request: Request, oid: int):
     f = await form(request)
-    learning.return_for_clarification(request.state.conn, request.state.ctx, oid, f.get("note") or "", reject=f.get("action") == "reject")
-    return back("/moderation", "Decision recorded and the contributor notified.")
+    learning.return_for_clarification(request.state.conn, request.state.ctx, oid, f.get("note") or "", reject=f.get("action") == Action.REJECT)
+    return back(Route.MODERATION, "Decision recorded and the contributor notified.")
 
 
-@app.post("/moderation/shared/{sid}/suspend")
+@app.post(Route.MODERATION_SUSPEND)
 def moderation_suspend(request: Request, sid: int):
     learning.suspend(request.state.conn, request.state.ctx, sid)
-    return back("/moderation", "Temporarily unpublished while the report is reviewed.")
+    return back(Route.MODERATION, "Temporarily unpublished while the report is reviewed.")
 
 
-@app.post("/moderation/reports/{rid}")
+@app.post(Route.MODERATION_REPORT)
 async def moderation_report_decide(request: Request, rid: int):
     f = await form(request)
-    learning.decide_report(request.state.conn, request.state.ctx, rid, f.get("action") == "uphold", f.get("decision") or "")
-    return back("/moderation", "Report decided; the contributor was informed.")
+    learning.decide_report(request.state.conn, request.state.ctx, rid, f.get("action") == Action.UPHOLD, f.get("decision") or "")
+    return back(Route.MODERATION, "Report decided; the contributor was informed.")
 
 
 # ---- product owner, publisher, org admin, portal admin --------------------------------------------------------
 
-@app.get("/ideas/new", response_class=HTMLResponse)
+@app.get(Route.IDEA_NEW, response_class=HTMLResponse)
 def idea_new(request: Request, theme: int = 0):
     conn, ctx = request.state.conn, request.state.ctx
-    policy.require_grant(ctx, "product_owner")
+    policy.require_grant(ctx, Permission.PRODUCT_OWNER)
     return render(request, "idea_form.html", {"themes": learning.themes(conn, ctx), "selected": theme, "statuses": ideas.STATUSES,
                                               "priorities": ideas.PRIORITIES, "offerings": conn.execute("SELECT * FROM offerings").fetchall()})
 
 
-@app.post("/ideas")
+@app.post(Route.IDEA_CREATE)
 async def idea_create(request: Request):
     f = await form(request)
     theme_ids = [int(t) for t in f["_multi"].getlist("theme_ids") if str(t).isdigit()]
     ideas.create_idea(request.state.conn, request.state.ctx, f, theme_ids)
-    return back("/learning/ideas", "Idea created. Linked contributors were notified.")
+    return back(Route.IDEAS, "Idea created. Linked contributors were notified.")
 
 
-@app.post("/ideas/{iid}/status")
+@app.post(Route.IDEA_STATUS)
 async def idea_status(request: Request, iid: int):
     f = await form(request)
     ideas.update_status(request.state.conn, request.state.ctx, iid, f.get("status") or "", f.get("public_note") or "")
-    return back("/learning/ideas", "Status updated and audited.")
+    return back(Route.IDEAS, "Status updated and audited.")
 
 
-@app.get("/content", response_class=HTMLResponse)
+@app.get(Route.CONTENT, response_class=HTMLResponse)
 def content_page(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
-    policy.require_grant(ctx, "publish_content")
+    policy.require_grant(ctx, Permission.PUBLISH_CONTENT)
     return render(request, "content.html", {"banner": conn.execute("SELECT value FROM site_content WHERE key='banner'").fetchone()["value"],
                                             "resources": iam.resources_for_publisher(conn, ctx), "choices": iam.audience_choices(conn)})
 
 
-@app.post("/content")
+@app.post(Route.CONTENT)
 async def content_save(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
-    policy.require_grant(ctx, "publish_content")
+    policy.require_grant(ctx, Permission.PUBLISH_CONTENT)
     banner = ((await form(request)).get("banner") or "").strip()
     if not 5 <= len(banner) <= 200:
         raise Denied(422, "The banner needs 5–200 characters.")
     with tx(conn):
         conn.execute("UPDATE site_content SET value=? WHERE key='banner'", (banner,))
         audit.record(conn, ctx.user_id, "content.banner_updated", "site:banner", {"length": len(banner)})
-    return back("/content", "Homepage banner updated.")
+    return back(Route.CONTENT, "Homepage banner updated.")
 
 
-@app.get("/org/members", response_class=HTMLResponse)
+@app.get(Route.ORG_MEMBERS, response_class=HTMLResponse)
 def org_members(request: Request):
     people, invites = orgadmin.members(request.state.conn, request.state.ctx)
     return render(request, "members.html", {"people": people, "invites": invites, "now": time.time(),
                                             "support": iam.support_requests_for_client(request.state.conn, request.state.ctx)})
 
 
-@app.post("/org/invite")
+@app.post(Route.ORG_INVITE)
 async def org_invite(request: Request):
     f = await form(request)
     orgadmin.invite(request.state.conn, request.state.ctx, f.get("email") or "", f.get("role") or "")
-    return back("/org/members", "Invitation created. In this demo it lands in the demo mailbox instead of email.")
+    return back(Route.ORG_MEMBERS, "Invitation created. In this demo it lands in the demo mailbox instead of email.")
 
 
-@app.post("/org/invite/{iid}/revoke")
+@app.post(Route.ORG_INVITE_REVOKE)
 def org_invite_revoke(request: Request, iid: int):
     orgadmin.revoke_invite(request.state.conn, request.state.ctx, iid)
-    return back("/org/members", "Invitation revoked.")
+    return back(Route.ORG_MEMBERS, "Invitation revoked.")
 
 
-@app.post("/org/members/{uid}/revoke")
+@app.post(Route.ORG_MEMBER_REVOKE)
 def org_member_revoke(request: Request, uid: int):
     orgadmin.revoke_member(request.state.conn, request.state.ctx, uid)
-    return back("/org/members", "Membership revoked.")
+    return back(Route.ORG_MEMBERS, "Membership revoked.")
 
 
-@app.get("/admin", response_class=HTMLResponse)
+@app.get(Route.ADMIN, response_class=HTMLResponse)
 def admin_console(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     return render(request, "admin.html", {
@@ -728,74 +735,74 @@ def _int(value) -> int:
     return int(value)
 
 
-@app.post("/admin/requests/{rid}")
+@app.post(Route.ADMIN_REQUEST)
 async def admin_decide_request(request: Request, rid: int):
-    iam.decide_access_request(request.state.conn, request.state.ctx, rid, (await form(request)).get("action") == "approve")
-    return back("/admin", "Decision recorded and the person notified.")
+    iam.decide_access_request(request.state.conn, request.state.ctx, rid, (await form(request)).get("action") == Action.APPROVE)
+    return back(Route.ADMIN, "Decision recorded and the person notified.")
 
 
-@app.post("/admin/grants")
+@app.post(Route.ADMIN_GRANTS)
 async def admin_grant(request: Request):
     f = await form(request)
-    iam.set_grant(request.state.conn, request.state.ctx, _int(f.get("user_id")), f.get("permission") or "", f.get("action") == "add")
-    return back("/admin", "Permission updated and audited.")
+    iam.set_grant(request.state.conn, request.state.ctx, _int(f.get("user_id")), f.get("permission") or "", f.get("action") == Action.ADD)
+    return back(Route.ADMIN, "Permission updated and audited.")
 
 
-@app.post("/admin/entitlements")
+@app.post(Route.ADMIN_ENTITLEMENTS)
 async def admin_entitlement(request: Request):
     f = await form(request)
-    iam.set_entitlement(request.state.conn, request.state.ctx, _int(f.get("org_id")), f.get("offering") or "", f.get("action") == "grant")
-    return back("/admin", "Entitlement updated and audited.")
+    iam.set_entitlement(request.state.conn, request.state.ctx, _int(f.get("org_id")), f.get("offering") or "", f.get("action") == Action.GRANT)
+    return back(Route.ADMIN, "Entitlement updated and audited.")
 
 
-@app.post("/admin/support")
+@app.post(Route.ADMIN_SUPPORT)
 async def admin_support_request(request: Request):
     f = await form(request)
     iam.request_support(request.state.conn, request.state.ctx, _int(f.get("org_id")), f.get("reason") or "")
-    return back("/admin", "Support access requested. The client's administrators must approve it.")
+    return back(Route.ADMIN, "Support access requested. The client's administrators must approve it.")
 
 
-@app.get("/admin/support/{gid}", response_class=HTMLResponse)
+@app.get(Route.ADMIN_SUPPORT_RECORDS, response_class=HTMLResponse)
 def admin_support_records(request: Request, gid: int):
     g, rows = iam.support_records(request.state.conn, request.state.ctx, gid)
     return render(request, "support.html", {"g": g, "rows": rows, "now": time.time()})
 
 
-@app.post("/support/{gid}/revoke")
+@app.post(Route.SUPPORT_REVOKE)
 def support_revoke(request: Request, gid: int):
     iam.revoke_support(request.state.conn, request.state.ctx, gid)
-    return back("/org/members" if request.state.ctx.is_client else "/admin", "Support access ended.")
+    return back(Route.ORG_MEMBERS if request.state.ctx.is_client else Route.ADMIN, "Support access ended.")
 
 
-@app.post("/org/support/{gid}")
+@app.post(Route.ORG_SUPPORT)
 async def org_support_decide(request: Request, gid: int):
-    iam.decide_support(request.state.conn, request.state.ctx, gid, (await form(request)).get("action") == "approve")
-    return back("/org/members", "Decision recorded.")
+    iam.decide_support(request.state.conn, request.state.ctx, gid, (await form(request)).get("action") == Action.APPROVE)
+    return back(Route.ORG_MEMBERS, "Decision recorded.")
 
 
-@app.post("/org/members/{uid}/role")
+@app.post(Route.ORG_MEMBER_ROLE)
 async def org_member_role(request: Request, uid: int):
     orgadmin.set_member_role(request.state.conn, request.state.ctx, uid, (await form(request)).get("role") or "")
-    return back("/org/members", "Role updated.")
+    return back(Route.ORG_MEMBERS, "Role updated.")
 
 
-@app.post("/content/resources/{rid}")
+@app.post(Route.CONTENT_RESOURCE)
 async def content_audience(request: Request, rid: int):
     iam.set_audience(request.state.conn, request.state.ctx, rid, (await form(request)).get("audience") or "")
-    return back("/content", "Audience updated. Access checks use it on the next request.")
+    return back(Route.CONTENT, "Audience updated. Access checks use it on the next request.")
 
 
-@app.get("/admin/audit", response_class=HTMLResponse)
+@app.get(Route.ADMIN_AUDIT, response_class=HTMLResponse)
 def admin_audit(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
-    policy.require_grant(ctx, "portal_admin")
+    policy.require_grant(ctx, Permission.PORTAL_ADMIN)
     rows = conn.execute("SELECT a.*, u.email FROM audit a LEFT JOIN users u ON u.id=a.actor_id ORDER BY a.id DESC LIMIT 200").fetchall()
     return render(request, "audit.html", {"rows": rows, "chain_ok": audit.verify_chain(conn)})
 
 
 # ---- JSON API (same rules as the pages) -----------------------------------------------------------------------
 
-@app.get("/api/v1/me")
+@app.get(Route.API_ME)
 def api_me(request: Request):
     ctx = request.state.ctx
     policy.require_signed_in(ctx)
@@ -804,7 +811,7 @@ def api_me(request: Request):
             "memberships": [{"organisation": m["name"], "role": m["role"]} for m in ctx.memberships]}
 
 
-@app.get("/api/v1/observations")
+@app.get(Route.API_OBSERVATIONS)
 def api_observations(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_client(ctx)
@@ -813,28 +820,28 @@ def api_observations(request: Request):
     return [dict(r) for r in rows]
 
 
-@app.get("/api/v1/observations/{oid}")
+@app.get(Route.API_OBSERVATION)
 def api_observation(request: Request, oid: int):
     obs = learning.get_observation(request.state.conn, request.state.ctx, oid)
     return {k: obs[k] for k in ("id", "title", "body", "category", "offering", "topic", "period", "visibility", "share_state")}
 
 
-@app.get("/api/v1/shared")
+@app.get(Route.API_SHARED)
 def api_shared(request: Request, q: str = "", offering: str = "", industry: str = "", region: str = "", topic: str = "", period: str = ""):
     return learning.search_shared(request.state.conn, request.state.ctx, q, offering, industry, region, topic, period)
 
 
-@app.get("/api/v1/themes")
+@app.get(Route.API_THEMES)
 def api_themes(request: Request):
     return learning.themes(request.state.conn, request.state.ctx)
 
 
-@app.get("/api/v1/ideas")
+@app.get(Route.API_IDEAS)
 def api_ideas(request: Request):
     return ideas.list_ideas(request.state.conn, request.state.ctx)
 
 
-@app.get("/api/v1/resources/{rid}")
+@app.get(Route.API_RESOURCE)
 def api_resource(request: Request, rid: int):
     conn, ctx = request.state.conn, request.state.ctx
     res = conn.execute("SELECT * FROM resources WHERE id=?", (rid,)).fetchone()
@@ -843,12 +850,12 @@ def api_resource(request: Request, rid: int):
     return {k: res[k] for k in ("id", "title", "kind", "body", "audience_type")}
 
 
-@app.post("/api/v1/aira")
+@app.post(Route.API_AIRA)
 async def api_aira(request: Request):
     body = await request.json()
     return aira.ask(request.state.conn, request.state.ctx, str(body.get("question", "")))
 
 
-@app.get("/api/v1/moderation/queue")
+@app.get(Route.API_MODERATION_QUEUE)
 def api_queue(request: Request):
     return [dict(r) for r in learning.moderation_queue(request.state.conn, request.state.ctx)]

@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block title %}{{ status }} · azentio.ai{% endblock %}
 {% block content %}
 <div class="card stripe bad"><p class="eyebrow">Error {{ status }}</p><h1>{{ message }}</h1>
-<p><a href="javascript:history.back()">Go back</a> or <a href="/">return home</a>.</p></div>
+<p><a href="javascript:history.back()">Go back</a> or <a href="{{ R.HOME }}">return home</a>.</p></div>
 {% endblock %}

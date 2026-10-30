@@ -16,11 +16,11 @@
         ("Shared learning feed, themes and AIRA", ctx.is_client or ctx.is_employee, "Signed-in participants with an active workspace"),
         ("Invite members and change client roles", ctx.is_client_admin, "Client administrator of the active organisation" if ctx.is_client_admin else "Needs the client administrator role"),
         ("Approve support access to your organisation", ctx.is_client_admin, "Client administrator decides; access is time-boxed"),
-        ("Moderate shared contributions", ctx.has('moderate'), "Separate 'moderate' grant" if ctx.has('moderate') else "Needs the moderate grant; employee status is not enough"),
-        ("Create improvement ideas and change status", ctx.has('product_owner'), "Separate 'product_owner' grant"),
-        ("Edit site banner and resource audiences", ctx.has('publish_content'), "Separate 'publish_content' grant"),
-        ("Manage employees, grants and entitlements", ctx.has('portal_admin'), "Separate 'portal_admin' grant"),
-        ("Read a client's private records", ctx.has('portal_admin') and ctx.support_orgs|length > 0, "Never by role alone: needs the client's approval, expires after 30 minutes, every read audited"),
+        ("Moderate shared contributions", ctx.has(Permission.MODERATE), "Separate 'moderate' grant" if ctx.has(Permission.MODERATE) else "Needs the moderate grant; employee status is not enough"),
+        ("Create improvement ideas and change status", ctx.has(Permission.PRODUCT_OWNER), "Separate 'product_owner' grant"),
+        ("Edit site banner and resource audiences", ctx.has(Permission.PUBLISH_CONTENT), "Separate 'publish_content' grant"),
+        ("Manage employees, grants and entitlements", ctx.has(Permission.PORTAL_ADMIN), "Separate 'portal_admin' grant"),
+        ("Read a client's private records", ctx.has(Permission.PORTAL_ADMIN) and ctx.support_orgs|length > 0, "Never by role alone: needs the client's approval, expires after 30 minutes, every read audited"),
       ] %}
       {% for label, ok, why in caps %}<tr><td>{{ label }}</td><td><span class="pill {{ 'ok' if ok else 'bad' }}">{{ 'Yes' if ok else 'No' }}</span></td><td class="muted">{{ why }}</td></tr>{% endfor %}
     </table></div>
@@ -31,7 +31,7 @@
   <div class="card"><h3>Memberships</h3>
     {% for m in ctx.memberships %}<p style="margin:0 0 6px">{{ m.name }} <span class="pill">{{ m.role }}</span>{% if ctx.org and ctx.org.id == m.org_id %} <span class="pill ok">active</span>{% endif %}</p>
     {% else %}<p class="muted">None. {% if ctx.user.email.endswith('@azentio.com') %}A work email alone grants nothing; an administrator must approve employee access.{% else %}Clients join by invitation.{% endif %}</p>{% endfor %}
-    {% if ctx.memberships|length > 1 %}<a class="btn small ghost" href="/workspace">Switch workspace</a>{% endif %}
+    {% if ctx.memberships|length > 1 %}<a class="btn small ghost" href="{{ R.WORKSPACE }}">Switch workspace</a>{% endif %}
   </div>
   <div class="card"><h3>Platform permissions</h3>
     {% if ctx.grants %}{% for g in ctx.grants|sort %}<span class="pill {{ 'ok' if ctx.is_employee else 'bad' }}">{{ labels[g] }}</span> {% endfor %}{% else %}<p class="muted" style="margin:0">None</p>{% endif %}</div>
@@ -39,9 +39,9 @@
   {% if not ctx.memberships and ctx.user.email.endswith('@azentio.com') %}
   <div class="card stripe warn">
     <h3>Employee access</h3>
-    {% if access_request and access_request.status == 'pending' %}<p style="margin:0">Your request is waiting for a portal administrator.</p>
-    {% elif access_request and access_request.status == 'denied' %}<p style="margin:0">Your last request was declined. Contact your manager.</p>
-    {% else %}<form method="post" action="/access/request"><div class="field"><label for="reason">Why do you need access?</label><input id="reason" name="reason" type="text" required minlength="5" maxlength="300"></div><button class="btn small">Request employee access</button></form>{% endif %}
+    {% if access_request and access_request.status == RequestStatus.PENDING %}<p style="margin:0">Your request is waiting for a portal administrator.</p>
+    {% elif access_request and access_request.status == RequestStatus.DENIED %}<p style="margin:0">Your last request was declined. Contact your manager.</p>
+    {% else %}<form method="post" action="{{ R.ACCESS_REQUEST }}"><div class="field"><label for="reason">Why do you need access?</label><input id="reason" name="reason" type="text" required minlength="5" maxlength="300"></div><button class="btn small">Request employee access</button></form>{% endif %}
   </div>
   {% endif %}
   {% if demo_mailbox %}<p class="hint">Use "View as" in the header to compare roles. It signs you in as that persona on the server, so their real permissions apply.</p>{% endif %}

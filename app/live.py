@@ -2,14 +2,12 @@
 import time
 
 from . import audit
+from .constants import Permission, Route, SessionStatus, parse
 from .auth import Ctx
 from .db import tx
 from .iam import audience_choices
 from .learning import notify
 from .policy import Denied, can_view_resource, require_grant, require_signed_in
-
-STATUSES = ("scheduled", "live", "ended", "cancelled")
-
 
 def visible(conn, ctx: Ctx):
     rows = conn.execute("SELECT s.*, (SELECT COUNT(*) FROM live_registrations r WHERE r.session_id=s.id) AS registered"
@@ -32,7 +30,7 @@ def is_registered(conn, ctx: Ctx, sid: int) -> bool:
 def register(conn, ctx: Ctx, sid: int, on: bool) -> None:
     require_signed_in(ctx)
     s = get(conn, ctx, sid)
-    if s["status"] in ("ended", "cancelled"):
+    if s["status"] in (SessionStatus.ENDED, SessionStatus.CANCELLED):
         raise Denied(409, "This session is no longer open for registration.")
     with tx(conn):
         if on:
@@ -60,7 +58,7 @@ def _clean(conn, f: dict) -> dict:
 
 
 def create(conn, ctx: Ctx, f: dict) -> int:
-    require_grant(ctx, "publish_content")
+    require_grant(ctx, Permission.PUBLISH_CONTENT)
     c = _clean(conn, f)
     with tx(conn):
         sid = conn.execute("INSERT INTO live_sessions (title, description, host, starts_at, duration_min, audience_type, audience_ref, created_by, created_at)"
@@ -70,21 +68,22 @@ def create(conn, ctx: Ctx, f: dict) -> int:
     return sid
 
 
-def set_status(conn, ctx: Ctx, sid: int, status: str, recording_note: str = "") -> None:
-    require_grant(ctx, "publish_content")
-    if status not in STATUSES:
+def set_status(conn, ctx: Ctx, sid: int, raw_status: str, recording_note: str = "") -> None:
+    require_grant(ctx, Permission.PUBLISH_CONTENT)
+    status = parse(SessionStatus, raw_status)
+    if status is None:
         raise Denied(422, "Unknown status.")
     s = conn.execute("SELECT * FROM live_sessions WHERE id=?", (sid,)).fetchone()
     if not s:
         raise Denied(404, "Session not found.")
     with tx(conn):
         conn.execute("UPDATE live_sessions SET status=? WHERE id=?", (status, sid))
-        if status == "ended" and recording_note.strip() and not s["recording_id"]:
+        if status == SessionStatus.ENDED and recording_note.strip() and not s["recording_id"]:
             # the recording inherits the session's audience, so it can never be wider than the live audience
             rid = conn.execute("INSERT INTO resources (title, kind, body, audience_type, audience_ref) VALUES (?,?,?,?,?)",
                                (f"Recording: {s['title']}", "recording", recording_note.strip()[:600], s["audience_type"], s["audience_ref"])).lastrowid
             conn.execute("UPDATE live_sessions SET recording_id=? WHERE id=?", (rid, sid))
         audit.record(conn, ctx.user_id, "live.status_changed", f"session:{sid}", {"from": s["status"], "to": status})
-        if status in ("live", "cancelled"):
+        if status in (SessionStatus.LIVE, SessionStatus.CANCELLED):
             for r in conn.execute("SELECT user_id FROM live_registrations WHERE session_id=?", (sid,)).fetchall():
-                notify(conn, r["user_id"], f"“{s['title']}” is {'live now' if status == 'live' else 'cancelled'}.", f"/live/{sid}")
+                notify(conn, r["user_id"], f"“{s['title']}” is {'live now' if status == SessionStatus.LIVE else 'cancelled'}.", Route.LIVE_SESSION.url(sid=sid))

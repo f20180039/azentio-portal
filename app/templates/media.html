@@ -3,8 +3,8 @@
 {% block content %}
 <p class="muted">You see what your audience permits: {% if ctx.is_employee %}public, employee and demo content{% elif ctx.is_client %}public content, your organisation's resources and entitled demos{% else %}public content{% endif %}.</p>
 <div class="grid media-grid">{% for m in items %}
-<article class="card">{% if m.media_name %}<img class="poster" src="/media/{{ m.id }}" alt="">{% endif %}
-<div class="row"><span class="pill">{{ m.kind|capitalize }}</span><span class="pill {% if m.audience_type=='public' %}ok{% else %}warn{% endif %}">{{ {'public':'Public','employees':'Employees only','org':'Your organisation','entitled':'Entitled demo'}[m.audience_type] }}</span></div>
-<h3><a href="/resources/{{ m.id }}">{{ m.title }}</a></h3><p class="muted">{{ m.body }}</p></article>
+<article class="card">{% if m.media_name %}<img class="poster" src="{{ R.MEDIA_FILE.url(rid=m.id) }}" alt="">{% endif %}
+<div class="row"><span class="pill">{{ m.kind|capitalize }}</span><span class="pill {% if m.audience_type == Audience.PUBLIC %}ok{% else %}warn{% endif %}">{{ Audience(m.audience_type).label }}</span></div>
+<h3><a href="{{ R.RESOURCE.url(rid=m.id) }}">{{ m.title }}</a></h3><p class="muted">{{ m.body }}</p></article>
 {% endfor %}</div>
 {% endblock %}

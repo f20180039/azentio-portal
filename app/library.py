@@ -2,6 +2,7 @@
 import time
 
 from . import audit
+from .constants import LibraryVerdict, Route, parse
 from .auth import Ctx
 from .db import tx
 from .learning import notify
@@ -13,7 +14,7 @@ REVIEW_DAYS = 90
 def items(conn, ctx: Ctx):
     require_employee(ctx)
     return conn.execute(
-        "SELECT i.*, u.name AS owner, SUM(f.verdict='accurate') AS accurate, SUM(f.verdict='outdated') AS outdated"
+        f"SELECT i.*, u.name AS owner, SUM(f.verdict='{LibraryVerdict.ACCURATE}') AS accurate, SUM(f.verdict='{LibraryVerdict.OUTDATED}') AS outdated"
         " FROM library_items i JOIN users u ON u.id=i.owner_id LEFT JOIN library_feedback f ON f.item_id=i.id"
         " GROUP BY i.id ORDER BY i.review_by").fetchall()
 
@@ -46,19 +47,20 @@ def mark_reviewed(conn, ctx: Ctx, item_id: int) -> None:
         raise Denied(403, "Only the owner can confirm a review.")
     with tx(conn):
         conn.execute("UPDATE library_items SET review_by=?, updated_at=? WHERE id=?", (time.time() + REVIEW_DAYS * 86400, time.time(), item_id))
-        conn.execute("DELETE FROM library_feedback WHERE item_id=? AND verdict='outdated'", (item_id,))
+        conn.execute(f"DELETE FROM library_feedback WHERE item_id=? AND verdict='{LibraryVerdict.OUTDATED}'", (item_id,))
         audit.record(conn, ctx.user_id, "library.reviewed", f"library:{item_id}")
 
 
-def feedback(conn, ctx: Ctx, item_id: int, verdict: str, comment: str) -> None:
+def feedback(conn, ctx: Ctx, item_id: int, raw_verdict: str, comment: str) -> None:
     item, _ = get(conn, ctx, item_id)
-    if verdict not in ("accurate", "outdated"):
+    verdict = parse(LibraryVerdict, raw_verdict)
+    if verdict is None:
         raise Denied(422, "Choose accurate or outdated.")
-    if verdict == "outdated" and len(comment.strip()) < 5:
+    if verdict == LibraryVerdict.OUTDATED and len(comment.strip()) < 5:
         raise Denied(422, "Say what is out of date so the owner can fix it.")
     with tx(conn):
         conn.execute("INSERT INTO library_feedback (item_id, user_id, verdict, comment, created_at) VALUES (?,?,?,?,?)"
                      " ON CONFLICT(item_id, user_id) DO UPDATE SET verdict=excluded.verdict, comment=excluded.comment, created_at=excluded.created_at",
                      (item_id, ctx.user_id, verdict, comment.strip()[:500], time.time()))
-        if verdict == "outdated" and item["owner_id"] != ctx.user_id:
-            notify(conn, item["owner_id"], f"Someone flagged “{item['title']}” as out of date.", f"/library/{item_id}")
+        if verdict == LibraryVerdict.OUTDATED and item["owner_id"] != ctx.user_id:
+            notify(conn, item["owner_id"], f"Someone flagged “{item['title']}” as out of date.", Route.LIBRARY_ITEM.url(iid=item_id))

@@ -12,7 +12,7 @@
   <div class="field"><label for="confidence">Confidence</label><select id="confidence" name="confidence">{% for c in confidence %}<option {% if o and o.confidence==c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
 </div>
 <fieldset><legend>Who can see this record</legend>
-  <label class="check"><input type="radio" name="visibility" value="private" {% if not o or o.visibility=='private' %}checked{% endif %}> Only me</label>
-  <label class="check"><input type="radio" name="visibility" value="org" {% if o and o.visibility=='org' %}checked{% endif %}> People in {{ ctx.org.name }}</label>
+  <label class="check"><input type="radio" name="visibility" value="private" {% if not o or o.visibility == Visibility.PRIVATE %}checked{% endif %}> Only me</label>
+  <label class="check"><input type="radio" name="visibility" value="org" {% if o and o.visibility == Visibility.ORG %}checked{% endif %}> People in {{ ctx.org.name }}</label>
   <p class="hint">Sharing with other organisations is a separate, moderated step after saving.</p>
 </fieldset>

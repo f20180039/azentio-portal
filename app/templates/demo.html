@@ -1,12 +1,12 @@
 {% extends "base.html" %}{% from "_ui.html" import head %}
 {% block title %}Demo guide · azentio.ai{% endblock %}
 {% block band %}{% call head("Demo guide", "Each step signs you in as the right persona on the server and opens the page to show. Their real permissions apply.", "For judges and presenters") %}
-<form method="post" action="/demo/reset"><button class="btn ghost">Reset demo data</button></form>{% endcall %}{% endblock %}
+<form method="post" action="{{ R.DEMO_RESET }}"><button class="btn ghost">Reset demo data</button></form>{% endcall %}{% endblock %}
 
 {% macro step(email, path, persona, title, show) -%}
 <li class="card demo-step">
   <div class="demo-step-body"><span class="persona">{{ persona }}</span><h3>{{ title }}</h3><p class="muted">{{ show }}</p></div>
-  <form method="post" action="/demo/view-as"><input type="hidden" name="email" value="{{ email }}"><input type="hidden" name="next" value="{{ path }}"><button class="btn small">Open as {{ persona.split(' ·')[0] }}</button></form>
+  <form method="post" action="{{ R.DEMO_VIEW_AS }}"><input type="hidden" name="email" value="{{ email }}"><input type="hidden" name="next" value="{{ path }}"><button class="btn small">Open as {{ persona.split(' ·')[0] }}</button></form>
 </li>
 {%- endmacro %}
 
@@ -16,35 +16,35 @@
 <section>
   <div class="section-title"><h2>1. The brief's scenario: seasonality, end to end</h2><span class="hint">About 5 minutes</span></div>
   <ol class="demo-steps">
-    {{ step("", "/api/v1/shared", "Public visitor", "Private data is closed to the public", "The shared-learning API answers 401 to a visitor. Employee media and client data are not reachable either.") }}
-    {{ step("asha@kestrel.example", "/dashboard", "Asha · Kestrel Bank admin", "A theme stays hidden below three organisations", "Seasonality context has only 2 contributing organisations, so it is not on Asha's dashboard. Its items are not in her search or AIRA either.") }}
-    {{ step("omar@azentio.com", "/moderation/" ~ ids.meridian, "Omar · Moderator", "Moderator redacts and publishes", "Click Publish as is: refused because of the account number. Delete it from the text, keep the theme Seasonality context, publish.") }}
-    {{ step("asha@kestrel.example", "/learning/themes", "Asha · Kestrel Bank admin", "The theme appears, with a small-sample warning", "Now 3 of 3 organisations. Evidence is de-identified: coarse sector and region, no names.") }}
-    {{ step("priya@azentio.com", "/ideas/new?theme=" ~ seasonality, "Priya · Product owner", "Turn the theme into an improvement idea", "Title it 'Seasonality-aware comparison explanation', status Under review. Contributors are notified.") }}
-    {{ step("asha@kestrel.example", "/learning/ideas", "Asha · Kestrel Bank admin", "Clients see status, not internal detail", "Status and the public note are visible; the internal problem statement is not. Check Updates for the notification.") }}
-    {{ step("sam@northwind.example", "/observations/" ~ ids.ramadan, "Sam · Northwind admin", "Withdraw a shared contribution", "Withdraw: it leaves search, theme counts and AIRA in the same transaction.") }}
-    {{ step("ravi@kestrel.example", "/learning/ask", "Ravi · Kestrel Bank member", "Ask AIRA", "Ask about seasonal revenue or statement extraction. Every claim cites approved items; withdrawn ones are gone.") }}
+    {{ step("", R.API_SHARED, "Public visitor", "Private data is closed to the public", "The shared-learning API answers 401 to a visitor. Employee media and client data are not reachable either.") }}
+    {{ step("asha@kestrel.example", R.DASHBOARD, "Asha · Kestrel Bank admin", "A theme stays hidden below three organisations", "Seasonality context has only 2 contributing organisations, so it is not on Asha's dashboard. Its items are not in her search or AIRA either.") }}
+    {{ step("omar@azentio.com", R.MODERATION_REVIEW.url(oid=ids.meridian), "Omar · Moderator", "Moderator redacts and publishes", "Click Publish as is: refused because of the account number. Delete it from the text, keep the theme Seasonality context, publish.") }}
+    {{ step("asha@kestrel.example", R.THEMES, "Asha · Kestrel Bank admin", "The theme appears, with a small-sample warning", "Now 3 of 3 organisations. Evidence is de-identified: coarse sector and region, no names.") }}
+    {{ step("priya@azentio.com", R.IDEA_NEW ~ "?theme=" ~ seasonality, "Priya · Product owner", "Turn the theme into an improvement idea", "Title it 'Seasonality-aware comparison explanation', status Under review. Contributors are notified.") }}
+    {{ step("asha@kestrel.example", R.IDEAS, "Asha · Kestrel Bank admin", "Clients see status, not internal detail", "Status and the public note are visible; the internal problem statement is not. Check Updates for the notification.") }}
+    {{ step("sam@northwind.example", R.OBSERVATION.url(oid=ids.ramadan), "Sam · Northwind admin", "Withdraw a shared contribution", "Withdraw: it leaves search, theme counts and AIRA in the same transaction.") }}
+    {{ step("ravi@kestrel.example", R.ASK, "Ravi · Kestrel Bank member", "Ask AIRA", "Ask about seasonal revenue or statement extraction. Every claim cites approved items; withdrawn ones are gone.") }}
   </ol>
 </section>
 <section>
   <div class="section-title"><h2>3. Playground: entitled sandboxes</h2><span class="hint">About 3 minutes</span></div>
   <ol class="demo-steps">
-    {{ step("asha@kestrel.example", "/playground/financial-analysis-intelligence", "Asha · Kestrel Bank admin", "Seasonal dip or real decline?", "Run it: quarter-on-quarter flags a drop, same-season comparison shows it is seasonal. This is the improvement idea from step 5, working.") }}
-    {{ step("asha@kestrel.example", "/playground/riva", "Asha · Kestrel Bank admin", "Not entitled, not reachable", "Kestrel has no RIVA entitlement, so the sandbox answers 404 even by direct URL.") }}
-    {{ step("sam@northwind.example", "/playground/riva", "Sam · Northwind admin", "Validate a regulatory return", "Clear one line and run: validation flags the blank line and the subtotal mismatch. Rate the run.") }}
-    {{ step("priya@azentio.com", "/playground/feedback", "Priya · Product owner", "Feedback without identities", "Ratings and comments per sandbox, with no names or organisations.") }}
+    {{ step("asha@kestrel.example", R.PLAYGROUND_SCENARIO.url(slug="financial-analysis-intelligence"), "Asha · Kestrel Bank admin", "Seasonal dip or real decline?", "Run it: quarter-on-quarter flags a drop, same-season comparison shows it is seasonal. This is the improvement idea from step 5, working.") }}
+    {{ step("asha@kestrel.example", R.PLAYGROUND_SCENARIO.url(slug="riva"), "Asha · Kestrel Bank admin", "Not entitled, not reachable", "Kestrel has no RIVA entitlement, so the sandbox answers 404 even by direct URL.") }}
+    {{ step("sam@northwind.example", R.PLAYGROUND_SCENARIO.url(slug="riva"), "Sam · Northwind admin", "Validate a regulatory return", "Clear one line and run: validation flags the blank line and the subtotal mismatch. Rate the run.") }}
+    {{ step("priya@azentio.com", R.PLAYGROUND_FEEDBACK, "Priya · Product owner", "Feedback without identities", "Ratings and comments per sandbox, with no names or organisations.") }}
   </ol>
 </section>
 <section>
   <div class="section-title"><h2>2. Identity and access tour</h2><span class="hint">About 4 minutes</span></div>
   <ol class="demo-steps">
-    {{ step("dev@azentio.com", "/access", "Dev · Employee", "Employee status implies nothing extra", "Moderation, publishing and administration all say No: each is a separate grant.") }}
-    {{ step("newhire@azentio.com", "/access", "Nisha · New joiner", "A work email alone grants nothing", "No workspace until an administrator approves her request.") }}
-    {{ step("admin@azentio.com", "/admin", "Arjun · Portal admin", "Approve, grant, entitle, ask for support access", "Approve Nisha (employee only). Toggle a grant or an entitlement. Request support access to Kestrel Bank with a reason.") }}
-    {{ step("asha@kestrel.example", "/org/members", "Asha · Kestrel Bank admin", "The client approves support access", "Approve for 30 minutes. Also change Ravi's role; the last admin cannot be removed.") }}
-    {{ step("admin@azentio.com", "/admin", "Arjun · Portal admin", "Time-boxed, audited support view", "Open records: only records shared inside Kestrel, never private drafts. Then open the Audit log: every read and change is chained.") }}
-    {{ step("lena@azentio.com", "/content", "Lena · Content publisher", "Publisher controls media audiences", "Change who can open a video. Pages, API and media files all follow it immediately.") }}
-    {{ step("jay@consult.example", "/workspace", "Jay · Two organisations", "Explicit active workspace", "Pick Northwind or Meridian; everything is scoped to the one chosen.") }}
+    {{ step("dev@azentio.com", R.ACCESS, "Dev · Employee", "Employee status implies nothing extra", "Moderation, publishing and administration all say No: each is a separate grant.") }}
+    {{ step("newhire@azentio.com", R.ACCESS, "Nisha · New joiner", "A work email alone grants nothing", "No workspace until an administrator approves her request.") }}
+    {{ step("admin@azentio.com", R.ADMIN, "Arjun · Portal admin", "Approve, grant, entitle, ask for support access", "Approve Nisha (employee only). Toggle a grant or an entitlement. Request support access to Kestrel Bank with a reason.") }}
+    {{ step("asha@kestrel.example", R.ORG_MEMBERS, "Asha · Kestrel Bank admin", "The client approves support access", "Approve for 30 minutes. Also change Ravi's role; the last admin cannot be removed.") }}
+    {{ step("admin@azentio.com", R.ADMIN, "Arjun · Portal admin", "Time-boxed, audited support view", "Open records: only records shared inside Kestrel, never private drafts. Then open the Audit log: every read and change is chained.") }}
+    {{ step("lena@azentio.com", R.CONTENT, "Lena · Content publisher", "Publisher controls media audiences", "Change who can open a video. Pages, API and media files all follow it immediately.") }}
+    {{ step("jay@consult.example", R.WORKSPACE, "Jay · Two organisations", "Explicit active workspace", "Pick Northwind or Meridian; everything is scoped to the one chosen.") }}
   </ol>
 </section>
 </div>
@@ -53,11 +53,11 @@
     <h2>Try to break it</h2>
     <p class="muted">Open these while viewing as Asha (Kestrel Bank). Each should be refused.</p>
     <ul class="ticks">
-      <li><a href="/api/v1/resources/3" target="_blank" rel="noopener">Employee-only note</a> → 404</li>
-      <li><a href="/media/4" target="_blank" rel="noopener">Employee recording</a> → 404</li>
-      <li><a href="/api/v1/resources/7" target="_blank" rel="noopener">RIVA demo (not entitled)</a> → 404</li>
-      <li><a href="/api/v1/moderation/queue" target="_blank" rel="noopener">Moderation queue</a> → 403</li>
-      <li><a href="/admin" target="_blank" rel="noopener">Admin console</a> → 403</li>
+      <li><a href="{{ R.API_RESOURCE.url(rid=3) }}" target="_blank" rel="noopener">Employee-only note</a> → 404</li>
+      <li><a href="{{ R.MEDIA_FILE.url(rid=4) }}" target="_blank" rel="noopener">Employee recording</a> → 404</li>
+      <li><a href="{{ R.API_RESOURCE.url(rid=7) }}" target="_blank" rel="noopener">RIVA demo (not entitled)</a> → 404</li>
+      <li><a href="{{ R.API_MODERATION_QUEUE }}" target="_blank" rel="noopener">Moderation queue</a> → 403</li>
+      <li><a href="{{ R.ADMIN }}" target="_blank" rel="noopener">Admin console</a> → 403</li>
     </ul>
   </div>
   <div class="card">

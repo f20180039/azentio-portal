@@ -2,7 +2,7 @@
 {% block band %}{{ head("Good to see you, " ~ ctx.user.name.split()[0], "Internal work, approved themes and the ideas they feed.", "Azentio employee workspace") }}{% endblock %}
 {% block content %}
 <div class="kpis">
-  {% if queue is not none %}<a class="card kpi stripe {{ 'warn' if queue else 'ok' }}" href="/moderation" style="text-decoration:none;color:inherit"><span class="muted">Awaiting moderation</span><b>{{ queue }}</b></a>{% endif %}
+  {% if queue is not none %}<a class="card kpi stripe {{ 'warn' if queue else 'ok' }}" href="{{ R.MODERATION }}" style="text-decoration:none;color:inherit"><span class="muted">Awaiting moderation</span><b>{{ queue }}</b></a>{% endif %}
   <div class="card kpi"><span class="muted">Approved themes</span><b>{{ themes|selectattr('meets_cohort')|list|length }}</b></div>
   <div class="card kpi"><span class="muted">Improvement ideas</span><b>{{ ideas|length }}</b></div>
 </div>
@@ -11,19 +11,19 @@
   <h2>Themes from shared learning</h2>
   <div class="stack">{% for t in themes %}
   <div class="card stripe {{ 'ok' if t.meets_cohort else 'warn' }}">
-    <h3><a href="/learning/themes/{{ t.id }}">{{ t.name }}</a></h3>
+    <h3><a href="{{ R.THEME.url(tid=t.id) }}">{{ t.name }}</a></h3>
     <div class="row">{{ cohort(t.organisations, min_cohort) }}<span class="meta" style="margin:0"><span>{{ t.contributions }} contributions</span><span>updated {{ t.updated_at|ago }}</span></span></div>
     {% if not t.meets_cohort %}<p class="hint">Below the cohort minimum: hidden from clients.</p>{% endif %}
-    {% if ctx.has('product_owner') and t.meets_cohort %}<a class="btn small ghost" href="/ideas/new?theme={{ t.id }}">Create improvement idea</a>{% endif %}
+    {% if ctx.has(Permission.PRODUCT_OWNER) and t.meets_cohort %}<a class="btn small ghost" href="{{ R.IDEA_NEW }}?theme={{ t.id }}">Create improvement idea</a>{% endif %}
   </div>{% endfor %}</div>
   <h2 style="margin-top:28px">Ideas</h2>
   <div class="stack">{% for i in ideas %}<div class="card"><div class="row"><span class="pill {{ i.status }}">{{ i.status }}</span><b>{{ i.title }}</b></div><div class="meta"><span>{{ i.owner_team }}</span><span>{{ i.updated_at|ago }}</span></div></div>{% else %}<p class="muted">No ideas yet.</p>{% endfor %}</div>
 </section>
 <aside class="stack">
-  <div class="card"><h3>Quick links</h3><div class="row"><a class="btn small" href="/playground">Playground</a><a class="btn small ghost" href="/learning">Shared learning</a><a class="btn small ghost" href="/learning/ask">Ask AIRA</a></div></div>
+  <div class="card"><h3>Quick links</h3><div class="row"><a class="btn small" href="{{ R.PLAYGROUND }}">Playground</a><a class="btn small ghost" href="{{ R.LEARNING }}">Shared learning</a><a class="btn small ghost" href="{{ R.ASK }}">Ask AIRA</a></div></div>
   <h2>Employee-only</h2>
   <p class="muted">Never shown in public or client search, or in AIRA answers.</p>
-  {% for r in resources %}<div class="card"><span class="pill warn">Employees only</span> <span class="pill">{{ r.kind|capitalize }}</span><p style="margin:8px 0 0"><a href="/resources/{{ r.id }}">{{ r.title }}</a></p></div>{% endfor %}
+  {% for r in resources %}<div class="card"><span class="pill warn">Employees only</span> <span class="pill">{{ r.kind|capitalize }}</span><p style="margin:8px 0 0"><a href="{{ R.RESOURCE.url(rid=r.id) }}">{{ r.title }}</a></p></div>{% endfor %}
   <div class="card"><h3>Your grants</h3><p class="mono">{{ ctx.grants|join(', ') or 'none (employee access only)' }}</p></div>
 </aside>
 </div>

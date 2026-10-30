@@ -14,23 +14,23 @@
 {% set path = request.url.path %}
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="/" aria-label="azentio.ai home"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#3ecf8e" stroke-width="2"/><circle cx="13" cy="13" r="4" fill="#3ecf8e"/><circle cx="21" cy="6" r="2.4" fill="#5aa9e6"/></svg><span>azent<span class="g">i</span>o<span class="g">.ai</span></span></a>
+    <a class="brand" href="{{ R.HOME }}" aria-label="azentio.ai home"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#3ecf8e" stroke-width="2"/><circle cx="13" cy="13" r="4" fill="#3ecf8e"/><circle cx="21" cy="6" r="2.4" fill="#5aa9e6"/></svg><span>azent<span class="g">i</span>o<span class="g">.ai</span></span></a>
     <nav class="nav" aria-label="Site">
-      <a href="/products" {% if path.startswith('/products') %}aria-current="page"{% endif %}>Products</a>
+      <a href="{{ R.PRODUCTS }}" {% if path.startswith(R.PRODUCTS) %}aria-current="page"{% endif %}>Products</a>
       <div class="menu">
-        <button type="button" class="menu-btn" aria-haspopup="true" {% if path.startswith('/media') or path.startswith('/live') %}aria-current="page"{% endif %}>Explore <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <button type="button" class="menu-btn" aria-haspopup="true" {% if path.startswith(R.MEDIA) or path.startswith(R.LIVE) %}aria-current="page"{% endif %}>Explore <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         <div class="menu-panel">
-          <a href="/media"><b>Media &amp; insights</b><span>Videos, demos and perspectives</span></a>
-          <a href="/live"><b>Live sessions</b><span>Webinars, demo days and recordings</span></a>
+          <a href="{{ R.MEDIA }}"><b>Media &amp; insights</b><span>Videos, demos and perspectives</span></a>
+          <a href="{{ R.LIVE }}"><b>Live sessions</b><span>Webinars, demo days and recordings</span></a>
         </div>
       </div>
-      <a href="/about" {% if path.startswith('/about') %}aria-current="page"{% endif %}>About</a>
-      <a href="/hackathon/register" {% if path.startswith('/hackathon') %}aria-current="page"{% endif %}>Hackathons</a>
-      {% if demo_mailbox %}<a href="/demo" class="demo-link" {% if path == '/demo' %}aria-current="page"{% endif %}>Demo guide</a>{% endif %}
+      <a href="{{ R.ABOUT }}" {% if path.startswith(R.ABOUT) %}aria-current="page"{% endif %}>About</a>
+      <a href="{{ R.HACKATHON }}" {% if path.startswith(R.HACKATHON) %}aria-current="page"{% endif %}>Hackathons</a>
+      {% if demo_mailbox %}<a href="{{ R.DEMO }}" class="demo-link" {% if path == R.DEMO %}aria-current="page"{% endif %}>Demo guide</a>{% endif %}
     </nav>
     <div class="who">
       {% if demo_mailbox %}
-      <form method="post" action="/demo/view-as" class="viewas" title="Demo only: signs you in as this persona on the server; their real permissions apply">
+      <form method="post" action="{{ R.DEMO_VIEW_AS }}" class="viewas" title="Demo only: signs you in as this persona on the server; their real permissions apply">
         <label for="viewas">View as</label>
         <select id="viewas" name="email" onchange="this.form.submit()">
           <option value="" {% if not ctx.signed_in %}selected{% endif %}>Public visitor</option>
@@ -42,10 +42,10 @@
       {% endif %}
       {% if ctx.signed_in %}
         {% if not demo_mailbox %}<span>{{ ctx.user.email }}</span>{% endif %}
-        <form class="inline" method="post" action="/signout"><button class="btn small ghost">Sign out</button></form>
+        <form class="inline" method="post" action="{{ R.SIGNOUT }}"><button class="btn small ghost">Sign out</button></form>
       {% else %}
-        <a class="btn ghost small" href="/signin">Sign in</a>
-        <a class="btn small bright" href="/connect">Request a demo</a>
+        <a class="btn ghost small" href="{{ R.SIGNIN }}">Sign in</a>
+        <a class="btn small bright" href="{{ R.CONNECT }}">Request a demo</a>
       {% endif %}
     </div>
   </div>
@@ -54,21 +54,21 @@
 <nav class="workbar" aria-label="Workspace"><div class="wrap">
   {% if ctx.org %}<span class="org" title="Active workspace"><i></i>{{ ctx.org.name }} <span class="pill">{{ ctx.role }}</span></span>{% endif %}
   {% if ctx.org %}
-    {% set links = [('/dashboard','Dashboard')] %}
-    {% set links = links + [('/playground','Playground')] %}
-    {% if ctx.is_employee %}{% set links = links + [('/library','Library')] %}{% endif %}
-    {% if ctx.is_client %}{% set links = links + [('/observations','Observations')] %}{% endif %}
-    {% set links = links + [('/learning','Shared learning'),('/learning/ask','Ask AIRA')] %}
-    {% if ctx.has('moderate') %}{% set links = links + [('/moderation','Moderation')] %}{% endif %}
-    {% if ctx.is_client_admin %}{% set links = links + [('/org/members','Members')] %}{% endif %}
-    {% if ctx.has('publish_content') %}{% set links = links + [('/content','Site content')] %}{% endif %}
-    {% if ctx.has('portal_admin') %}{% set links = links + [('/admin','Admin console')] %}{% endif %}
-    {% for href, label in links %}<a href="{{ href }}" {% if path == href or (href != '/dashboard' and path.startswith(href ~ '/') and not (href == '/learning' and path.startswith('/learning/ask'))) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    {% set links = [(R.DASHBOARD,'Dashboard')] %}
+    {% set links = links + [(R.PLAYGROUND,'Playground')] %}
+    {% if ctx.is_employee %}{% set links = links + [(R.LIBRARY,'Library')] %}{% endif %}
+    {% if ctx.is_client %}{% set links = links + [(R.OBSERVATIONS,'Observations')] %}{% endif %}
+    {% set links = links + [(R.LEARNING,'Shared learning'),(R.ASK,'Ask AIRA')] %}
+    {% if ctx.has(Permission.MODERATE) %}{% set links = links + [(R.MODERATION,'Moderation')] %}{% endif %}
+    {% if ctx.is_client_admin %}{% set links = links + [(R.ORG_MEMBERS,'Members')] %}{% endif %}
+    {% if ctx.has(Permission.PUBLISH_CONTENT) %}{% set links = links + [(R.CONTENT,'Site content')] %}{% endif %}
+    {% if ctx.has(Permission.PORTAL_ADMIN) %}{% set links = links + [(R.ADMIN,'Admin console')] %}{% endif %}
+    {% for href, label in links %}<a href="{{ href }}" {% if path == href or (href != R.DASHBOARD and path.startswith(href ~ '/') and not (href == R.LEARNING and path.startswith(R.ASK))) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
   {% else %}<span class="muted">No active workspace</span>{% endif %}
-  <a href="/access" {% if path == '/access' %}aria-current="page"{% endif %}>My access</a>
+  <a href="{{ R.ACCESS }}" {% if path == R.ACCESS %}aria-current="page"{% endif %}>My access</a>
   <span class="spacer"></span>
-  {% if ctx.memberships|length > 1 %}<a href="/workspace">Switch workspace</a>{% endif %}
-  <a class="bell" href="/notifications">Updates{% if unread %}<b>{{ unread }}</b>{% endif %}</a>
+  {% if ctx.memberships|length > 1 %}<a href="{{ R.WORKSPACE }}">Switch workspace</a>{% endif %}
+  <a class="bell" href="{{ R.NOTIFICATIONS }}">Updates{% if unread %}<b>{{ unread }}</b>{% endif %}</a>
 </div></nav>
 {% endif %}
 {% block banner %}{% endblock %}
@@ -79,7 +79,7 @@
 </main>
 <footer class="foot"><div class="wrap">
   <span>azentio.ai hackathon build. Synthetic data only; every organisation shown is fictional.</span>
-  <span class="row"><a href="/about">How shared learning works</a><a href="/api/docs">API reference</a></span>
+  <span class="row"><a href="{{ R.ABOUT }}">How shared learning works</a><a href="{{ R.API_DOCS }}">API reference</a></span>
 </div></footer>
 </body>
 </html>

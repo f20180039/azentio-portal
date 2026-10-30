@@ -3,17 +3,17 @@
 {% block content %}
 <section><h2>Awaiting review</h2>
 {% if queue %}<div class="scroll card"><table><tr><th>Contribution</th><th>Offering</th><th>From</th><th>Scan</th><th>Waiting</th></tr>
-{% for q in queue %}<tr><td><a href="/moderation/{{ q.id }}">{{ q.title }}</a></td><td>{{ offering_names[q.offering] }}</td><td>{{ q.industry }} · {{ q.region }}</td><td>{% if q.sensitive_flags %}<span class="pill warn">{{ q.sensitive_flags }}</span>{% else %}<span class="muted">nothing flagged</span>{% endif %}</td><td>{{ q.updated_at|ago }}</td></tr>{% endfor %}
+{% for q in queue %}<tr><td><a href="{{ R.MODERATION_REVIEW.url(oid=q.id) }}">{{ q.title }}</a></td><td>{{ offering_names[q.offering] }}</td><td>{{ q.industry }} · {{ q.region }}</td><td>{% if q.sensitive_flags %}<span class="pill warn">{{ q.sensitive_flags }}</span>{% else %}<span class="muted">nothing flagged</span>{% endif %}</td><td>{{ q.updated_at|ago }}</td></tr>{% endfor %}
 </table></div>{% else %}<p class="muted">The queue is empty.</p>{% endif %}</section>
 <section><h2>Open reports</h2>
 {% for r in reports %}<div class="card stripe warn stack">
   <div class="row"><span class="cite">S{{ r.shared_id }}</span><b>{{ r.title }}</b><span class="pill {{ r.item_status }}">{{ r.item_status }}</span></div>
   <p style="margin:0">Reason: {{ r.reason }}</p>
   <div class="row">
-  {% if r.item_status=='published' %}<form method="post" action="/moderation/shared/{{ r.shared_id }}/suspend" class="inline"><button class="btn small ghost">Unpublish while reviewing</button></form>{% endif %}
-  <form method="post" action="/moderation/reports/{{ r.id }}" class="row" style="flex:1">
+  {% if r.item_status == SharedStatus.PUBLISHED %}<form method="post" action="{{ R.MODERATION_SUSPEND.url(sid=r.shared_id) }}" class="inline"><button class="btn small ghost">Unpublish while reviewing</button></form>{% endif %}
+  <form method="post" action="{{ R.MODERATION_REPORT.url(rid=r.id) }}" class="row" style="flex:1">
     <input type="text" name="decision" required minlength="3" maxlength="500" placeholder="Decision note for the contributor" style="flex:1;min-width:200px" aria-label="Decision note">
-    <button class="btn small danger" name="action" value="uphold">Uphold and remove</button><button class="btn small" name="action" value="dismiss">Dismiss</button></form>
+    <button class="btn small danger" name="action" value="{{ Action.UPHOLD }}">Uphold and remove</button><button class="btn small" name="action" value="{{ Action.DISMISS }}">Dismiss</button></form>
   </div></div>
 {% else %}<p class="muted">No open reports.</p>{% endfor %}</section>
 {% endblock %}

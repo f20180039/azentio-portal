@@ -4,17 +4,20 @@ import re
 import time
 
 from . import audit
+from .constants import (Route, Category, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
+                        ShareState, SharedStatus, Visibility)
 from .auth import Ctx
 from .db import tx
 from .policy import (Denied, can_edit_observation, can_view_observation, require_client, require_grant, require_participant,
                      require_signed_in, via_support, MODERATOR_VISIBLE)
 
-CATEGORIES = ["Market observation", "Emerging trend", "Product gap", "Operational challenge", "Successful practice", "Improvement suggestion"]
-EVIDENCE_TYPES = ["Portfolio data (aggregated)", "Customer feedback", "Internal review", "Regulatory change", "Market report"]
-CONFIDENCE = ["Low", "Medium", "High"]
+CATEGORIES = list(Category)
+EVIDENCE_TYPES = list(EvidenceType)
+CONFIDENCE = list(Confidence)
 # shared copies carry a coarse sector, never the organisation's own industry label
-SECTORS = ["Banking", "Lending", "Insurance", "Financial services"]
-SECTOR_OF = {"Retail & SME banking": "Banking", "Cooperative banking": "Banking", "Non-bank lender": "Lending", "Microfinance": "Lending"}
+SECTORS = list(Sector)
+SECTOR_OF = {"Retail & SME banking": Sector.BANKING, "Cooperative banking": Sector.BANKING, "Non-bank lender": Sector.LENDING,
+             "Microfinance": Sector.LENDING}
 LIMITS = {"title": (5, 120), "body": (20, 2000), "topic": (2, 60), "period": (4, 40)}
 
 SENSITIVE_PATTERNS = [
@@ -55,7 +58,7 @@ def validate(fields: dict) -> dict:
         errors.append("choose a confidence level")
     if errors:
         raise Denied(422, "; ".join(errors).capitalize() + ".")
-    clean["visibility"] = "org" if fields.get("visibility") == "org" else "private"
+    clean["visibility"] = Visibility.ORG if fields.get("visibility") == Visibility.ORG else Visibility.PRIVATE
     return clean
 
 
@@ -66,7 +69,7 @@ def notify(conn, user_id: int, text: str, link: str | None = None) -> None:
 def notify_moderators(conn, text: str, link: str) -> None:
     for row in conn.execute(
         "SELECT g.user_id FROM grants g JOIN memberships m ON m.user_id=g.user_id JOIN orgs o ON o.id=m.org_id "
-        "WHERE g.permission='moderate' AND o.kind='azentio' AND m.status='active'"
+        f"WHERE g.permission='{Permission.MODERATE}' AND o.kind='{OrgKind.AZENTIO}' AND m.status='{MembershipStatus.ACTIVE}'"
     ).fetchall():
         notify(conn, row["user_id"], text, link)
 
@@ -76,7 +79,7 @@ def get_observation(conn, ctx: Ctx, obs_id: int):
     obs = conn.execute("SELECT * FROM observations WHERE id=?", (obs_id,)).fetchone()
     if not obs or not can_view_observation(ctx, obs):
         raise Denied(404, "Observation not found.")
-    if via_support(ctx, obs) and not (ctx.has("moderate") and obs["share_state"] in MODERATOR_VISIBLE):
+    if via_support(ctx, obs) and not (ctx.has(Permission.MODERATE) and obs["share_state"] in MODERATOR_VISIBLE):
         with tx(conn):
             audit.record(conn, ctx.user_id, "support.read", f"observation:{obs_id}", {"org": obs["org_id"]})
     return obs
@@ -111,11 +114,11 @@ def create_observation(conn, ctx: Ctx, fields: dict) -> int:
 
 def update_observation(conn, ctx: Ctx, obs_id: int, fields: dict) -> None:
     obs = _editable(conn, ctx, obs_id)
-    if obs["share_state"] in ("submitted", "suspended"):
+    if obs["share_state"] in (ShareState.SUBMITTED, ShareState.SUSPENDED):
         raise Denied(409, "This observation is with a moderator. Wait for the review or withdraw it first.")
     clean = validate(fields)
     # a material edit to a published contribution needs a fresh review; the live copy stays until a moderator approves
-    new_state = "submitted" if obs["share_state"] == "published" else obs["share_state"]
+    new_state = ShareState.SUBMITTED if obs["share_state"] == ShareState.PUBLISHED else obs["share_state"]
     with tx(conn):
         conn.execute(
             "UPDATE observations SET category=?, offering=?, topic=?, title=?, body=?, period=?, evidence_type=?, confidence=?,"
@@ -125,25 +128,25 @@ def update_observation(conn, ctx: Ctx, obs_id: int, fields: dict) -> None:
              ", ".join(scan_sensitive(clean["title"], clean["body"])), new_state, time.time(), obs_id),
         )
         audit.record(conn, ctx.user_id, "observation.updated", f"observation:{obs_id}", {"share_state": new_state})
-        if new_state == "submitted":
-            notify_moderators(conn, "An edited published contribution needs a fresh review.", f"/moderation/{obs_id}")
+        if new_state == ShareState.SUBMITTED:
+            notify_moderators(conn, "An edited published contribution needs a fresh review.", Route.MODERATION_REVIEW.url(oid=obs_id))
 
 
 def propose_share(conn, ctx: Ctx, obs_id: int, consent_publish: bool, consent_attribution: bool, consent_training: bool) -> None:
     obs = _editable(conn, ctx, obs_id)
-    if obs["share_state"] not in ("none", "returned", "withdrawn", "rejected"):
+    if obs["share_state"] not in (ShareState.NONE, ShareState.RETURNED, ShareState.WITHDRAWN, ShareState.REJECTED):
         raise Denied(409, f"This observation is already {obs['share_state']}.")
     if not consent_publish:
         raise Denied(422, "Tick the publishing consent to propose a shared version.")
     with tx(conn):
         conn.execute(
-            "UPDATE observations SET share_state='submitted', consent_publish=1, consent_attribution=?, consent_training=?,"
+            f"UPDATE observations SET share_state='{ShareState.SUBMITTED}', consent_publish=1, consent_attribution=?, consent_training=?,"
             " updated_at=? WHERE id=?",
             (int(consent_attribution), int(consent_training), time.time(), obs_id),
         )
         audit.record(conn, ctx.user_id, "observation.share_proposed", f"observation:{obs_id}",
                      {"attribution": consent_attribution, "training": consent_training})
-        notify_moderators(conn, "A contribution was proposed for shared learning.", f"/moderation/{obs_id}")
+        notify_moderators(conn, "A contribution was proposed for shared learning.", Route.MODERATION_REVIEW.url(oid=obs_id))
 
 
 def _unindex(conn, shared_ids: list[int]) -> None:
@@ -156,12 +159,12 @@ def withdraw(conn, ctx: Ctx, obs_id: int) -> int:
     obs = _editable(conn, ctx, obs_id)
     with tx(conn):
         live = [r["id"] for r in conn.execute(
-            "SELECT id FROM shared_items WHERE observation_id=? AND status IN ('published','suspended')", (obs_id,))]
-        if not live and obs["share_state"] in ("none", "withdrawn"):
+            f"SELECT id FROM shared_items WHERE observation_id=? AND status IN ('{SharedStatus.PUBLISHED}','{SharedStatus.SUSPENDED}')", (obs_id,))]
+        if not live and obs["share_state"] in (ShareState.NONE, ShareState.WITHDRAWN):
             raise Denied(409, "Nothing is shared to withdraw.")
-        conn.execute("UPDATE shared_items SET status='withdrawn' WHERE observation_id=? AND status IN ('published','suspended')", (obs_id,))
+        conn.execute(f"UPDATE shared_items SET status='{SharedStatus.WITHDRAWN}' WHERE observation_id=? AND status IN ('{SharedStatus.PUBLISHED}','{SharedStatus.SUSPENDED}')", (obs_id,))
         _unindex(conn, live)
-        conn.execute("UPDATE observations SET share_state='withdrawn', consent_publish=0, updated_at=? WHERE id=?", (time.time(), obs_id))
+        conn.execute(f"UPDATE observations SET share_state='{ShareState.WITHDRAWN}', consent_publish=0, updated_at=? WHERE id=?", (time.time(), obs_id))
         audit.record(conn, ctx.user_id, "observation.withdrawn", f"observation:{obs_id}", {"shared_items": live})
     return len(live)
 
@@ -169,25 +172,25 @@ def withdraw(conn, ctx: Ctx, obs_id: int) -> int:
 # ---- moderation -------------------------------------------------------------------------------------------------
 
 def moderation_queue(conn, ctx: Ctx):
-    require_grant(ctx, "moderate")
+    require_grant(ctx, Permission.MODERATE)
     return conn.execute(
         "SELECT o.id, o.title, o.offering, o.topic, o.sensitive_flags, o.updated_at, o.share_state, g.industry, g.region"
-        " FROM observations o JOIN orgs g ON g.id=o.org_id WHERE o.share_state IN ('submitted') ORDER BY o.updated_at"
+        f" FROM observations o JOIN orgs g ON g.id=o.org_id WHERE o.share_state IN ('{ShareState.SUBMITTED}') ORDER BY o.updated_at"
     ).fetchall()
 
 
 def open_reports(conn, ctx: Ctx):
-    require_grant(ctx, "moderate")
+    require_grant(ctx, Permission.MODERATE)
     return conn.execute(
         "SELECT r.*, s.title, s.status AS item_status FROM reports r JOIN shared_items s ON s.id=r.shared_id"
-        " WHERE r.status='open' ORDER BY r.created_at"
+        f" WHERE r.status='{ReportStatus.OPEN}' ORDER BY r.created_at"
     ).fetchall()
 
 
 def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
-    require_grant(ctx, "moderate")
+    require_grant(ctx, Permission.MODERATE)
     obs = conn.execute("SELECT * FROM observations WHERE id=?", (obs_id,)).fetchone()
-    if not obs or obs["share_state"] != "submitted":
+    if not obs or obs["share_state"] != ShareState.SUBMITTED:
         raise Denied(409, "Only submitted contributions can be published.")
     title = (edits.get("title") or "").strip()
     body = (edits.get("body") or "").strip()
@@ -205,16 +208,16 @@ def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
     now = time.time()
     with tx(conn):
         previous = [r["id"] for r in conn.execute(
-            "SELECT id FROM shared_items WHERE observation_id=? AND status IN ('published','suspended')", (obs_id,))]
+            f"SELECT id FROM shared_items WHERE observation_id=? AND status IN ('{SharedStatus.PUBLISHED}','{SharedStatus.SUSPENDED}')", (obs_id,))]
         version = (conn.execute("SELECT COALESCE(MAX(version),0) v FROM shared_items WHERE observation_id=?", (obs_id,)).fetchone()["v"]) + 1
         for old in previous:
-            conn.execute("UPDATE shared_items SET status='superseded' WHERE id=?", (old,))
+            conn.execute(f"UPDATE shared_items SET status='{SharedStatus.SUPERSEDED}' WHERE id=?", (old,))
         _unindex(conn, previous)
         sid = conn.execute(
             "INSERT INTO shared_items (observation_id, version, title, body, offering, topic, period, evidence_type, confidence,"
-            " industry, region, attribution, status, published_at, moderator_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'published', ?, ?)",
+            " industry, region, attribution, status, published_at, moderator_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, ?, ?, ?)",
             (obs_id, version, title, body, obs["offering"], (edits.get("topic") or obs["topic"]).strip(), (edits.get("period") or obs["period"]).strip(),
-             obs["evidence_type"], obs["confidence"], sector, region, attribution, now, ctx.user_id),
+             obs["evidence_type"], obs["confidence"], sector, region, attribution, SharedStatus.PUBLISHED, now, ctx.user_id),
         ).lastrowid
         conn.execute("INSERT INTO shared_fts (rowid, title, body, topic) VALUES (?,?,?,?)", (sid, title, body, edits.get("topic") or obs["topic"]))
         theme_id = _theme_for(conn, edits, obs, now)
@@ -223,10 +226,10 @@ def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
             for old in previous:
                 conn.execute("DELETE FROM theme_items WHERE shared_id=?", (old,))
             conn.execute("UPDATE themes SET updated_at=? WHERE id=?", (now, theme_id))
-        conn.execute("UPDATE observations SET share_state='published', moderator_note=NULL, updated_at=? WHERE id=?", (now, obs_id))
+        conn.execute(f"UPDATE observations SET share_state='{ShareState.PUBLISHED}', moderator_note=NULL, updated_at=? WHERE id=?", (now, obs_id))
         audit.record(conn, ctx.user_id, "moderation.published", f"observation:{obs_id}",
                      {"shared_item": sid, "version": version, "theme": theme_id, "attributed": attribution is not None})
-        notify(conn, obs["author_id"], f"Your contribution “{obs['title']}” was published to shared learning (version {version}).", f"/observations/{obs_id}")
+        notify(conn, obs["author_id"], f"Your contribution “{obs['title']}” was published to shared learning (version {version}).", Route.OBSERVATION.url(oid=obs_id))
     return sid
 
 
@@ -246,24 +249,24 @@ def _theme_for(conn, edits: dict, obs, now: float):
 
 
 def return_for_clarification(conn, ctx: Ctx, obs_id: int, note: str, reject: bool = False) -> None:
-    require_grant(ctx, "moderate")
+    require_grant(ctx, Permission.MODERATE)
     obs = conn.execute("SELECT * FROM observations WHERE id=?", (obs_id,)).fetchone()
-    if not obs or obs["share_state"] != "submitted":
+    if not obs or obs["share_state"] != ShareState.SUBMITTED:
         raise Denied(409, "Only submitted contributions can be returned or rejected.")
     note = note.strip()
     if len(note) < 5:
         raise Denied(422, "Give the contributor a reason (at least 5 characters).")
-    state = "rejected" if reject else "returned"
+    state = ShareState.REJECTED if reject else ShareState.RETURNED
     with tx(conn):
         conn.execute("UPDATE observations SET share_state=?, moderator_note=?, updated_at=? WHERE id=?", (state, note[:500], time.time(), obs_id))
         audit.record(conn, ctx.user_id, f"moderation.{state}", f"observation:{obs_id}", {"note": note[:500]})
         verb = "was not accepted for sharing" if reject else "needs a clarification"
-        notify(conn, obs["author_id"], f"Your contribution “{obs['title']}” {verb}: {note[:200]}", f"/observations/{obs_id}")
+        notify(conn, obs["author_id"], f"Your contribution “{obs['title']}” {verb}: {note[:200]}", Route.OBSERVATION.url(oid=obs_id))
 
 
 def report(conn, ctx: Ctx, shared_id: int, reason: str) -> None:
     require_participant(ctx)
-    item = conn.execute("SELECT * FROM shared_items WHERE id=? AND status='published'", (shared_id,)).fetchone()
+    item = conn.execute(f"SELECT * FROM shared_items WHERE id=? AND status='{SharedStatus.PUBLISHED}'", (shared_id,)).fetchone()
     if not item:
         raise Denied(404, "Shared item not found.")
     if len(reason.strip()) < 5:
@@ -272,48 +275,48 @@ def report(conn, ctx: Ctx, shared_id: int, reason: str) -> None:
         rid = conn.execute("INSERT INTO reports (shared_id, reporter_id, reason, created_at) VALUES (?,?,?,?)",
                            (shared_id, ctx.user_id, reason.strip()[:500], time.time())).lastrowid
         audit.record(conn, ctx.user_id, "shared.reported", f"shared:{shared_id}", {"report": rid})
-        notify_moderators(conn, "A shared contribution was reported.", "/moderation")
+        notify_moderators(conn, "A shared contribution was reported.", Route.MODERATION)
 
 
 def suspend(conn, ctx: Ctx, shared_id: int) -> None:
-    require_grant(ctx, "moderate")
+    require_grant(ctx, Permission.MODERATE)
     with tx(conn):
-        n = conn.execute("UPDATE shared_items SET status='suspended' WHERE id=? AND status='published'", (shared_id,)).rowcount
+        n = conn.execute(f"UPDATE shared_items SET status='{SharedStatus.SUSPENDED}' WHERE id=? AND status='{SharedStatus.PUBLISHED}'", (shared_id,)).rowcount
         if not n:
             raise Denied(409, "Only published items can be suspended.")
         _unindex(conn, [shared_id])
-        conn.execute("UPDATE observations SET share_state='suspended' WHERE share_state='published'"
+        conn.execute(f"UPDATE observations SET share_state='{ShareState.SUSPENDED}' WHERE share_state='{ShareState.PUBLISHED}'"
                      " AND id=(SELECT observation_id FROM shared_items WHERE id=?)", (shared_id,))
         audit.record(conn, ctx.user_id, "moderation.suspended", f"shared:{shared_id}")
 
 
 def decide_report(conn, ctx: Ctx, report_id: int, uphold: bool, decision: str) -> None:
-    require_grant(ctx, "moderate")
-    rep = conn.execute("SELECT * FROM reports WHERE id=? AND status='open'", (report_id,)).fetchone()
+    require_grant(ctx, Permission.MODERATE)
+    rep = conn.execute(f"SELECT * FROM reports WHERE id=? AND status='{ReportStatus.OPEN}'", (report_id,)).fetchone()
     if not rep:
         raise Denied(404, "Report not found.")
     item = conn.execute("SELECT * FROM shared_items WHERE id=?", (rep["shared_id"],)).fetchone()
     obs = conn.execute("SELECT * FROM observations WHERE id=?", (item["observation_id"],)).fetchone()
     with tx(conn):
-        conn.execute("UPDATE reports SET status=?, decision=? WHERE id=?", ("upheld" if uphold else "dismissed", decision.strip()[:500], report_id))
-        live_item = item["status"] in ("published", "suspended")
+        conn.execute("UPDATE reports SET status=?, decision=? WHERE id=?", (ReportStatus.UPHELD if uphold else ReportStatus.DISMISSED, decision.strip()[:500], report_id))
+        live_item = item["status"] in (SharedStatus.PUBLISHED, SharedStatus.SUSPENDED)
         if uphold and live_item:
-            conn.execute("UPDATE shared_items SET status='withdrawn' WHERE id=?", (item["id"],))
+            conn.execute(f"UPDATE shared_items SET status='{SharedStatus.WITHDRAWN}' WHERE id=?", (item["id"],))
             _unindex(conn, [item["id"]])
-            others = conn.execute("SELECT COUNT(*) FROM shared_items WHERE observation_id=? AND status IN ('published','suspended')",
+            others = conn.execute(f"SELECT COUNT(*) FROM shared_items WHERE observation_id=? AND status IN ('{SharedStatus.PUBLISHED}','{SharedStatus.SUSPENDED}')",
                                   (obs["id"],)).fetchone()[0]
-            if not others and obs["share_state"] in ("published", "suspended"):
-                conn.execute("UPDATE observations SET share_state='withdrawn' WHERE id=?", (obs["id"],))
-        elif not uphold and item["status"] == "suspended":
-            conn.execute("UPDATE shared_items SET status='published' WHERE id=?", (item["id"],))
+            if not others and obs["share_state"] in (ShareState.PUBLISHED, ShareState.SUSPENDED):
+                conn.execute(f"UPDATE observations SET share_state='{ShareState.WITHDRAWN}' WHERE id=?", (obs["id"],))
+        elif not uphold and item["status"] == SharedStatus.SUSPENDED:
+            conn.execute(f"UPDATE shared_items SET status='{SharedStatus.PUBLISHED}' WHERE id=?", (item["id"],))
             conn.execute("INSERT INTO shared_fts (rowid, title, body, topic) VALUES (?,?,?,?)", (item["id"], item["title"], item["body"], item["topic"]))
-            conn.execute("UPDATE observations SET share_state='published' WHERE id=? AND share_state='suspended'", (obs["id"],))
+            conn.execute(f"UPDATE observations SET share_state='{ShareState.PUBLISHED}' WHERE id=? AND share_state='{ShareState.SUSPENDED}'", (obs["id"],))
         audit.record(conn, ctx.user_id, "moderation.report_decided", f"report:{report_id}", {"upheld": uphold})
         # the contributor learns the decision, never who reported it
         outcome = "was removed from shared learning" if uphold else "was reviewed and stays published"
         if not live_item:
             outcome = "was reviewed; that version had already been replaced or withdrawn"
-        notify(conn, obs["author_id"], f"A report about “{item['title']}” {outcome}. Moderator note: {decision.strip()[:200]}", f"/observations/{obs['id']}")
+        notify(conn, obs["author_id"], f"A report about “{item['title']}” {outcome}. Moderator note: {decision.strip()[:200]}", Route.OBSERVATION.url(oid=obs["id"]))
 
 
 # ---- shared feed, search and themes --------------------------------------------------------------------------
@@ -322,13 +325,13 @@ SHARED_FIELDS = "s.id, s.version, s.title, s.body, s.offering, s.topic, s.period
 
 
 def is_staff(ctx: Ctx) -> bool:
-    return ctx.has("moderate") or ctx.has("product_owner")
+    return ctx.has(Permission.MODERATE) or ctx.has(Permission.PRODUCT_OWNER)
 
 
 def below_cohort_item_ids(conn) -> set[int]:
     """Published items that belong to a theme with fewer contributing organisations than the cohort minimum."""
     rows = conn.execute(
-        "SELECT ti.theme_id, s.id, o.org_id FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id AND s.status='published'"
+        f"SELECT ti.theme_id, s.id, o.org_id FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id AND s.status='{SharedStatus.PUBLISHED}'"
         " JOIN observations o ON o.id=s.observation_id"
     ).fetchall()
     orgs: dict[int, set] = {}
@@ -343,7 +346,7 @@ def search_shared(conn, ctx: Ctx, q: str = "", offering: str = "", industry: str
     require_participant(ctx)
     sql = f"SELECT {SHARED_FIELDS} FROM shared_items s"
     args: list = []
-    where = ["s.status='published'"]
+    where = [f"s.status='{SharedStatus.PUBLISHED}'"]
     if not is_staff(ctx):
         hidden = below_cohort_item_ids(conn)
         if hidden:
@@ -378,7 +381,7 @@ def themes(conn, ctx: Ctx):
     for t in conn.execute("SELECT * FROM themes ORDER BY updated_at DESC").fetchall():
         rows = conn.execute(
             f"SELECT {SHARED_FIELDS}, o.org_id FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id"
-            " JOIN observations o ON o.id=s.observation_id WHERE ti.theme_id=? AND s.status='published' ORDER BY s.published_at DESC",
+            f" JOIN observations o ON o.id=s.observation_id WHERE ti.theme_id=? AND s.status='{SharedStatus.PUBLISHED}' ORDER BY s.published_at DESC",
             (t["id"],),
         ).fetchall()
         orgs = len({r["org_id"] for r in rows})
@@ -409,7 +412,7 @@ def suppressed_theme_count(conn, ctx: Ctx) -> int:
     for t in conn.execute("SELECT id FROM themes").fetchall():
         orgs = conn.execute(
             "SELECT COUNT(DISTINCT o.org_id) c FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id"
-            " JOIN observations o ON o.id=s.observation_id WHERE ti.theme_id=? AND s.status='published'", (t["id"],)
+            f" JOIN observations o ON o.id=s.observation_id WHERE ti.theme_id=? AND s.status='{SharedStatus.PUBLISHED}'", (t["id"],)
         ).fetchone()["c"]
         if 0 < orgs < min_cohort():
             n += 1
