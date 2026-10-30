@@ -109,15 +109,16 @@ def queue_weekly_digest(conn, ctx: Ctx) -> int:
     week = datetime.now(timezone.utc).strftime("%G-W%V")
     since = time.time() - 7 * 86400
     queued = 0
-    with_new = conn.execute(f"SELECT COUNT(*) FROM shared_items WHERE status='{SharedStatus.PUBLISHED}' AND published_at > ?", (since,)).fetchone()[0]
-    if not with_new:
+    # shared copies carry month-level dates, so "new this week" is decided on the stored time
+    new_ids = {r[0] for r in conn.execute(f"SELECT id FROM shared_items WHERE status='{SharedStatus.PUBLISHED}' AND published_at > ?", (since,))}
+    if not new_ids:
         return 0
     for u in conn.execute(f"SELECT DISTINCT u.id, u.email FROM users u JOIN memberships m ON m.user_id=u.id"
                           f" WHERE m.status='{MembershipStatus.ACTIVE}'").fetchall():
         viewer = load_ctx_for_user(conn, u["id"])
         if viewer.org is None:
             continue
-        items = [i for i in search_shared(conn, viewer, limit=200).items if i["published_at"] > since]
+        items = [i for i in search_shared(conn, viewer, limit=200).items if i["id"] in new_ids]
         if not items:
             continue
         lines = "\n".join(f"- {i['title']} ({i['industry']}, {i['region']})" for i in items[:10])

@@ -102,13 +102,13 @@ def bookmarked_ids(conn, ctx: Ctx) -> set[int]:
 
 def bookmarked_items(conn, ctx: Ctx) -> list[dict]:
     """Withdrawn, suspended or newly hidden items drop out automatically: bookmarks never widen visibility."""
-    from .learning import SHARED_FIELDS
+    from .learning import SHARED_FIELDS, shared_copies
 
     require_participant(ctx)
     hidden = hidden_item_ids(conn, ctx)
     rows = conn.execute(f"SELECT {SHARED_FIELDS} FROM bookmarks b JOIN shared_items s ON s.id=b.shared_id"
                         f" WHERE b.user_id=? AND s.status='{SharedStatus.PUBLISHED}' ORDER BY b.created_at DESC", (ctx.user_id,)).fetchall()
-    return [dict(r) for r in rows if r["id"] not in hidden]
+    return shared_copies(conn, [r for r in rows if r["id"] not in hidden])
 
 
 # ---- saved searches -------------------------------------------------------------------------------------------

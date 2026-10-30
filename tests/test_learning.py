@@ -1,5 +1,5 @@
 """The governed learning lifecycle, including the brief's end-to-end seasonality scenario."""
-from app import audit
+from app import audit, learning
 
 OBS = {"category": "Product gap", "offering": "riva", "topic": "Validation", "title": "Validation rules miss blank totals",
        "body": "Blank subtotal rows pass validation and only fail at the regulator's portal.", "period": "Q3 2026",
@@ -177,12 +177,12 @@ def test_consent_history_is_kept_not_overwritten(login, db):
     assert "Proposed for shared learning" in page and "Sharing withdrawn" in page
 
 
-def test_items_of_below_cohort_themes_stay_out_of_client_search_and_facets(login):
+def test_items_of_below_cohort_themes_stay_out_of_client_search_and_facets(login, db):
     kestrel = login("asha@kestrel.example")
     assert kestrel.get("/api/v1/shared", params={"q": "manual overrides"}).json() == []  # seasonality theme has 2 orgs
     assert login("omar@azentio.com").get("/api/v1/shared", params={"q": "manual overrides"}).json()
     industries = {i["industry"] for i in kestrel.get("/api/v1/shared").json()}
-    assert industries <= {"Banking", "Lending", "Insurance", "Financial services"}
+    assert industries <= {"Banking", "Lending", "Insurance", "Financial services", learning.withheld(db)}  # never the org's own label
 
 
 def test_upholding_a_report_on_a_superseded_version_keeps_the_live_one_withdrawable(login, db):

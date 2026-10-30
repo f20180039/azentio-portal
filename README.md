@@ -271,6 +271,8 @@ stateDiagram-v2
 - **The private source** (`observations`) and **the shared copy** (`shared_items`) are separate tables.
   - The shared copy holds only reviewed fields: title, text, offering, topic, period, evidence type, confidence, a coarse sector (Banking, Lending and so on, never the organisation's own industry label), a coarsened region, and optional opt-in attribution.
   - Shared payloads never contain tenant, author, observation, moderator or scan fields (tested).
+  - **Sector and region are k-anonymous at read time** (`learning.shared_copies`, used by the feed, themes, API, export, AIRA, bookmarks and digests). A (sector, region) pair is shown only when at least `MIN_COHORT` distinct organisations have published items with it; otherwise the region alone, else the sector alone, else "Withheld (fewer than N organisations)". A shown combination that would still cover too few organisations is withheld. The seeded clients each have their own sector and region, so the demo shows both as withheld.
+  - Publication dates on shared copies are rounded to the month.
 - **Consents are recorded separately:** storing (implicit in saving privately), publishing, attribution, and future training. No training programme runs, and nothing is trained.
 - **The sensitive-content scan** flags account and card numbers, emails, PAN- and IBAN-like strings, phone numbers and confidential terms.
   - It is a prompt for the moderator, not a privacy guarantee.
@@ -290,6 +292,7 @@ stateDiagram-v2
 
 ### Aggregation safeguards
 
+- Filter combinations (offering, sector, region, topic, period, and free text when combined with any of them) that narrow results to fewer than `MIN_COHORT` organisations are suppressed for clients. Free-text search on its own is not suppressed.
 - Theme statistics count **distinct organisations**. Repeated posts from one organisation count once.
 - A theme is hidden from clients until `MIN_COHORT` (3) organisations contribute. Its items are also left out of client search, filters and AIRA until then. Moderators and product owners see it earlier, with a warning. Ideas can link only themes that meet the cohort.
 - Themes below `SMALL_SAMPLE` carry a warning that they are an early signal, not prevalence or causation.

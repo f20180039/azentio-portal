@@ -141,13 +141,14 @@ def prioritise(conn, ctx: Ctx, now: float | None = None) -> list[Priority]:
         votes = {r["vote"]: r["n"] for r in conn.execute(f"SELECT vote, COUNT(*) n FROM shared_votes WHERE shared_id IN ({marks}) GROUP BY vote", ids)}
         useful, needs = votes.get(EvidenceVote.USEFUL, 0), votes.get(EvidenceVote.NEEDS_EVIDENCE, 0)
         quality = sum(QUALITY_POINTS.get(i["evidence_quality"], 0.5) for i in t["items"]) / len(t["items"])
-        fresh = max(0.0, 1 - (now - max(i["published_at"] for i in t["items"])) / (90 * 86400))
+        latest = conn.execute(f"SELECT MAX(published_at) FROM shared_items WHERE id IN ({marks})", ids).fetchone()[0]
+        fresh = max(0.0, 1 - (now - latest) / (90 * 86400))
         breadth = min(t["organisations"] / max(floor, 1), 2.0)
         score = round(2 * breadth + 1.5 * quality + 0.5 * (useful - needs) / max(useful + needs, 1) + fresh, 2)
         out.append(Priority(t, score, [
             ("Organisations", f"{t['organisations']} (minimum {floor})"),
             ("Evidence quality", f"{quality:.1f} of 1 on moderator ratings"),
             ("Reader feedback", f"{useful} useful, {needs} needs evidence"),
-            ("Recency", f"latest contribution {int((now - max(i['published_at'] for i in t['items'])) / 86400)} days ago"),
+            ("Recency", f"latest contribution {int((now - latest) / 86400)} days ago"),
         ]))
     return sorted(out, key=lambda p: -p.score)

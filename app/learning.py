@@ -4,6 +4,7 @@ import io
 import re
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from . import audit, outbox, settings
 from .constants import (Setting, Route, Category, ConsentEvent, EvidenceQuality, EvidenceVote, parse, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
@@ -339,6 +340,55 @@ SHARED_FIELDS = ("s.id, s.version, s.title, s.body, s.offering, s.topic, s.perio
                  " s.attribution, s.published_at, s.evidence_quality")
 
 
+def withheld(conn) -> str:
+    return f"Withheld (fewer than {min_cohort(conn)} organisations)"
+
+
+def _shown_attributes(conn) -> dict[tuple[str, str], tuple[str, str]]:
+    """Maps each stored (sector, region) to what may be shown: the pair if enough organisations share it, else region
+    alone, else sector alone, else neither. A shown combination that would still cover too few organisations is withheld."""
+    orgs: dict[tuple[str, str], set] = {}
+    for r in conn.execute(f"SELECT DISTINCT s.industry, s.region, o.org_id FROM shared_items s JOIN observations o ON o.id=s.observation_id"
+                          f" WHERE s.status='{SharedStatus.PUBLISHED}'"):
+        orgs.setdefault((r["industry"], r["region"]), set()).add(r["org_id"])
+    floor, hidden = min_cohort(conn), withheld(conn)
+
+    def covering(industry=None, region=None) -> set:
+        return set().union(*(o for (i, g), o in orgs.items() if industry in (None, i) and region in (None, g)))
+
+    shown = {}
+    for industry, region in orgs:
+        if len(orgs[(industry, region)]) >= floor:
+            shown[(industry, region)] = (industry, region)
+        elif len(covering(region=region)) >= floor:
+            shown[(industry, region)] = (hidden, region)
+        elif len(covering(industry=industry)) >= floor:
+            shown[(industry, region)] = (industry, hidden)
+        else:
+            shown[(industry, region)] = (hidden, hidden)
+    behind: dict[tuple[str, str], set] = {}
+    for key, value in shown.items():
+        behind.setdefault(value, set()).update(orgs[key])
+    return {key: value if len(behind[value]) >= floor else (hidden, hidden) for key, value in shown.items()}
+
+
+def _month(ts: float) -> float:
+    return datetime.fromtimestamp(ts, timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+
+def shared_copies(conn, rows) -> list[dict]:
+    """The shared-copy payload every reader gets: no organisation id, coarsened sector and region, month-level dates."""
+    shown = _shown_attributes(conn)
+    hidden = withheld(conn)
+    out = []
+    for r in rows:
+        item = {k: r[k] for k in r.keys() if k != "org_id"}
+        item["industry"], item["region"] = shown.get((r["industry"], r["region"]), (hidden, hidden))
+        item["published_at"] = _month(r["published_at"])
+        out.append(item)
+    return out
+
+
 def sees_all_themes(ctx: Ctx) -> bool:
     """Moderators curate every theme; product owners see only what is assigned to them on top of what any participant sees."""
     return ctx.has(Permission.MODERATE)
@@ -383,7 +433,8 @@ class FeedFilters:
 
     @property
     def structured(self) -> bool:
-        """Attribute filters can be combined to single out one organisation; free-text search is not counted."""
+        """Attribute filters can be combined to single out one organisation. Free-text search alone is not guarded; combined with
+        a filter it narrows the rows the guard counts."""
         return any((self.offering, self.industry, self.region, self.topic, self.period))
 
 
@@ -423,12 +474,13 @@ def search_shared(conn, ctx: Ctx, filters: FeedFilters = FeedFilters(), limit: i
     # differencing guard: a filter combination drawn from too few organisations could single one out
     if not staff and filters.structured and rows and len({r["org_id"] for r in rows}) < min_cohort(conn):
         return FeedResult(suppressed=True)
-    return FeedResult(items=[{k: r[k] for k in r.keys() if k != "org_id"} for r in rows])
+    return FeedResult(items=shared_copies(conn, rows))
 
 
 def facet_values(conn, ctx: Ctx):
     items = search_shared(conn, ctx, limit=10_000).items
-    return {col: sorted({i[col] for i in items}) for col in ("offering", "industry", "region", "topic")}
+    hidden = withheld(conn)
+    return {col: sorted({i[col] for i in items} - {hidden}) for col in ("offering", "industry", "region", "topic")}
 
 
 EXPORT_COLUMNS = ["id", "version", "title", "body", "offering", "topic", "period", "evidence_type", "confidence", "industry", "region",
@@ -444,7 +496,7 @@ def export_csv(conn, ctx: Ctx, filters: FeedFilters) -> str:
     writer = csv.DictWriter(buf, fieldnames=EXPORT_COLUMNS, extrasaction="ignore")
     writer.writeheader()
     for item in result.items:
-        writer.writerow(item | {"published_at": time.strftime("%Y-%m-%d", time.gmtime(item["published_at"]))})
+        writer.writerow(item | {"published_at": time.strftime("%Y-%m", time.gmtime(item["published_at"]))})
     with tx(conn):
         audit.record(conn, ctx.user_id, "shared.exported", "shared_feed", {"rows": len(result.items), "filters": filters.__dict__})
     return buf.getvalue()
@@ -512,11 +564,12 @@ def similar_published(conn, obs, threshold: float = 0.2, limit: int = 3) -> list
     """Published items whose wording overlaps a submission (Jaccard on content words), for the moderator's duplicate check."""
     terms = _terms(obs["title"] + " " + obs["body"])
     out = []
-    for r in conn.execute(f"SELECT {SHARED_FIELDS} FROM shared_items s WHERE s.status='{SharedStatus.PUBLISHED}' AND s.observation_id<>?", (obs["id"],)):
-        other = _terms(r["title"] + " " + r["body"])
+    rows = conn.execute(f"SELECT {SHARED_FIELDS} FROM shared_items s WHERE s.status='{SharedStatus.PUBLISHED}' AND s.observation_id<>?", (obs["id"],))
+    for item in shared_copies(conn, rows):
+        other = _terms(item["title"] + " " + item["body"])
         score = len(terms & other) / len(terms | other) if terms | other else 0
         if score >= threshold:
-            out.append(dict(r) | {"similarity": round(score, 2)})
+            out.append(item | {"similarity": round(score, 2)})
     return sorted(out, key=lambda x: -x["similarity"])[:limit]
 
 
@@ -545,7 +598,7 @@ def themes(conn, ctx: Ctx):
         visible = orgs >= min_cohort(conn)
         if not visible and not staff and t["id"] not in assigned:
             continue
-        items = [{k: r[k] for k in r.keys() if k != "org_id"} for r in rows]
+        items = shared_copies(conn, rows)
         periods = sorted({r["period"] for r in rows})
         out.append({
             "id": t["id"], "name": t["name"], "offering": t["offering"], "summary": t["summary"], "updated_at": t["updated_at"],
