@@ -33,7 +33,7 @@ def _ago(ts) -> str:
 
 templates.env.filters["ago"] = _ago
 # stylesheet URL changes whenever the file changes, so browsers never keep a stale copy
-templates.env.globals["asset_version"] = int((BASE / "static" / "style.css").stat().st_mtime)
+templates.env.globals["asset_version"] = max(int(f.stat().st_mtime) for f in (BASE / "static").iterdir())
 templates.env.filters["date"] = lambda ts: datetime.fromtimestamp(ts, timezone.utc).strftime("%d %b %Y") if ts else ""
 
 
