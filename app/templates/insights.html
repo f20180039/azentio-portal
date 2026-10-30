@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% from "_ui.html" import head, empty %}
+{% block title %}Insights · azentio.ai{% endblock %}
+{% block band %}{{ head("Insights", "Perspectives on explainable credit, shared learning and responsible AI.", "Perspectives") }}{% endblock %}
+{% block content %}
+<div class="cols">
+<section class="stack">
+  {% for p in perspectives %}<article class="card"><span class="pill">Perspective</span><h2 style="margin-top:10px"><a href="{{ R.RESOURCE.url(rid=p.id) }}">{{ p.title }}</a></h2><p class="muted" style="margin:0">{{ p.body }}</p></article>
+  {% else %}{{ empty("No perspectives published yet.") }}{% endfor %}
+</section>
+<aside class="stack">
+  <div class="card"><h3>Upcoming sessions</h3>
+    {% for s in sessions %}<p style="margin:0 0 8px"><a href="{{ R.LIVE_SESSION.url(sid=s.id) }}">{{ s.title }}</a><br><span class="muted">{{ s.starts_at|when }}</span></p>
+    {% else %}<p class="muted" style="margin:0">No sessions scheduled.</p>{% endfor %}</div>
+  <div class="card"><h3>Videos and demos</h3><p class="muted">Product walkthroughs and recordings.</p><a href="{{ R.MEDIA }}">Media library</a></div>
+</aside>
+</div>
+{% endblock %}

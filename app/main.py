@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, audit, auth, iam, ideas, learning, library, live, orgadmin, playground, policy
+from . import aira, audit, auth, content, iam, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
 from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
@@ -142,6 +142,31 @@ def media_page(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     items = [r for r in conn.execute("SELECT * FROM resources ORDER BY id") if policy.can_view_resource(conn, ctx, r)]
     return render(request, "media.html", {"items": items})
+
+
+@app.get(Route.SOLUTIONS, response_class=HTMLResponse)
+def solutions(request: Request):
+    return render(request, "solutions.html", {"solutions": content.SOLUTIONS})
+
+
+@app.get(Route.LAB, response_class=HTMLResponse)
+def ai_lab(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    upcoming = [s for s in live.visible(conn, ctx) if s["status"] in (SessionStatus.SCHEDULED, SessionStatus.LIVE)][:3]
+    return render(request, "lab.html", {"experiments": content.EXPERIMENTS, "sessions": upcoming})
+
+
+@app.get(Route.TECHNOLOGY, response_class=HTMLResponse)
+def technology(request: Request):
+    return render(request, "technology.html", {"principles": content.PRINCIPLES})
+
+
+@app.get(Route.INSIGHTS, response_class=HTMLResponse)
+def insights(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    perspectives = [r for r in conn.execute("SELECT * FROM resources WHERE kind='insight' ORDER BY id DESC") if policy.can_view_resource(conn, ctx, r)]
+    sessions = [s for s in live.visible(conn, ctx) if s["status"] in (SessionStatus.SCHEDULED, SessionStatus.LIVE)][:3]
+    return render(request, "insights.html", {"perspectives": perspectives, "sessions": sessions})
 
 
 @app.get(Route.ABOUT, response_class=HTMLResponse)

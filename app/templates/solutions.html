@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% from "_ui.html" import head, glyph %}
+{% block title %}Solutions · azentio.ai{% endblock %}
+{% block band %}{% call head("Solutions", "Where our products fit, by the kind of institution and the problem you are solving.", "Who we help") %}<a class="btn bright" href="{{ R.CONNECT }}">Talk to us</a>{% endcall %}{% endblock %}
+{% block content %}
+<div class="stack">
+{% for s in solutions %}
+<section class="card solution">
+  <div>
+    <h2>{{ s.segment }}</h2>
+    <p class="muted">{{ s.summary }}</p>
+    <h3>Common challenges</h3>
+    <ul class="ticks">{% for c in s.challenges %}<li>{{ c }}</li>{% endfor %}</ul>
+  </div>
+  <div class="stack">
+    <h3>Products that help</h3>
+    {% for slug in s.offerings %}<a class="solution-product" href="{{ R.PRODUCT.url(slug=slug) }}">{{ glyph(slug) }}<span><b>{{ offering_names[slug] }}</b></span></a>{% endfor %}
+  </div>
+</section>
+{% endfor %}
+</div>
+{% endblock %}

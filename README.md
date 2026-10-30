@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 100 tests
+uv run pytest -q             # 117 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -197,7 +197,11 @@ stateDiagram-v2
 | AIRA with checked citations | Built |
 | Employee dashboard, employee-only content excluded from client search and AIRA | Built (internal notes, recordings, release notes) |
 | Guided Playground (employees: all sandboxes; clients: entitled only), evidence, AIRA explanation, structured feedback | Built |
-| Live broadcast configuration, hackathon team spaces, knowledge library | **Not built** |
+| Live sessions and recordings with audiences; knowledge library with owners, review dates and feedback | Built |
+| Experiment submissions, hackathon team spaces | **Not built** |
+| Differencing-safe filters, audited CSV export, consent history | Built |
+| Useful / needs-evidence votes, moderator evidence quality, duplicate check, ideas citing contributions | Built |
+| Prototype public routes: Solutions, AI Lab, Technology, Insights | Built |
 | Email delivery (P1), saved searches, bookmarks, comments | **Not built** |
 | Federated model-learning track (P2) | **Not built** |
 

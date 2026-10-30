@@ -396,3 +396,18 @@ input[type=number] { width: 100%; padding: 10px 12px; border: 1px solid var(--li
 .evidence-group { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .evidence-group:last-child { border-bottom: 0; }
 .check.sub { margin-left: 26px; font-size: .93rem; }
+
+/* solutions and technology */
+.solution { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+@media (max-width: 760px) { .solution { grid-template-columns: 1fr; } }
+.solution h3 { margin-top: 6px; }
+.solution-product { display: flex; align-items: center; gap: 12px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; text-decoration: none; color: var(--ink); }
+.solution-product:hover { border-color: var(--accent); }
+.solution-product .glyph { margin: 0; }
+.arch { width: 100%; min-width: 720px; height: auto; }
+.arch .box rect { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+.arch .box.key rect { fill: var(--accent-wash); stroke: var(--accent); }
+.arch .t { fill: var(--ink); font: 700 15px var(--display); }
+.arch .s { fill: var(--ink-soft); font: 12px var(--body); }
+.arch .line path { fill: none; stroke: var(--ink-soft); stroke-width: 1.6; }
+.arch .arrow { fill: var(--ink-soft); }

@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% from "_ui.html" import head, glyph %}
+{% block title %}AI Lab · azentio.ai{% endblock %}
+{% block band %}{% call head("AI Lab", "Where ideas from client learning become working prototypes. Public summaries here; detailed notes stay with employees.", "Innovation") %}<a class="btn bright" href="{{ R.HACKATHON }}">Join a hackathon</a>{% endcall %}{% endblock %}
+{% block content %}
+<div class="cols">
+<section>
+  <h2>Current experiments</h2>
+  <div class="grid">{% for e in experiments %}
+    <article class="card product-card">{{ glyph(e.offering) }}
+      <span class="pill {{ 'ok' if e.stage == LabStage.GRADUATED else ('warn' if e.stage == LabStage.PILOTING else '') }}" style="align-self:flex-start">{{ e.stage }}</span>
+      <h3 style="margin-top:8px">{{ e.title }}</h3><p class="muted">{{ e.summary }}</p>
+      <a class="more" href="{{ R.PRODUCT.url(slug=e.offering) }}">{{ offering_names[e.offering] }}</a></article>
+  {% endfor %}</div>
+</section>
+<aside class="stack">
+  <div class="card"><h3>How an experiment starts</h3>
+    <ol class="flow-v"><li><b>A recurring theme</b><br><span>Several organisations report the same gap in shared learning.</span></li>
+      <li><b>A prototype</b><br><span>The Lab builds it on synthetic data in the Playground.</span></li>
+      <li><b>A pilot</b><br><span>Entitled clients try it and rate it.</span></li>
+      <li><b>A product change</b><br><span>The improvement idea's status tells contributors what happened.</span></li></ol></div>
+  <div class="card"><h3>Upcoming sessions</h3>
+    {% for s in sessions %}<p style="margin:0 0 8px"><a href="{{ R.LIVE_SESSION.url(sid=s.id) }}">{{ s.title }}</a><br><span class="muted">{{ s.starts_at|when }}</span></p>
+    {% else %}<p class="muted" style="margin:0">No public sessions scheduled.</p>{% endfor %}
+    <a href="{{ R.LIVE }}">All sessions</a></div>
+</aside>
+</div>
+{% endblock %}

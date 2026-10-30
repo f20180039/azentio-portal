@@ -95,6 +95,8 @@ RESOURCES = [
     ("Credit Strategy Simulator scenario pack", "demo", "Three synthetic policy scenarios to compare approval and loss rates.", Audience.ENTITLED, "credit-strategy-simulator", False),
     ("Kestrel Bank: quarterly client briefing", "briefing", "Client-specific briefing for Kestrel Bank's product council.", Audience.ORG, "2", False),
     ("Northwind Finance: invitation-only webinar", "webinar", "Reporting automation roadmap session for Northwind Finance.", Audience.ORG, "3", False),
+    ("Seasonality is not decline", "insight", "How same-season comparisons stop healthy seasonal businesses being flagged as failing.", Audience.PUBLIC, None, False),
+    ("Count organisations, not posts", "insight", "Why shared market signals need a minimum number of contributing organisations before they mean anything.", Audience.PUBLIC, None, False),
 ]
 
 # (org, author, category, offering, topic, title, body, period, evidence, confidence, visibility, share_state, shared_edits)

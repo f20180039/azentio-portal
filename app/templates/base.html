@@ -17,15 +17,19 @@
     <a class="brand" href="{{ R.HOME }}" aria-label="azentio.ai home"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#3ecf8e" stroke-width="2"/><circle cx="13" cy="13" r="4" fill="#3ecf8e"/><circle cx="21" cy="6" r="2.4" fill="#5aa9e6"/></svg><span>azent<span class="g">i</span>o<span class="g">.ai</span></span></a>
     <nav class="nav" aria-label="Site">
       <a href="{{ R.PRODUCTS }}" {% if path.startswith(R.PRODUCTS) %}aria-current="page"{% endif %}>Products</a>
+      <a href="{{ R.SOLUTIONS }}" {% if path.startswith(R.SOLUTIONS) %}aria-current="page"{% endif %}>Solutions</a>
+      {% set menus = [
+        ("Innovation", [(R.LAB, "AI Lab", "Experiments from shared learning"), (R.TECHNOLOGY, "Technology", "How access and AI are kept safe"), (R.HACKATHON, "Hackathons", "Build with our sandboxes")]),
+        ("Explore", [(R.INSIGHTS, "Insights", "Perspectives and articles"), (R.MEDIA, "Media", "Videos, demos and resources"), (R.LIVE, "Live sessions", "Webinars, demo days and recordings")]),
+      ] %}
+      {% for label, items in menus %}
       <div class="menu">
-        <button type="button" class="menu-btn" aria-haspopup="true" {% if path.startswith(R.MEDIA) or path.startswith(R.LIVE) %}aria-current="page"{% endif %}>Explore <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
-        <div class="menu-panel">
-          <a href="{{ R.MEDIA }}"><b>Media &amp; insights</b><span>Videos, demos and perspectives</span></a>
-          <a href="{{ R.LIVE }}"><b>Live sessions</b><span>Webinars, demo days and recordings</span></a>
-        </div>
+        {% set ns = namespace(active=false) %}{% for href, _t, _n in items %}{% if path == href or path.startswith(href ~ '/') %}{% set ns.active = true %}{% endif %}{% endfor %}
+        <button type="button" class="menu-btn" aria-haspopup="true" {% if ns.active %}aria-current="page"{% endif %}>{{ label }} <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <div class="menu-panel">{% for href, title, note in items %}<a href="{{ href }}"><b>{{ title }}</b><span>{{ note }}</span></a>{% endfor %}</div>
       </div>
+      {% endfor %}
       <a href="{{ R.ABOUT }}" {% if path.startswith(R.ABOUT) %}aria-current="page"{% endif %}>About</a>
-      <a href="{{ R.HACKATHON }}" {% if path.startswith(R.HACKATHON) %}aria-current="page"{% endif %}>Hackathons</a>
       {% if demo_mailbox %}<a href="{{ R.DEMO }}" class="demo-link" {% if path == R.DEMO %}aria-current="page"{% endif %}>Demo guide</a>{% endif %}
     </nav>
     <div class="who">

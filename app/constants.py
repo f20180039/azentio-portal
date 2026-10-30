@@ -261,6 +261,14 @@ class EvidenceQuality(StrEnum):
     LIMITED = "Limited"
 
 
+class LabStage(StrEnum):
+    """Public stage of an AI Lab experiment."""
+
+    EXPLORING = "Exploring"
+    PILOTING = "Piloting with clients"
+    GRADUATED = "Now in a product"
+
+
 class ConsentEvent(StrEnum):
     """Consent history of one contribution (brief §09): each change is kept, never overwritten."""
 

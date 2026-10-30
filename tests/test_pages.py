@@ -1,7 +1,7 @@
 """Every page renders for every persona that may see it (no template errors)."""
 import pytest
 
-PUBLIC = ["/", "/products", "/products/riva", "/media", "/about", "/connect", "/hackathon/register", "/signin", "/mailbox?email=ravi@kestrel.example"]
+PUBLIC = ["/", "/solutions", "/lab", "/technology", "/insights", "/products", "/products/riva", "/media", "/about", "/connect", "/hackathon/register", "/signin", "/mailbox?email=ravi@kestrel.example"]
 CLIENT = ["/dashboard", "/observations", "/observations/new", "/observations/1", "/learning", "/learning?q=seasonal&region=Gulf",
           "/learning/themes", "/learning/themes/2", "/learning/ideas", "/learning/ask", "/notifications", "/resources/6"]
 
@@ -34,3 +34,11 @@ def test_forms_submit(client):
 def test_signed_out_private_page_redirects_to_sign_in(client):
     r = client.get("/dashboard", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/signin")
+
+
+def test_new_public_pages_show_only_public_content(client, login):
+    insights = client.get("/insights").text
+    assert "Seasonality is not decline" in insights and "Internal prototype notes" not in insights
+    lab = client.get("/lab").text
+    assert "Same-season comparisons" in lab and "design review" not in lab  # employee-only session stays hidden
+    assert "Seasonality module: design review" in login("dev@azentio.com").get("/lab").text
