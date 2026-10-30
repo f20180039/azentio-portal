@@ -11,6 +11,13 @@
 </section>
 <aside class="stack">
 {% if o.share_state == ShareState.SUBMITTED %}
+{% if similar %}<div class="card stripe warn">
+  <h2>Possible duplicates</h2>
+  <p class="hint">Published contributions with overlapping wording. Reject this one if it adds nothing new.</p>
+  {% for d in similar %}<div style="margin-bottom:10px"><span class="cite">S{{ d.id }}</span> <b>{{ d.title }}</b> <span class="pill warn">{{ (d.similarity * 100)|round|int }}% overlap</span>
+    <form method="post" action="{{ R.MODERATION_RETURN.url(oid=o.id) }}" style="margin-top:6px"><input type="hidden" name="note" value="Duplicate of shared contribution S{{ d.id }}, which already covers this observation.">
+      <button class="btn small ghost" name="action" value="{{ Action.REJECT }}">Reject as duplicate of S{{ d.id }}</button></form></div>{% endfor %}
+</div>{% endif %}
 <form method="post" action="{{ R.MODERATION_PUBLISH.url(oid=o.id) }}" class="card shared-zone">
   <h2>Shared copy</h2><p class="hint">Only these reviewed fields are published. Remove names, identifiers, exact figures and overly specific dates or places.</p>
   <div class="field"><label for="t">Title</label><input id="t" name="title" type="text" value="{{ o.title }}" required maxlength="120"></div>
@@ -18,6 +25,8 @@
   <div class="field"><label for="sec">Sector shown (coarse, never the organisation's own label)</label><select id="sec" name="sector">{% for s in sectors %}<option {% if s==default_sector %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
   <div class="two"><div class="field"><label for="r">Region (coarsen if needed)</label><input id="r" name="region" type="text" value="{{ org.region }}"></div>
   <div class="field"><label for="p">Period</label><input id="p" name="period" type="text" value="{{ o.period }}"></div></div>
+  <div class="field"><label for="eq">Evidence quality</label><select id="eq" name="evidence_quality">{% for q in qualities %}<option value="{{ q }}" {% if q == EvidenceQuality.MODERATE %}selected{% endif %}>{{ q }}</option>{% endfor %}</select>
+    <p class="hint">Your assessment, shown next to the contribution. Readers can also mark it useful or needing evidence.</p></div>
   <div class="field"><label for="th">Theme</label><select id="th" name="theme_id"><option value="">No theme</option>{% for t in themes %}<option value="{{ t.id }}" {% if t.name.lower().startswith(o.topic.lower()[:6]) %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
   <div class="field"><label for="nt">…or new theme</label><input id="nt" name="new_theme" type="text" maxlength="80"></div>
   {% if o.consent_attribution %}<label class="check"><input type="checkbox" name="attribute"> Show the organisation's name (contributor opted in)</label>{% endif %}

@@ -35,3 +35,14 @@
 
 {% set lock_icon %}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>{% endset %}
 {% set share_icon %}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="4" cy="8" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><path d="M6 7l4-2M6 9l4 2"/></svg>{% endset %}
+
+{% macro vote_bar(it, votes, next) -%}
+{% set v = votes.get(it.id, {}) %}
+<div class="votes row">
+  <span class="pill quality-{{ it.evidence_quality|lower }}" title="Moderator's assessment of the evidence">{{ it.evidence_quality }} evidence</span>
+  {% for choice in EvidenceVote %}
+  <form method="post" action="{{ R.SHARED_VOTE.url(sid=it.id) }}" class="inline"><input type="hidden" name="vote" value="{{ choice }}"><input type="hidden" name="next" value="{{ next }}">
+    <button class="vote {{ 'on' if v.mine == choice else '' }}" aria-pressed="{{ 'true' if v.mine == choice else 'false' }}">{{ choice.label }} <b>{{ v.get(choice, 0) }}</b></button></form>
+  {% endfor %}
+</div>
+{%- endmacro %}

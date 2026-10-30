@@ -4,7 +4,7 @@
 <div class="stack">{% for i in ideas %}
 <div class="card">
   <div class="row"><span class="pill {{ i.status }}">{{ i.status }}</span><h2 style="margin:0">{{ i.title }}</h2></div>
-  <div class="meta"><span>{{ offering_names[i.offering] }}</span><span>{{ i.owner_team }}</span><span>themes: {{ i.themes|join(', ') }}</span><span>updated {{ i.updated_at|ago }}</span></div>
+  <div class="meta"><span>{{ offering_names[i.offering] }}</span><span>{{ i.owner_team }}</span><span>themes: {{ i.themes|join(', ') }}</span>{% if i.evidence %}<span>evidence: {% for e in i.evidence %}S{{ e }}{{ ', ' if not loop.last }}{% endfor %}</span>{% endif %}<span>updated {{ i.updated_at|ago }}</span></div>
   {% if i.public_note %}<p style="margin-top:8px">{{ i.public_note }}</p>{% endif %}
   {% if ctx.is_employee %}<details><summary class="muted">Internal detail</summary><p><b>Problem:</b> {{ i.problem }}</p><p><b>Proposed outcome:</b> {{ i.proposed_outcome }}</p><p><b>Priority:</b> {{ i.priority }}</p></details>{% endif %}
   {% if ctx.has(Permission.PRODUCT_OWNER) %}

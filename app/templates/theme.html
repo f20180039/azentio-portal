@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}{{ t.name }} · Themes{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon, vote_bar %}{% block title %}{{ t.name }} · Themes{% endblock %}
 {% block band %}{{ head(t.name, t.summary, "Theme") }}{% endblock %}
 {% block content %}
 <div class="kpis">
@@ -10,7 +10,8 @@
 <div class="cols" style="margin-top:18px">
 <section class="stack"><h2>Supporting contributions</h2>
 {% for it in t["items"] %}<article class="card shared-zone"><span class="cite">S{{ it.id }}</span><h3>{{ it.title }}</h3><p>{{ it.body }}</p>
-<div class="meta"><span>{{ it.industry }}</span><span>{{ it.region }}</span><span>{{ it.period }}</span><span>confidence {{ it.confidence }}</span></div></article>{% endfor %}
+<div class="meta"><span>{{ it.industry }}</span><span>{{ it.region }}</span><span>{{ it.period }}</span><span>confidence {{ it.confidence }}</span></div>
+{{ vote_bar(it, votes, request.url.path) }}</article>{% endfor %}
 </section>
 <aside class="stack"><h2>Improvement ideas</h2>
 {% for i in ideas %}<div class="card"><span class="pill {{ i.status }}">{{ i.status }}</span><h3>{{ i.title }}</h3><p class="muted">{{ i.public_note }}</p><div class="meta"><span>{{ i.owner_team }}</span><span>{{ i.updated_at|ago }}</span></div></div>

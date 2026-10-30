@@ -93,6 +93,11 @@ class Route(StrEnum):
     ADMIN_SUPPORT_RECORDS = "/admin/support/{gid}"
 
     LEARNING_EXPORT = "/learning/export.csv"
+    SHARED_VOTE = "/learning/shared/{sid}/vote"
+    SOLUTIONS = "/solutions"
+    LAB = "/lab"
+    TECHNOLOGY = "/technology"
+    INSIGHTS = "/insights"
     API_DOCS = "/api/docs"
     API_ME = "/api/v1/me"
     API_OBSERVATIONS = "/api/v1/observations"
@@ -235,6 +240,25 @@ class Accuracy(StrEnum):
     AS_EXPECTED = "As expected"
     PARTLY = "Partly as expected"
     NOT_EXPECTED = "Not as expected"
+
+
+class EvidenceVote(StrEnum):
+    """Participants' quality feedback on a shared contribution; counts only, never a leaderboard."""
+
+    USEFUL = "useful"
+    NEEDS_EVIDENCE = "needs_evidence"
+
+    @property
+    def label(self) -> str:
+        return {"useful": "Useful", "needs_evidence": "Needs evidence"}[self.value]
+
+
+class EvidenceQuality(StrEnum):
+    """Moderator's assessment of the evidence behind a published contribution."""
+
+    STRONG = "Strong"
+    MODERATE = "Moderate"
+    LIMITED = "Limited"
 
 
 class ConsentEvent(StrEnum):

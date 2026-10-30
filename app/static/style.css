@@ -384,3 +384,15 @@ input[type=number] { width: 100%; padding: 10px 12px; border: 1px solid var(--li
 .datebox span { font-size: .8rem; font-weight: 700; }
 .pill.live { background: var(--bad); color: #fff; }
 @media (max-width: 640px) { .session { grid-template-columns: 70px 1fr; } .session > :last-child { grid-column: 1 / -1; } }
+
+/* quality feedback */
+.votes { margin-top: 10px; gap: 8px; }
+.vote { font: inherit; font-size: .84rem; font-weight: 600; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--ink-soft); cursor: pointer; }
+.vote b { margin-left: 4px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.vote:hover { border-color: var(--accent); }
+.vote.on { border-color: var(--accent); background: var(--accent-wash); color: var(--accent-ink); }
+.pill.quality-strong { background: var(--accent-wash); color: var(--accent-ink); }
+.pill.quality-limited { background: var(--warn-wash); color: var(--warn); }
+.evidence-group { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.evidence-group:last-child { border-bottom: 0; }
+.check.sub { margin-left: 26px; font-size: .93rem; }

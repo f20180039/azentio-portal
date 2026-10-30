@@ -223,6 +223,7 @@ def seed(conn) -> None:
          "Document Intelligence squad", Priority.HIGH, IdeaStatus.PLANNED, "Planned for a future release; no date committed.", now - 7200),
     ).lastrowid
     conn.execute("INSERT INTO idea_themes VALUES (?,?)", (idea, themes["Scanned statement extraction"]))
+    conn.execute("INSERT INTO idea_evidence SELECT ?, shared_id FROM theme_items WHERE theme_id=?", (idea, themes["Scanned statement extraction"]))
     conn.execute("INSERT INTO access_requests (user_id, reason, created_at) VALUES (12, ?, ?)",
                  ("Joined the Financial Analysis squad this week; need the employee workspace.", now - 1800))
     day = 86400

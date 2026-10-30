@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 
 from . import audit
-from .constants import (Route, Category, ConsentEvent, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
+from .constants import (Route, Category, ConsentEvent, EvidenceQuality, EvidenceVote, parse, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
                         ShareState, SharedStatus, Visibility)
 from .auth import Ctx
 from .db import tx
@@ -208,6 +208,9 @@ def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
     org = conn.execute("SELECT * FROM orgs WHERE id=?", (obs["org_id"],)).fetchone()
     attribution = org["name"] if (edits.get("attribute") and obs["consent_attribution"]) else None
     region = (edits.get("region") or org["region"] or "").strip()[:40] or "Undisclosed"
+    quality = parse(EvidenceQuality, edits.get("evidence_quality") or EvidenceQuality.MODERATE)
+    if quality is None:
+        raise Denied(422, "Choose an evidence quality.")
     sector = edits.get("sector") or SECTOR_OF.get(org["industry"], "Financial services")
     if sector not in SECTORS:
         raise Denied(422, "Choose a sector from the list.")
@@ -221,9 +224,9 @@ def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
         _unindex(conn, previous)
         sid = conn.execute(
             "INSERT INTO shared_items (observation_id, version, title, body, offering, topic, period, evidence_type, confidence,"
-            " industry, region, attribution, status, published_at, moderator_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, ?, ?, ?)",
+            " industry, region, attribution, status, published_at, moderator_id, evidence_quality) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, ?, ?, ?, ?)",
             (obs_id, version, title, body, obs["offering"], (edits.get("topic") or obs["topic"]).strip(), (edits.get("period") or obs["period"]).strip(),
-             obs["evidence_type"], obs["confidence"], sector, region, attribution, SharedStatus.PUBLISHED, now, ctx.user_id),
+             obs["evidence_type"], obs["confidence"], sector, region, attribution, SharedStatus.PUBLISHED, now, ctx.user_id, quality),
         ).lastrowid
         conn.execute("INSERT INTO shared_fts (rowid, title, body, topic) VALUES (?,?,?,?)", (sid, title, body, edits.get("topic") or obs["topic"]))
         theme_id = _theme_for(conn, edits, obs, now)
@@ -327,7 +330,8 @@ def decide_report(conn, ctx: Ctx, report_id: int, uphold: bool, decision: str) -
 
 # ---- shared feed, search and themes --------------------------------------------------------------------------
 
-SHARED_FIELDS = "s.id, s.version, s.title, s.body, s.offering, s.topic, s.period, s.evidence_type, s.confidence, s.industry, s.region, s.attribution, s.published_at"
+SHARED_FIELDS = ("s.id, s.version, s.title, s.body, s.offering, s.topic, s.period, s.evidence_type, s.confidence, s.industry, s.region,"
+                 " s.attribution, s.published_at, s.evidence_quality")
 
 
 def is_staff(ctx: Ctx) -> bool:
@@ -422,6 +426,76 @@ def export_csv(conn, ctx: Ctx, filters: FeedFilters) -> str:
     with tx(conn):
         audit.record(conn, ctx.user_id, "shared.exported", "shared_feed", {"rows": len(result.items), "filters": filters.__dict__})
     return buf.getvalue()
+
+
+# ---- quality feedback and duplicate detection ------------------------------------------------------------------
+
+def _visible_item(conn, ctx: Ctx, shared_id: int):
+    item = conn.execute(f"SELECT s.*, o.org_id FROM shared_items s JOIN observations o ON o.id=s.observation_id"
+                        f" WHERE s.id=? AND s.status='{SharedStatus.PUBLISHED}'", (shared_id,)).fetchone()
+    if not item or (not is_staff(ctx) and shared_id in below_cohort_item_ids(conn)):
+        raise Denied(404, "Shared item not found.")
+    return item
+
+
+def vote(conn, ctx: Ctx, shared_id: int, raw_vote: str) -> EvidenceVote | None:
+    """Toggle a vote. Returns the vote now held, or None when it was cleared."""
+    require_participant(ctx)
+    choice = parse(EvidenceVote, raw_vote)
+    if choice is None:
+        raise Denied(422, "Choose useful or needs evidence.")
+    item = _visible_item(conn, ctx, shared_id)
+    if ctx.is_client and item["org_id"] == ctx.org_id:
+        raise Denied(403, "Contributions from your own organisation can't be rated by its members.")
+    current = conn.execute("SELECT vote FROM shared_votes WHERE shared_id=? AND user_id=?", (shared_id, ctx.user_id)).fetchone()
+    with tx(conn):
+        if current and current["vote"] == choice:
+            conn.execute("DELETE FROM shared_votes WHERE shared_id=? AND user_id=?", (shared_id, ctx.user_id))
+            return None
+        conn.execute("INSERT INTO shared_votes (shared_id, user_id, vote, created_at) VALUES (?,?,?,?)"
+                     " ON CONFLICT(shared_id, user_id) DO UPDATE SET vote=excluded.vote, created_at=excluded.created_at",
+                     (shared_id, ctx.user_id, choice, time.time()))
+    return choice
+
+
+def vote_summary(conn, ctx: Ctx, ids: list[int]) -> dict[int, dict]:
+    """Counts per item plus the viewer's own vote; never who voted."""
+    out = {i: {EvidenceVote.USEFUL: 0, EvidenceVote.NEEDS_EVIDENCE: 0, "mine": None} for i in ids}
+    if not ids:
+        return out
+    marks = ",".join("?" * len(ids))
+    for r in conn.execute(f"SELECT shared_id, vote, COUNT(*) n FROM shared_votes WHERE shared_id IN ({marks}) GROUP BY shared_id, vote", ids):
+        out[r["shared_id"]][EvidenceVote(r["vote"])] = r["n"]
+    if ctx.signed_in:
+        for r in conn.execute(f"SELECT shared_id, vote FROM shared_votes WHERE user_id=? AND shared_id IN ({marks})", [ctx.user_id, *ids]):
+            out[r["shared_id"]]["mine"] = r["vote"]
+    return out
+
+
+STOPWORDS = {"that", "this", "with", "from", "they", "their", "have", "each", "were", "when", "into", "than", "every", "which", "only"}
+
+
+def _stem(word: str) -> str:
+    for suffix in ("ations", "ation", "ings", "ing", "ally", "al", "ed", "es", "s"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 4:
+            return word[: -len(suffix)]
+    return word
+
+
+def _terms(text: str) -> set[str]:
+    return {_stem(w) for w in re.findall(r"[a-z]+", text.lower()) if len(w) > 3 and w not in STOPWORDS}
+
+
+def similar_published(conn, obs, threshold: float = 0.2, limit: int = 3) -> list[dict]:
+    """Published items whose wording overlaps a submission (Jaccard on content words), for the moderator's duplicate check."""
+    terms = _terms(obs["title"] + " " + obs["body"])
+    out = []
+    for r in conn.execute(f"SELECT {SHARED_FIELDS} FROM shared_items s WHERE s.status='{SharedStatus.PUBLISHED}' AND s.observation_id<>?", (obs["id"],)):
+        other = _terms(r["title"] + " " + r["body"])
+        score = len(terms & other) / len(terms | other) if terms | other else 0
+        if score >= threshold:
+            out.append(dict(r) | {"similarity": round(score, 2)})
+    return sorted(out, key=lambda x: -x["similarity"])[:limit]
 
 
 def consent_history(conn, obs_id: int):

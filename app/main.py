@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import aira, audit, auth, iam, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
-from .constants import Action, Audience, EnquiryKind, Permission, Route, SessionStatus
+from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
 from .policy import Denied
 from .seed import DEMO_PERSONAS, seed
@@ -561,6 +561,7 @@ def learning_feed(request: Request, q: str = "", offering: str = "", industry: s
     filters = _filters(q, offering, industry, region, topic, period)
     result = learning.search_shared(conn, ctx, filters)
     return render(request, "learning.html", {"items": result.items, "suppressed": result.suppressed, "facets": learning.facet_values(conn, ctx),
+                                             "votes": learning.vote_summary(conn, ctx, [i["id"] for i in result.items]),
                                              "f": filters.__dict__, "export_query": str(request.url.query)})
 
 
@@ -583,7 +584,8 @@ def theme_view(request: Request, tid: int):
     conn, ctx = request.state.conn, request.state.ctx
     t = learning.theme(conn, ctx, tid)
     linked = [i for i in ideas.list_ideas(conn, ctx) if t["name"] in i["themes"]]
-    return render(request, "theme.html", {"t": t, "ideas": linked, "min_cohort": learning.min_cohort()})
+    return render(request, "theme.html", {"t": t, "ideas": linked, "min_cohort": learning.min_cohort(),
+                                          "votes": learning.vote_summary(conn, ctx, [i["id"] for i in t["items"]])})
 
 
 @app.get(Route.IDEAS, response_class=HTMLResponse)
@@ -603,6 +605,13 @@ async def learning_ask(request: Request):
 def learning_ask_page(request: Request):
     policy.require_participant(request.state.ctx)
     return render(request, "aira.html", {"question": "", "r": None})
+
+
+@app.post(Route.SHARED_VOTE)
+async def shared_vote(request: Request, sid: int):
+    f = await form(request)
+    learning.vote(request.state.conn, request.state.ctx, sid, f.get("vote") or "")
+    return back(_safe_next(f.get("next"), Route.LEARNING))
 
 
 @app.post(Route.SHARED_REPORT)
@@ -627,6 +636,7 @@ def moderation_review(request: Request, oid: int):
     obs = learning.get_observation(conn, ctx, oid)
     org = conn.execute("SELECT industry, region FROM orgs WHERE id=?", (obs["org_id"],)).fetchone()
     return render(request, "moderation_review.html", {"o": obs, "org": org, "themes": conn.execute("SELECT id, name FROM themes").fetchall(),
+                                                       "similar": learning.similar_published(conn, obs), "qualities": list(EvidenceQuality),
                                                        "flags_now": learning.scan_sensitive(obs["title"], obs["body"]),
                                                        "sectors": learning.SECTORS, "default_sector": learning.SECTOR_OF.get(org["industry"], "Financial services")})
 
@@ -666,7 +676,7 @@ async def moderation_report_decide(request: Request, rid: int):
 def idea_new(request: Request, theme: int = 0):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_grant(ctx, Permission.PRODUCT_OWNER)
-    return render(request, "idea_form.html", {"themes": learning.themes(conn, ctx), "selected": theme, "statuses": ideas.STATUSES,
+    return render(request, "idea_form.html", {"themes": [t for t in learning.themes(conn, ctx) if t["meets_cohort"]], "selected": theme, "statuses": ideas.STATUSES,
                                               "priorities": ideas.PRIORITIES, "offerings": conn.execute("SELECT * FROM offerings").fetchall()})
 
 
@@ -674,7 +684,8 @@ def idea_new(request: Request, theme: int = 0):
 async def idea_create(request: Request):
     f = await form(request)
     theme_ids = [int(t) for t in f["_multi"].getlist("theme_ids") if str(t).isdigit()]
-    ideas.create_idea(request.state.conn, request.state.ctx, f, theme_ids)
+    shared_ids = [int(t) for t in f["_multi"].getlist("shared_ids") if str(t).isdigit()]
+    ideas.create_idea(request.state.conn, request.state.ctx, f, theme_ids, shared_ids)
     return back(Route.IDEAS, "Idea created. Linked contributors were notified.")
 
 

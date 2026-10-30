@@ -69,7 +69,8 @@ def test_seasonality_scenario_end_to_end(login, db):
     r = po.post("/ideas", data={"title": "Seasonality-aware comparison explanation", "problem": "Seasonal dips read as decline in ratio commentary.",
                                 "offering": "financial-analysis-intelligence", "proposed_outcome": "Explain same-season comparisons next to trend flags.",
                                 "owner_team": "Financial Analysis squad", "priority": "High", "status": "Under review",
-                                "public_note": "Being assessed; not a committed delivery.", "theme_ids": [str(theme["id"])]}, follow_redirects=False)
+                                "public_note": "Being assessed; not a committed delivery.", "theme_ids": [str(theme["id"])],
+                                "shared_ids": [str(it["id"]) for it in theme["items"]]}, follow_redirects=False)
     assert r.status_code == 303
     seen = [i for i in kestrel.get("/api/v1/ideas").json() if i["title"].startswith("Seasonality-aware")]
     assert seen and seen[0]["status"] == "Under review" and "problem" not in seen[0]
@@ -222,3 +223,57 @@ def test_ideas_cannot_link_below_cohort_themes(login):
 def test_bad_ids_are_rejected_not_crashing(login):
     jay = login("jay@consult.example")
     assert jay.post("/workspace", data={"org_id": "abc"}, follow_redirects=False).status_code == 403
+
+
+def test_votes_are_counted_toggled_and_not_allowed_on_own_organisation(login, db):
+    ravi = login("ravi@kestrel.example")
+    items = ravi.get("/api/v1/shared", params={"offering": "financial-analysis-intelligence"}).json()
+    own = next(i for i in items if "tax return" in i["title"])  # Kestrel's own contribution
+    other = next(i for i in items if "page joins" in i["title"])
+    assert ravi.post(f"/learning/shared/{own['id']}/vote", data={"vote": "useful"}).status_code == 403
+    assert ravi.post(f"/learning/shared/{other['id']}/vote", data={"vote": "bogus"}).status_code == 422
+    assert ravi.post(f"/learning/shared/{other['id']}/vote", data={"vote": "useful"}, follow_redirects=False).status_code == 303
+    login("wanjiru@harbour.example").post(f"/learning/shared/{other['id']}/vote", data={"vote": "needs_evidence"})
+    count = lambda v: db.execute("SELECT COUNT(*) FROM shared_votes WHERE shared_id=? AND vote=?", (other["id"], v)).fetchone()[0]
+    assert (count("useful"), count("needs_evidence")) == (1, 1)
+    ravi.post(f"/learning/shared/{other['id']}/vote", data={"vote": "useful"})  # same vote again clears it
+    assert count("useful") == 0
+    page = ravi.get("/learning").text
+    assert "Needs evidence <b>1</b>" in page and "wanjiru" not in page[page.index("<main"):].lower()
+
+
+def test_votes_on_hidden_items_are_refused(login, db):
+    hidden = db.execute("SELECT s.id FROM shared_items s WHERE s.title LIKE 'Calendar-driven%'").fetchone()["id"]  # below-cohort theme
+    assert login("asha@kestrel.example").post(f"/learning/shared/{hidden}/vote", data={"vote": "useful"}).status_code == 404
+
+
+def test_moderator_sees_possible_duplicates_and_sets_evidence_quality(login, db):
+    mod = login("omar@azentio.com")
+    distinct = submitted_meridian(db)  # a new suggestion in the same theme, not a copy
+    assert "Possible duplicates" not in mod.get(f"/moderation/{distinct}").text
+    noor = login("noor@meridian.example")
+    noor.post("/observations", data=OBS | {"offering": "financial-analysis-intelligence", "title": "Statements break at page joins",
+               "body": "Multi-page statements: transactions continuing across a page break get duplicated or dropped during extraction."})
+    dup = db.execute("SELECT id FROM observations WHERE title='Statements break at page joins'").fetchone()["id"]
+    noor.post(f"/observations/{dup}/share", data={"consent_publish": "on"})
+    page = mod.get(f"/moderation/{dup}").text
+    assert "Possible duplicates" in page and "Multi-page statements break at page joins" in page
+    assert mod.post(f"/moderation/{dup}/return", data={"action": "reject", "note": "Duplicate of an existing contribution."},
+                    follow_redirects=False).status_code == 303
+    oid = distinct
+    assert mod.post(f"/moderation/{oid}/publish", data=publish_form(evidence_quality="Excellent")).status_code == 422
+    assert mod.post(f"/moderation/{oid}/publish", data=publish_form(evidence_quality="Strong"), follow_redirects=False).status_code == 303
+    assert db.execute("SELECT evidence_quality FROM shared_items WHERE observation_id=?", (oid,)).fetchone()[0] == "Strong"
+
+
+def test_ideas_must_cite_contributions_from_their_themes(login, db):
+    po = login("priya@azentio.com")
+    base = {"title": "Better page joins", "problem": "Transactions break at page joins.", "offering": "financial-analysis-intelligence",
+            "proposed_outcome": "Keep transactions intact across pages.", "owner_team": "Squad", "priority": "Medium", "status": "Proposed", "theme_ids": ["2"]}
+    assert po.post("/ideas", data=base).status_code == 422  # no evidence cited
+    outside = db.execute("SELECT s.id FROM shared_items s JOIN theme_items ti ON ti.shared_id=s.id WHERE ti.theme_id=1").fetchone()["id"]
+    assert po.post("/ideas", data=base | {"shared_ids": [str(outside)]}).status_code == 422  # not in the linked theme
+    inside = db.execute("SELECT shared_id FROM theme_items WHERE theme_id=2").fetchone()["shared_id"]
+    assert po.post("/ideas", data=base | {"shared_ids": [str(inside)]}, follow_redirects=False).status_code == 303
+    idea = next(i for i in login("asha@kestrel.example").get("/api/v1/ideas").json() if i["title"] == "Better page joins")
+    assert idea["evidence"] == [inside]

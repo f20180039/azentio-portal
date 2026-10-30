@@ -2,7 +2,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-from .constants import (Audience, ConsentEvent, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
+from .constants import (Audience, ConsentEvent, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
                         IdeaStatus, ReportStatus, RequestStatus, Role, SessionStatus, ShareState, SharedStatus, Visibility,
                         EnquiryKind, sql_in)
 
@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS shared_items (
   title TEXT NOT NULL, body TEXT NOT NULL, offering TEXT NOT NULL, topic TEXT NOT NULL, period TEXT NOT NULL,
   evidence_type TEXT NOT NULL, confidence TEXT NOT NULL, industry TEXT NOT NULL, region TEXT NOT NULL,
   attribution TEXT, status TEXT NOT NULL CHECK (status IN ({sql_in(SharedStatus)})),
+  evidence_quality TEXT NOT NULL DEFAULT '{EvidenceQuality.MODERATE}' CHECK (evidence_quality IN ({sql_in(EvidenceQuality)})),
   published_at REAL NOT NULL, moderator_id INTEGER NOT NULL REFERENCES users(id)
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS shared_fts USING fts5(title, body, topic);
@@ -152,6 +153,14 @@ CREATE TABLE IF NOT EXISTS library_feedback (
   item_id INTEGER NOT NULL REFERENCES library_items(id), user_id INTEGER NOT NULL REFERENCES users(id),
   verdict TEXT NOT NULL CHECK (verdict IN ({sql_in(LibraryVerdict)})), comment TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL,
   PRIMARY KEY (item_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS shared_votes (
+  shared_id INTEGER NOT NULL REFERENCES shared_items(id), user_id INTEGER NOT NULL REFERENCES users(id),
+  vote TEXT NOT NULL CHECK (vote IN ({sql_in(EvidenceVote)})), created_at REAL NOT NULL, PRIMARY KEY (shared_id, user_id)
+);
+-- ideas cite the specific approved contributions that support them
+CREATE TABLE IF NOT EXISTS idea_evidence (
+  idea_id INTEGER NOT NULL REFERENCES ideas(id), shared_id INTEGER NOT NULL REFERENCES shared_items(id), PRIMARY KEY (idea_id, shared_id)
 );
 CREATE TABLE IF NOT EXISTS consent_events (
   id INTEGER PRIMARY KEY, observation_id INTEGER NOT NULL REFERENCES observations(id), actor_id INTEGER NOT NULL REFERENCES users(id),
