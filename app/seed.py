@@ -49,10 +49,18 @@ ENTITLEMENTS = [
 
 
 def _poster(title: str, accent: str) -> bytes:
+    words, lines = title.split(), [""]
+    for w in words:
+        if len(lines[-1]) + len(w) > 26 and lines[-1]:
+            lines.append("")
+        lines[-1] = f"{lines[-1]} {w}".strip()
+    text = "".join(f'<tspan x="40" dy="{0 if i == 0 else 36}">{line}</tspan>' for i, line in enumerate(lines[:3]))
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">'
-        f'<rect width="640" height="360" fill="#0f2a3d"/><circle cx="520" cy="80" r="140" fill="{accent}" opacity=".35"/>'
-        f'<text x="40" y="300" fill="#ffffff" font-family="sans-serif" font-size="28">{title}</text></svg>'
+        f'<rect width="640" height="360" fill="#0d2340"/><circle cx="520" cy="80" r="140" fill="{accent}" opacity=".35"/>'
+        f'<circle cx="520" cy="80" r="70" fill="none" stroke="{accent}" stroke-opacity=".6" stroke-width="2"/>'
+        f'<path d="M40 330 L200 330" stroke="{accent}" stroke-width="4"/>'
+        f'<text y="{300 - 36 * (min(len(lines), 3) - 1)}" fill="#ffffff" font-family="sans-serif" font-size="30" font-weight="700">{text}</text></svg>'
     ).encode()
 
 
@@ -154,7 +162,7 @@ def seed(conn) -> None:
         conn.execute(
             "INSERT INTO resources (title, kind, body, audience_type, audience_ref, media_name, media_type, media_bytes) VALUES (?,?,?,?,?,?,?,?)",
             (title, kind, body, atype, aref, f"resource-{i + 1}.svg" if media else None, "image/svg+xml" if media else None,
-             _poster(title[:34], accent) if media else None),
+             _poster(title, accent) if media else None),
         )
     conn.execute("INSERT INTO site_content VALUES ('banner', ?)",
                  ("Hackathon registrations are open for the November Build Lab. Register your team.",))

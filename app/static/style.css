@@ -243,3 +243,7 @@ details summary { cursor: pointer; font-weight: 600; }
   .workbar a, .workbar .org { white-space: nowrap; }
   .hero .wrap { padding-block: 36px 40px; }
 }
+
+/* breathing room between a badge row and the heading under it */
+.card > :is(.row, .pill, .cite) + :is(h2, h3) { margin-top: 12px; }
+.grid { align-items: start; }
