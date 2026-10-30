@@ -9,46 +9,52 @@
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+{% set path = request.url.path %}
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="/">azent<span>i</span>o<span>.ai</span></a>
-    <nav class="nav" aria-label="Main">
-      <a href="/products">Products</a>
-      <a href="/media">Media &amp; insights</a>
-      <a href="/about">About</a>
-      <a href="/hackathon/register">Hackathons</a>
-      {% if ctx.org %}
-        <a href="/dashboard">Dashboard</a>
-        {% if ctx.is_client %}<a href="/observations">Observations</a>{% endif %}
-        <a href="/learning">Shared learning</a>
-        {% if ctx.has('moderate') %}<a href="/moderation">Moderation</a>{% endif %}
-        {% if ctx.is_client_admin %}<a href="/org/members">Members</a>{% endif %}
-        {% if ctx.has('publish_content') %}<a href="/content">Site content</a>{% endif %}
-        {% if ctx.has('portal_admin') %}<a href="/admin/audit">Audit log</a>{% endif %}
-      {% endif %}
+    <a class="brand" href="/" aria-label="azentio.ai home"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#3ecf8e" stroke-width="2"/><circle cx="13" cy="13" r="4" fill="#3ecf8e"/><circle cx="21" cy="6" r="2.4" fill="#5aa9e6"/></svg><span>azent<span class="g">i</span>o<span class="g">.ai</span></span></a>
+    <nav class="nav" aria-label="Site">
+      {% for href, label in [('/products','Products'),('/media','Media & insights'),('/about','About'),('/hackathon/register','Hackathons')] %}
+      <a href="{{ href }}" {% if path.startswith(href) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
     </nav>
     <div class="who">
       {% if ctx.signed_in %}
-        {% if ctx.org %}<span class="chip org" title="Active workspace">{{ ctx.org.name }} · {{ ctx.role }}</span>{% endif %}
-        {% if ctx.memberships|length > 1 %}<a href="/workspace">Switch</a>{% endif %}
-        <a class="bell" href="/notifications" aria-label="Notifications">Updates{% if unread %}<b>{{ unread }}</b>{% endif %}</a>
-        <span class="muted">{{ ctx.user.email }}</span>
+        <span>{{ ctx.user.email }}</span>
         <form class="inline" method="post" action="/signout"><button class="btn small ghost">Sign out</button></form>
       {% else %}
         <a class="btn ghost small" href="/signin">Sign in</a>
-        <a class="btn small" href="/connect">Request demo</a>
+        <a class="btn small bright" href="/connect">Request a demo</a>
       {% endif %}
     </div>
   </div>
 </header>
+{% if ctx.signed_in %}
+<nav class="workbar" aria-label="Workspace"><div class="wrap">
+  {% if ctx.org %}<span class="org" title="Active workspace"><i></i>{{ ctx.org.name }} <span class="pill">{{ ctx.role }}</span></span>{% endif %}
+  {% if ctx.org %}
+    {% set links = [('/dashboard','Dashboard')] %}
+    {% if ctx.is_client %}{% set links = links + [('/observations','Observations')] %}{% endif %}
+    {% set links = links + [('/learning','Shared learning'),('/learning/themes','Themes'),('/learning/ideas','Ideas'),('/learning/ask','Ask AIRA')] %}
+    {% if ctx.has('moderate') %}{% set links = links + [('/moderation','Moderation')] %}{% endif %}
+    {% if ctx.is_client_admin %}{% set links = links + [('/org/members','Members')] %}{% endif %}
+    {% if ctx.has('publish_content') %}{% set links = links + [('/content','Site content')] %}{% endif %}
+    {% if ctx.has('portal_admin') %}{% set links = links + [('/admin/audit','Audit log')] %}{% endif %}
+    {% for href, label in links %}<a href="{{ href }}" {% if path == href or (href not in ('/learning','/dashboard') and path.startswith(href)) or (href == '/learning' and path == '/learning') %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+  {% else %}<span class="muted">No active workspace</span>{% endif %}
+  <span class="spacer"></span>
+  {% if ctx.memberships|length > 1 %}<a href="/workspace">Switch workspace</a>{% endif %}
+  <a class="bell" href="/notifications">Updates{% if unread %}<b>{{ unread }}</b>{% endif %}</a>
+</div></nav>
+{% endif %}
 {% block banner %}{% endblock %}
+{% block band %}{% endblock %}
 <main class="wrap">
   {% if request.query_params.get('flash') %}<div class="flash" role="status">{{ request.query_params.get('flash') }}</div>{% endif %}
   {% block content %}{% endblock %}
 </main>
-<footer class="foot"><div class="wrap row">
-  <span>azentio.ai hackathon build · synthetic data only · all organisations are fictional</span>
-  <a href="/api/docs">API</a>
+<footer class="foot"><div class="wrap">
+  <span>azentio.ai hackathon build. Synthetic data only; every organisation shown is fictional.</span>
+  <span class="row"><a href="/about">How shared learning works</a><a href="/api/docs">API reference</a></span>
 </div></footer>
 </body>
 </html>

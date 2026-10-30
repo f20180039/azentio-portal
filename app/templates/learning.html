@@ -1,8 +1,6 @@
-{% extends "base.html" %}{% block title %}Shared learning · azentio.ai{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Shared learning · azentio.ai{% endblock %}
+{% block band %}{% call head("Shared learning", "Moderator-approved, de-identified contributions. Your organisation's private records are never here.", "Cross-client feed") %}<div class="row"><a class="btn ghost" href="/learning/themes">Themes</a><a class="btn bright" href="/learning/ask">Ask AIRA</a></div>{% endcall %}{% endblock %}
 {% block content %}
-<p class="eyebrow">Cross-client shared feed</p>
-<div class="row" style="justify-content:space-between"><h1>Shared learning</h1><div class="row"><a class="btn ghost" href="/learning/themes">Themes</a><a class="btn ghost" href="/learning/ideas">Ideas</a><a class="btn" href="/learning/ask">Ask AIRA</a></div></div>
-<p class="muted">Moderator-approved, de-identified contributions. Your organisation's private records are not here.</p>
 <form method="get" class="card" style="margin-bottom:18px">
   <div class="field"><label for="q">Search</label><input id="q" name="q" type="text" value="{{ f.q }}" placeholder="e.g. seasonal, page joins"></div>
   <div class="two">
@@ -16,12 +14,12 @@
 <p class="muted">{{ items|length }} result(s)</p>
 <div class="stack">{% for it in items %}
 <article class="card shared-zone">
-  <div class="row"><span class="cite">S{{ it.id }}</span><span class="eyebrow">{{ offering_names[it.offering] }}</span></div>
+  <div class="row"><span class="cite">S{{ it.id }}</span><span class="pill">{{ offering_names[it.offering] }}</span><span class="pill">{{ it.topic }}</span></div>
   <h3>{{ it.title }}</h3><p>{{ it.body }}</p>
   <div class="meta"><span>{{ it.industry }}</span><span>{{ it.region }}</span><span>{{ it.period }}</span><span>{{ it.evidence_type }}</span><span>confidence {{ it.confidence }}</span><span>{{ it.attribution or 'Not attributed' }}</span><span>v{{ it.version }}</span></div>
   <details style="margin-top:8px"><summary class="muted">Report this contribution</summary>
     <form method="post" action="/learning/shared/{{ it.id }}/report" class="row" style="margin-top:8px"><input type="text" name="reason" required minlength="5" maxlength="500" placeholder="What is misleading, confidential or inappropriate?" style="flex:1;min-width:200px"><button class="btn small ghost">Send report</button></form>
     <p class="hint">Your identity is not shown to the contributor.</p></details>
 </article>
-{% else %}<p class="muted">No approved contributions match.</p>{% endfor %}</div>
+{% else %}{{ empty("No approved contributions match. Try fewer filters.") }}{% endfor %}</div>
 {% endblock %}

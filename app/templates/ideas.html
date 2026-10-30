@@ -1,7 +1,6 @@
-{% extends "base.html" %}{% block title %}Improvement ideas · azentio.ai{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Improvement ideas · azentio.ai{% endblock %}
+{% block band %}{% call head("Improvement ideas", "Status shows where an idea stands. It is not a delivery commitment.", "From themes to offerings") %}{% if ctx.has('product_owner') %}<a class="btn bright" href="/ideas/new">New idea</a>{% endif %}{% endcall %}{% endblock %}
 {% block content %}
-<div class="row" style="justify-content:space-between"><h1>Improvement ideas</h1>{% if ctx.has('product_owner') %}<a class="btn" href="/ideas/new">New idea</a>{% endif %}</div>
-<p class="muted">Status shows where an idea stands. It is not a delivery commitment.</p>
 <div class="stack">{% for i in ideas %}
 <div class="card">
   <div class="row"><span class="pill {{ i.status }}">{{ i.status }}</span><h2 style="margin:0">{{ i.title }}</h2></div>

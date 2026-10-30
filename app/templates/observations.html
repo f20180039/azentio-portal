@@ -1,6 +1,6 @@
-{% extends "base.html" %}{% block title %}Observations · {{ ctx.org.name }}{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Observations · {{ ctx.org.name }}{% endblock %}
+{% block band %}{% call head("Observations", "Your organisation's private records. Sharing outside " ~ ctx.org.name ~ " is a separate, moderated step.", "Private workspace") %}<a class="btn bright" href="/observations/new">New observation</a>{% endcall %}{% endblock %}
 {% block content %}
-<div class="row" style="justify-content:space-between"><h1>Observations</h1><a class="btn" href="/observations/new">New observation</a></div>
 <section class="card private-zone"><h2>Mine</h2>
 {% if mine %}<div class="scroll"><table><tr><th>Title</th><th>Category</th><th>Visible to</th><th>Sharing</th><th>Updated</th></tr>
 {% for o in mine %}<tr><td><a href="/observations/{{ o.id }}">{{ o.title }}</a></td><td>{{ o.category }}</td><td>{{ 'Only me' if o.visibility=='private' else 'My organisation' }}</td><td><span class="pill {{ o.share_state }}">{{ 'not shared' if o.share_state=='none' else o.share_state }}</span></td><td>{{ o.updated_at|ago }}</td></tr>{% endfor %}

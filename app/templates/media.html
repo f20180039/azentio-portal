@@ -1,10 +1,10 @@
-{% extends "base.html" %}{% block title %}Media &amp; insights · azentio.ai{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Media &amp; insights · azentio.ai{% endblock %}
+{% block band %}{{ head("Media and insights", None, "See it in action") }}{% endblock %}
 {% block content %}
-<h1>Media &amp; insights</h1>
 <p class="muted">You see what your audience permits: {% if ctx.is_employee %}public, employee and demo content{% elif ctx.is_client %}public content, your organisation's resources and entitled demos{% else %}public content{% endif %}.</p>
 <div class="grid">{% for m in items %}
 <article class="card">{% if m.media_name %}<img class="poster" src="/media/{{ m.id }}" alt="">{% endif %}
-<div class="row"><span class="eyebrow">{{ m.kind }}</span><span class="pill {% if m.audience_type=='public' %}ok{% else %}warn{% endif %}">{{ {'public':'Public','employees':'Employees only','org':'Your organisation','entitled':'Entitled demo'}[m.audience_type] }}</span></div>
+<div class="row"><span class="pill">{{ m.kind|capitalize }}</span><span class="pill {% if m.audience_type=='public' %}ok{% else %}warn{% endif %}">{{ {'public':'Public','employees':'Employees only','org':'Your organisation','entitled':'Entitled demo'}[m.audience_type] }}</span></div>
 <h3><a href="/resources/{{ m.id }}">{{ m.title }}</a></h3><p class="muted">{{ m.body }}</p></article>
 {% endfor %}</div>
 {% endblock %}

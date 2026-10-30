@@ -78,7 +78,8 @@ def render(request: Request, name: str, data: dict | None = None, status: int = 
     if ctx.signed_in:
         unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND read=0", (ctx.user_id,)).fetchone()[0]
     base = {"request": request, "ctx": ctx, "unread": unread, "demo_mailbox": auth.demo_mailbox_enabled(),
-            "offering_names": {r["slug"]: r["name"] for r in conn.execute("SELECT slug, name FROM offerings")}}
+            "offering_names": {r["slug"]: r["name"] for r in conn.execute("SELECT slug, name FROM offerings")},
+            "min_cohort": learning.min_cohort()}
     return templates.TemplateResponse(request, name, base | (data or {}), status_code=status)
 
 

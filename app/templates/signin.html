@@ -1,8 +1,8 @@
-{% extends "base.html" %}{% block title %}Sign in · azentio.ai{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Sign in · azentio.ai{% endblock %}
+{% block band %}{{ head("Sign in", "One-time email code. No passwords stored.", "Employees and client members") }}{% endblock %}
 {% block content %}
 <div class="cols">
 <div>
-<h1>Sign in</h1>
 {% if step == 'email' %}
 <form method="post" action="/signin" class="card">
   <input type="hidden" name="next" value="{{ next }}">
@@ -39,7 +39,7 @@
   ('admin@azentio.com','Arjun · Azentio','Portal administrator'),
   ('dev@azentio.com','Dev · Azentio','Employee, no extra grants'),
 ] %}
-<button name="email" value="{{ email }}">{{ label }}<small>{{ note }}</small></button>
+<button name="email" value="{{ email }}"><span class="av {{ '' if 'azentio' in email else 'client' }}" aria-hidden="true">{{ label[0] }}</span><span>{{ label }}<small>{{ note }}</small></span></button>
 {% endfor %}
 </div></form>
 </aside>

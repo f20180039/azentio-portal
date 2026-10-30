@@ -1,9 +1,8 @@
-{% extends "base.html" %}{% block title %}{{ t.name }} · Themes{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}{{ t.name }} · Themes{% endblock %}
+{% block band %}{{ head(t.name, t.summary, "Theme") }}{% endblock %}
 {% block content %}
-<p class="eyebrow">Theme · {{ offering_names[t.offering] }}</p>
-<h1>{{ t.name }}</h1><p>{{ t.summary }}</p>
 <div class="kpis">
-  <div class="card kpi"><span class="muted">Contributing organisations</span><b>{{ t.organisations }}</b></div>
+  <div class="card kpi"><span class="muted">Contributing organisations</span><b>{{ t.organisations }}</b>{{ cohort(t.organisations, min_cohort) }}</div>
   <div class="card kpi"><span class="muted">Approved contributions</span><b>{{ t.contributions }}</b></div>
   <div class="card kpi"><span class="muted">Latest update</span><b style="font-size:1.1rem">{{ t.updated_at|date }}</b></div>
 </div>

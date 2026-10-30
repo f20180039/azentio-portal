@@ -1,7 +1,7 @@
-{% extends "base.html" %}{% block title %}Products · azentio.ai{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Products · azentio.ai{% endblock %}
+{% block band %}{{ head("Products", "Sandbox demonstrations use synthetic data. A sandbox recommendation is never an approved credit or business decision.", "What we build") }}{% endblock %}
 {% block content %}
-<h1>Products</h1><p class="muted">Sandbox demonstrations use synthetic data. A sandbox recommendation is never an approved credit or business decision.</p>
 <div class="grid">{% for o in offerings %}
-<article class="card"><p class="eyebrow">{{ o.category }}</p><h3><a href="/products/{{ o.slug }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p></article>
+<article class="card link product-card">{{ glyph(o.slug) }}<span class="cat">{{ o.category }}</span><h3><a href="/products/{{ o.slug }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p></article>
 {% endfor %}</div>
 {% endblock %}

@@ -1,25 +1,25 @@
-{% extends "base.html" %}{% block title %}{{ ctx.org.name }} · azentio.ai{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}{{ ctx.org.name }} · azentio.ai{% endblock %}
+{% block band %}{% call head(ctx.org.name, ctx.org.industry ~ ", " ~ ctx.org.region ~ ". Signed in as " ~ ctx.user.name ~ " (" ~ ctx.role ~ ").", "Client workspace") %}<div class="row"><a class="btn bright" href="/observations/new">New observation</a><a class="btn ghost" href="/learning/ask">Ask AIRA</a></div>{% endcall %}{% endblock %}
 {% block content %}
-<p class="eyebrow">Client workspace</p>
-<h1>{{ ctx.org.name }}</h1>
-<p class="muted">{{ ctx.org.industry }} · {{ ctx.org.region }} · signed in as {{ ctx.role }}</p>
 <div class="cols">
 <section class="stack">
   <div class="card private-zone">
-    <div class="row" style="justify-content:space-between"><h2 style="margin:0">My observations</h2><a class="btn small" href="/observations/new">New observation</a></div>
+    <span class="zone-label">{{ lock_icon }} Private to {{ ctx.org.name }}</span>
+    <div class="row between"><h2 style="margin:0">My observations</h2><a class="btn small" href="/observations/new">New observation</a></div>
     <p class="hint">Private to you or your organisation unless you propose sharing.</p>
     {% if mine %}<div class="scroll"><table><tr><th>Title</th><th>Visible to</th><th>Sharing</th><th>Updated</th></tr>
     {% for o in mine %}<tr><td><a href="/observations/{{ o.id }}">{{ o.title }}</a></td><td>{{ 'Only me' if o.visibility=='private' else 'My organisation' }}</td><td><span class="pill {{ o.share_state }}">{{ 'not shared' if o.share_state=='none' else o.share_state }}</span></td><td>{{ o.updated_at|ago }}</td></tr>{% endfor %}
-    </table></div>{% else %}<p class="muted">No observations yet. Start with a private draft.</p>{% endif %}
+    </table></div>{% else %}{{ empty("No observations yet. Start with a private draft; nothing is shared until you choose to.") }}{% endif %}
   </div>
   <div class="card shared-zone">
+    <span class="zone-label">{{ share_icon }} Shared across organisations, de-identified</span>
     <h2>Shared learning themes</h2>
     <p class="hint">Approved, de-identified contributions from several organisations.</p>
     {% for t in themes %}<div class="stripe ok" style="padding-left:12px;margin-bottom:12px"><h3 style="margin:0"><a href="/learning/themes/{{ t.id }}">{{ t.name }}</a></h3>
-    <div class="meta"><span>{{ t.organisations }} organisations</span><span>{{ t.contributions }} contributions</span>{% if t.small_sample %}<span>small sample</span>{% endif %}</div></div>
+    <div class="row" style="margin-top:4px">{{ cohort(t.organisations, min_cohort) }}<span class="meta" style="margin:0"><span>{{ t.contributions }} contributions</span>{% if t.small_sample %}<span>small sample</span>{% endif %}</span></div></div>
     {% else %}<p class="muted">No themes have reached the minimum of contributing organisations yet.</p>{% endfor %}
     {% if hidden_themes %}<p class="hint">{{ hidden_themes }} emerging theme(s) stay hidden until enough organisations contribute.</p>{% endif %}
-    <a href="/learning">Browse and search the shared feed</a> · <a href="/learning/ask">Ask AIRA</a>
+    <div class="row"><a class="btn small ghost" href="/learning">Browse the shared feed</a><a class="btn small ghost" href="/learning/ask">Ask AIRA</a></div>
   </div>
   <div class="card">
     <h2>Improvement ideas</h2>
@@ -30,9 +30,9 @@
 </section>
 <aside class="stack">
   <div class="card"><h2>Entitled products</h2>
-  {% for e in entitlements %}<p style="margin:0 0 6px"><a href="/products/{{ e.slug }}">{{ e.name }}</a></p>{% else %}<p class="muted">No entitlements assigned.</p>{% endfor %}</div>
+  {% for e in entitlements %}<div class="row" style="margin-bottom:8px;flex-wrap:nowrap">{{ glyph(e.slug) }}<a href="/products/{{ e.slug }}">{{ e.name }}</a></div>{% else %}<p class="muted">No entitlements assigned.</p>{% endfor %}</div>
   <div class="card"><h2>Demos &amp; briefings</h2>
-  {% for r in resources %}<p style="margin:0 0 8px"><span class="eyebrow">{{ r.kind }}</span><br><a href="/resources/{{ r.id }}">{{ r.title }}</a></p>{% else %}<p class="muted">Nothing assigned yet.</p>{% endfor %}</div>
+  {% for r in resources %}<div style="margin:0 0 10px"><span class="pill">{{ r.kind|capitalize }}</span><br><a href="/resources/{{ r.id }}">{{ r.title }}</a></div>{% else %}<p class="muted">Nothing assigned yet.</p>{% endfor %}</div>
 </aside>
 </div>
 {% endblock %}

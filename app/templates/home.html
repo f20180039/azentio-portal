@@ -1,35 +1,85 @@
-{% extends "base.html" %}{% block title %}azentio.ai · Build intelligence. Create shared value.{% endblock %}
-{% block banner %}<div class="banner"><div class="wrap">{{ banner }} <a href="/hackathon/register">Register</a></div></div>{% endblock %}
-{% block content %}
-<section class="hero">
-  <p class="eyebrow">Enterprise AI for financial services</p>
-  <h1>Build intelligence. Create shared value.</h1>
-  <p>Explainable credit, reporting and document intelligence, plus a governed portal where clients and Azentio learn from each other without exposing private data.</p>
-  <div class="row"><a class="btn" href="/products">Explore products</a><a class="btn ghost" href="/connect">Request a demo</a></div>
+{% extends "base.html" %}{% from "_ui.html" import glyph %}
+{% block title %}azentio.ai{% endblock %}
+{% block banner %}<div class="banner"><div class="wrap">{{ banner }} <a href="/hackathon/register">Open the form</a></div></div>{% endblock %}
+{% block band %}
+<section class="band hero">
+  <span class="orb a"></span><span class="orb b"></span>
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">Enterprise AI for banks, lenders and insurers</p>
+      <h1>Build intelligence. <span class="g">Create shared value.</span></h1>
+      <p class="lead">Explainable credit, reporting and document intelligence, plus a governed portal where clients and Azentio learn from each other without exposing private data.</p>
+      <div class="row"><a class="btn bright" href="/products">Explore products</a><a class="btn ghost" href="/connect">Request a demo</a></div>
+      <div class="hero-stats">
+        <div><b>{{ offerings|length }}</b><span>products</span></div>
+        <div><b>3+</b><span>organisations before a theme is shown</span></div>
+        <div><b>0</b><span>private records in shared search</span></div>
+      </div>
+    </div>
+    <svg class="network" viewBox="0 0 520 420" role="img" aria-label="Organisations connected through a moderated learning hub">
+      <defs>
+        <radialGradient id="hub" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#3ecf8e" stop-opacity=".9"/><stop offset="1" stop-color="#3ecf8e" stop-opacity="0"/></radialGradient>
+        <linearGradient id="edge" x1="0" x2="1"><stop offset="0" stop-color="#5aa9e6" stop-opacity=".2"/><stop offset="1" stop-color="#3ecf8e" stop-opacity=".8"/></linearGradient>
+      </defs>
+      <circle cx="270" cy="210" r="150" fill="none" stroke="#a9bfd3" stroke-opacity=".18"/>
+      <circle cx="270" cy="210" r="95" fill="none" stroke="#a9bfd3" stroke-opacity=".22" stroke-dasharray="3 7"/>
+      <g stroke="url(#edge)" stroke-width="1.6" fill="none">
+        <path d="M90 90 Q180 120 270 210"/><path d="M450 80 Q370 130 270 210"/><path d="M470 300 Q380 260 270 210"/>
+        <path d="M80 330 Q170 290 270 210"/><path d="M270 40 L270 210"/><path d="M90 90 L270 40 L450 80"/>
+        <path d="M80 330 L210 390 L470 300" stroke-opacity=".5"/>
+      </g>
+      <circle cx="270" cy="210" r="70" fill="url(#hub)" opacity=".35"/>
+      <circle cx="270" cy="210" r="26" fill="#0d2340" stroke="#3ecf8e" stroke-width="3"/>
+      <path d="M260 210 l7 7 l13 -15" stroke="#3ecf8e" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <g fill="#163a63" stroke="#5aa9e6" stroke-width="2">
+        <rect x="70" y="70" width="40" height="40" rx="10"/><rect x="430" y="60" width="40" height="40" rx="10"/>
+        <rect x="450" y="280" width="40" height="40" rx="10"/><rect x="60" y="310" width="40" height="40" rx="10"/>
+      </g>
+      <g fill="#a9bfd3"><rect x="80" y="84" width="20" height="3" rx="1.5"/><rect x="80" y="92" width="14" height="3" rx="1.5"/>
+        <rect x="440" y="74" width="20" height="3" rx="1.5"/><rect x="440" y="82" width="12" height="3" rx="1.5"/>
+        <rect x="460" y="294" width="20" height="3" rx="1.5"/><rect x="460" y="302" width="16" height="3" rx="1.5"/>
+        <rect x="70" y="324" width="20" height="3" rx="1.5"/><rect x="70" y="332" width="10" height="3" rx="1.5"/></g>
+      <circle class="pulse" cx="270" cy="40" r="9" fill="#3ecf8e"/>
+      <circle class="pulse d2" cx="210" cy="390" r="7" fill="#5aa9e6"/>
+      <circle class="pulse d3" cx="180" cy="130" r="5" fill="#3ecf8e"/>
+      <circle cx="360" cy="150" r="4" fill="#3ecf8e"/><circle cx="370" cy="265" r="4" fill="#5aa9e6"/><circle cx="175" cy="275" r="4" fill="#3ecf8e"/>
+    </svg>
+  </div>
 </section>
+{% endblock %}
+{% block content %}
 <section>
-  <h2>Featured products</h2>
+  <div class="section-title"><h2>Products</h2><a href="/products">All products</a></div>
   <div class="grid">
   {% for o in offerings %}
-    <article class="card"><p class="eyebrow">{{ o.category }}</p><h3><a href="/products/{{ o.slug }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p></article>
+    <article class="card link product-card">{{ glyph(o.slug) }}<span class="cat">{{ o.category }}</span><h3><a href="/products/{{ o.slug }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p></article>
   {% endfor %}
   </div>
 </section>
+<section class="card">
+  <div class="section-title"><h2>How shared learning works</h2><a href="/about">Read the details</a></div>
+  <ol class="flow flow-wrap">
+    <li><h3>Write privately</h3><p>A client records a market observation. It starts private to the author or their organisation.</p></li>
+    <li><h3>Review a separate copy</h3><p>With consent, a moderator redacts identifying detail and publishes only the reviewed copy.</p></li>
+    <li><h3>Find the theme</h3><p>A theme appears once at least three organisations contribute, with the evidence linked.</p></li>
+    <li><h3>Improve the product</h3><p>A product owner links an idea and keeps contributors informed of its status.</p></li>
+  </ol>
+</section>
 <section>
-  <h2>See intelligence in action</h2>
+  <div class="section-title"><h2>See it in action</h2><a href="/media">Media and insights</a></div>
   <div class="grid">
   {% for m in media %}
-    <article class="card">{% if m.media_name %}<img class="poster" src="/media/{{ m.id }}" alt="">{% endif %}
-      <p class="eyebrow">{{ m.kind }}</p><h3><a href="/resources/{{ m.id }}">{{ m.title }}</a></h3><p class="muted">{{ m.body }}</p></article>
+    <article class="card link">{% if m.media_name %}<img class="poster" src="/media/{{ m.id }}" alt="">{% endif %}
+      <span class="pill">{{ m.kind|capitalize }}</span><h3 style="margin-top:8px"><a href="/resources/{{ m.id }}">{{ m.title }}</a></h3><p class="muted">{{ m.body }}</p></article>
   {% endfor %}
   </div>
 </section>
 <section>
   <h2>Trust by design</h2>
-  <div class="grid">
-    <div class="card"><h3>Access checked on the server</h3><p class="muted">Every page, API call and media file checks your identity, active organisation, entitlements and the resource's audience.</p></div>
-    <div class="card"><h3>Private until you share</h3><p class="muted">Client observations start private. Sharing needs explicit consent and a moderator's review of a separate, de-identified copy.</p></div>
-    <div class="card"><h3>Audited and reversible</h3><p class="muted">Moderation and status changes go to a hash-chained audit log. Withdrawal removes content from search and AIRA at once.</p></div>
+  <div class="grid three">
+    <div class="card"><span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span><h3>Checked on the server</h3><p class="muted">Every page, API call and media file checks your identity, active organisation, entitlements and the item's audience.</p></div>
+    <div class="card"><span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></span><h3>Private until you share</h3><p class="muted">Sharing needs explicit consent and a moderator's review of a separate, de-identified copy.</p></div>
+    <div class="card"><span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2"/></svg></span><h3>Audited and reversible</h3><p class="muted">Decisions go to a hash-chained audit log. Withdrawal removes content from search and AIRA at once.</p></div>
   </div>
 </section>
 {% endblock %}

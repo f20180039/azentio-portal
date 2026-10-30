@@ -1,0 +1,37 @@
+{% macro glyph(slug) -%}
+<span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+{%- if slug == 'credit-strategy-simulator' -%}<path d="M3 20h18"/><path d="M5 16l4-5 4 3 6-8"/><circle cx="19" cy="6" r="1.6" fill="currentColor"/>
+{%- elif slug == 'sme-credit-decisioning' -%}<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h6M7 13h10M7 17h4"/><path d="M16 8l1.5 1.5L20 7"/>
+{%- elif slug == 'similar-portfolio-intelligence' -%}<circle cx="8" cy="9" r="4"/><circle cx="16" cy="15" r="4"/><path d="M11 11.5l2 1.5"/>
+{%- elif slug == 'riva' -%}<path d="M4 4h10l6 6v10H4z"/><path d="M14 4v6h6"/><path d="M8 15l2.5 2.5L16 12"/>
+{%- else -%}<path d="M4 19V9M9 19V5M14 19v-7M19 19v-4"/><path d="M3 21h18"/>
+{%- endif -%}</svg></span>
+{%- endmacro %}
+
+{% macro cohort(n, minimum) -%}
+<span class="cohort" title="{{ n }} contributing organisation(s); clients see a theme from {{ minimum }}">
+{%- for i in range([n, minimum]|max) %}<i class="{{ 'on' if i < n else 'min' }}"></i>{% endfor -%}
+<span>{{ n }} of {{ minimum }} organisations</span></span>
+{%- endmacro %}
+
+{% macro shape() -%}
+<svg class="shape" viewBox="0 0 260 160" aria-hidden="true" fill="none">
+  <circle cx="200" cy="80" r="70" stroke="#3ecf8e" stroke-opacity=".5" stroke-width="1.5"/>
+  <circle cx="200" cy="80" r="44" stroke="#5aa9e6" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="4 6"/>
+  <path d="M20 120 L90 60 L150 98 L200 80" stroke="#3ecf8e" stroke-opacity=".6" stroke-width="1.5"/>
+  <circle cx="20" cy="120" r="4" fill="#3ecf8e"/><circle cx="90" cy="60" r="5" fill="#5aa9e6"/><circle cx="150" cy="98" r="4" fill="#3ecf8e"/><circle cx="200" cy="80" r="7" fill="#3ecf8e"/>
+</svg>
+{%- endmacro %}
+
+{% macro empty(text) -%}
+<div class="empty"><svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="28" cy="28" r="22" stroke-dasharray="5 6"/><circle cx="28" cy="28" r="6" fill="currentColor"/></svg><p style="margin:0 auto">{{ text }}</p></div>
+{%- endmacro %}
+
+{% macro head(title, sub=None, eyebrow=None) -%}
+<div class="band page-head"><span class="orb a"></span>{{ shape() }}<div class="wrap"><div>
+{% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}<h1>{{ title }}</h1>{% if sub %}<p>{{ sub }}</p>{% endif %}
+</div>{{ caller() if caller else '' }}</div></div>
+{%- endmacro %}
+
+{% set lock_icon %}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>{% endset %}
+{% set share_icon %}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="4" cy="8" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><path d="M6 7l4-2M6 9l4 2"/></svg>{% endset %}
