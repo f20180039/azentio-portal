@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, audit, auth, content, iam, ideas, learning, library, live, orgadmin, playground, policy
+from . import aira, audit, auth, content, iam, settings, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
 from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
@@ -90,7 +90,7 @@ def render(request: Request, name: str, data: dict | None = None, status: int = 
         unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND read=0", (ctx.user_id,)).fetchone()[0]
     base = {"request": request, "ctx": ctx, "unread": unread, "demo_mailbox": auth.demo_mailbox_enabled(),
             "offering_names": {r["slug"]: r["name"] for r in conn.execute("SELECT slug, name FROM offerings")},
-            "min_cohort": learning.min_cohort(), "personas": DEMO_PERSONAS}
+            "min_cohort": learning.min_cohort(conn), "personas": DEMO_PERSONAS}
     return templates.TemplateResponse(request, name, base | (data or {}), status_code=status)
 
 
@@ -601,7 +601,7 @@ def learning_export(request: Request, q: str = "", offering: str = "", industry:
 def theme_list(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     return render(request, "themes.html", {"themes": learning.themes(conn, ctx), "hidden": learning.suppressed_theme_count(conn, ctx),
-                                           "min_cohort": learning.min_cohort()})
+                                           "min_cohort": learning.min_cohort(conn)})
 
 
 @app.get(Route.THEME, response_class=HTMLResponse)
@@ -609,7 +609,7 @@ def theme_view(request: Request, tid: int):
     conn, ctx = request.state.conn, request.state.ctx
     t = learning.theme(conn, ctx, tid)
     linked = [i for i in ideas.list_ideas(conn, ctx) if t["name"] in i["themes"]]
-    return render(request, "theme.html", {"t": t, "ideas": linked, "min_cohort": learning.min_cohort(),
+    return render(request, "theme.html", {"t": t, "ideas": linked, "min_cohort": learning.min_cohort(conn),
                                           "votes": learning.vote_summary(conn, ctx, [i["id"] for i in t["items"]])})
 
 
@@ -651,7 +651,8 @@ async def shared_report(request: Request, sid: int):
 @app.get(Route.MODERATION, response_class=HTMLResponse)
 def moderation(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
-    return render(request, "moderation.html", {"queue": learning.moderation_queue(conn, ctx), "reports": learning.open_reports(conn, ctx)})
+    return render(request, "moderation.html", {"queue": learning.moderation_queue(conn, ctx), "reports": learning.open_reports(conn, ctx),
+                                               "paused": settings.get(conn, constants.Setting.PUBLISHING_PAUSED)})
 
 
 @app.get(Route.MODERATION_REVIEW, response_class=HTMLResponse)
@@ -838,6 +839,21 @@ async def org_member_role(request: Request, uid: int):
 async def content_audience(request: Request, rid: int):
     iam.set_audience(request.state.conn, request.state.ctx, rid, (await form(request)).get("audience") or "")
     return back(Route.CONTENT, "Audience updated. Access checks use it on the next request.")
+
+
+@app.get(Route.CONFIGURATOR, response_class=HTMLResponse)
+def configurator(request: Request):
+    rows = settings.overview(request.state.conn, request.state.ctx)
+    groups: dict[str, list] = {}
+    for row in rows:
+        groups.setdefault(row["spec"].group, []).append(row)
+    return render(request, "configurator.html", {"groups": groups})
+
+
+@app.post(Route.CONFIGURATOR)
+async def configurator_save(request: Request):
+    changed = settings.update(request.state.conn, request.state.ctx, await form(request))
+    return back(Route.CONFIGURATOR, ("Saved and audited: " + ", ".join(changed) + ".") if changed else "No changes.")
 
 
 @app.get(Route.ADMIN_AUDIT, response_class=HTMLResponse)

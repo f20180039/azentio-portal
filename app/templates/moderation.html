@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Moderation · azentio.ai{% endblock %}
 {% block band %}{{ head("Moderation", "Review proposed contributions and reports. Only the reviewed copy is ever published.", "Learning moderator") }}{% endblock %}
 {% block content %}
+{% if paused %}<div class="demo-note"><b>Publishing is paused</b> by a portal administrator. You can still return or reject submissions and decide reports.</div>{% endif %}
 <section><h2>Awaiting review</h2>
 {% if queue %}<div class="scroll card"><table><tr><th>Contribution</th><th>Offering</th><th>From</th><th>Scan</th><th>Waiting</th></tr>
 {% for q in queue %}<tr><td><a href="{{ R.MODERATION_REVIEW.url(oid=q.id) }}">{{ q.title }}</a></td><td>{{ offering_names[q.offering] }}</td><td>{{ q.industry }} · {{ q.region }}</td><td>{% if q.sensitive_flags %}<span class="pill warn">{{ q.sensitive_flags }}</span>{% else %}<span class="muted">nothing flagged</span>{% endif %}</td><td>{{ q.updated_at|ago }}</td></tr>{% endfor %}

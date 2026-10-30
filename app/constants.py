@@ -93,6 +93,7 @@ class Route(StrEnum):
     ADMIN_SUPPORT_RECORDS = "/admin/support/{gid}"
 
     LEARNING_EXPORT = "/learning/export.csv"
+    CONFIGURATOR = "/configurator"
     SHARED_VOTE = "/learning/shared/{sid}/vote"
     SOLUTIONS = "/solutions"
     LAB = "/lab"
@@ -259,6 +260,18 @@ class EvidenceQuality(StrEnum):
     STRONG = "Strong"
     MODERATE = "Moderate"
     LIMITED = "Limited"
+
+
+class Setting(StrEnum):
+    """Portal settings a portal administrator can change in the Configurator."""
+
+    MIN_COHORT = "min_cohort"
+    SMALL_SAMPLE = "small_sample"
+    SUPPORT_MINUTES = "support_minutes"
+    INVITE_DAYS = "invite_days"
+    AIRA_ENABLED = "aira_enabled"
+    AIRA_PER_MINUTE = "aira_per_minute"
+    PUBLISHING_PAUSED = "publishing_paused"
 
 
 class LabStage(StrEnum):

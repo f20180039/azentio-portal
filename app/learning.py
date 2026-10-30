@@ -1,13 +1,12 @@
 """Collective learning: private observations, moderated shared copies, themes, search and withdrawal."""
 import csv
 import io
-import os
 import re
 import time
 from dataclasses import dataclass, field
 
-from . import audit
-from .constants import (Route, Category, ConsentEvent, EvidenceQuality, EvidenceVote, parse, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
+from . import audit, settings
+from .constants import (Setting, Route, Category, ConsentEvent, EvidenceQuality, EvidenceVote, parse, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
                         ShareState, SharedStatus, Visibility)
 from .auth import Ctx
 from .db import tx
@@ -33,12 +32,12 @@ SENSITIVE_PATTERNS = [
 ]
 
 
-def min_cohort() -> int:
-    return int(os.environ.get("MIN_COHORT", "3"))
+def min_cohort(conn) -> int:
+    return settings.get(conn, Setting.MIN_COHORT)
 
 
-def small_sample() -> int:
-    return int(os.environ.get("SMALL_SAMPLE", "5"))
+def small_sample(conn) -> int:
+    return settings.get(conn, Setting.SMALL_SAMPLE)
 
 
 def scan_sensitive(*texts: str) -> list[str]:
@@ -198,6 +197,8 @@ def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
     obs = conn.execute("SELECT * FROM observations WHERE id=?", (obs_id,)).fetchone()
     if not obs or obs["share_state"] != ShareState.SUBMITTED:
         raise Denied(409, "Only submitted contributions can be published.")
+    if settings.get(conn, Setting.PUBLISHING_PAUSED):
+        raise Denied(423, "Publishing is paused by a portal administrator. Returning, rejecting and withdrawals still work.")
     title = (edits.get("title") or "").strip()
     body = (edits.get("body") or "").strip()
     if not (5 <= len(title) <= 120 and 20 <= len(body) <= 2000):
@@ -349,7 +350,7 @@ def below_cohort_item_ids(conn) -> set[int]:
     for r in rows:
         orgs.setdefault(r["theme_id"], set()).add(r["org_id"])
         items.setdefault(r["theme_id"], set()).add(r["id"])
-    return {i for t, ids in items.items() if len(orgs[t]) < min_cohort() for i in ids}
+    return {i for t, ids in items.items() if len(orgs[t]) < min_cohort(conn) for i in ids}
 
 
 @dataclass(frozen=True)
@@ -399,7 +400,7 @@ def search_shared(conn, ctx: Ctx, filters: FeedFilters = FeedFilters(), limit: i
     args.append(limit)
     rows = conn.execute(sql, args).fetchall()
     # differencing guard: a filter combination drawn from too few organisations could single one out
-    if not staff and filters.structured and rows and len({r["org_id"] for r in rows}) < min_cohort():
+    if not staff and filters.structured and rows and len({r["org_id"] for r in rows}) < min_cohort(conn):
         return FeedResult(suppressed=True)
     return FeedResult(items=[{k: r[k] for k in r.keys() if k != "org_id"} for r in rows])
 
@@ -519,7 +520,7 @@ def themes(conn, ctx: Ctx):
             (t["id"],),
         ).fetchall()
         orgs = len({r["org_id"] for r in rows})
-        visible = orgs >= min_cohort()
+        visible = orgs >= min_cohort(conn)
         if not visible and not staff:
             continue
         items = [{k: r[k] for k in r.keys() if k != "org_id"} for r in rows]
@@ -527,7 +528,7 @@ def themes(conn, ctx: Ctx):
         out.append({
             "id": t["id"], "name": t["name"], "offering": t["offering"], "summary": t["summary"], "updated_at": t["updated_at"],
             "contributions": len(items), "organisations": orgs, "meets_cohort": visible,
-            "small_sample": orgs < small_sample(), "periods": periods, "items": items,
+            "small_sample": orgs < small_sample(conn), "periods": periods, "items": items,
         })
     return out
 
@@ -548,6 +549,6 @@ def suppressed_theme_count(conn, ctx: Ctx) -> int:
             "SELECT COUNT(DISTINCT o.org_id) c FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id"
             f" JOIN observations o ON o.id=s.observation_id WHERE ti.theme_id=? AND s.status='{SharedStatus.PUBLISHED}'", (t["id"],)
         ).fetchone()["c"]
-        if 0 < orgs < min_cohort():
+        if 0 < orgs < min_cohort(conn):
             n += 1
     return n

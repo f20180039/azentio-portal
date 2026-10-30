@@ -411,3 +411,17 @@ input[type=number] { width: 100%; padding: 10px 12px; border: 1px solid var(--li
 .arch .s { fill: var(--ink-soft); font: 12px var(--body); }
 .arch .line path { fill: none; stroke: var(--ink-soft); stroke-width: 1.6; }
 .arch .arrow { fill: var(--ink-soft); }
+
+/* configurator */
+.setting { display: flex; gap: 20px; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.setting:last-child { border-bottom: 0; padding-bottom: 0; }
+.setting label { margin-bottom: 2px; }
+.setting-num { width: 110px !important; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+.switch { position: relative; flex: none; width: 48px; height: 28px; margin: 0; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--line); transition: background .15s; }
+.switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s; }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(20px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
+@media (max-width: 600px) { .setting { flex-direction: column; align-items: flex-start; } }

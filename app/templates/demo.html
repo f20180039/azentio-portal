@@ -43,6 +43,7 @@
     {{ step("admin@azentio.com", R.ADMIN, "Arjun · Portal admin", "Approve, grant, entitle, ask for support access", "Approve Nisha (employee only). Toggle a grant or an entitlement. Request support access to Kestrel Bank with a reason.") }}
     {{ step("asha@kestrel.example", R.ORG_MEMBERS, "Asha · Kestrel Bank admin", "The client approves support access", "Approve for 30 minutes. Also change Ravi's role; the last admin cannot be removed.") }}
     {{ step("admin@azentio.com", R.ADMIN, "Arjun · Portal admin", "Time-boxed, audited support view", "Open records: only records shared inside Kestrel, never private drafts. Then open the Audit log: every read and change is chained.") }}
+    {{ step("admin@azentio.com", R.CONFIGURATOR, "Arjun · Portal admin", "Change a setting, see the effect", "Raise the cohort minimum to 4: the 3-organisation theme disappears for clients at once. Pause publishing, or switch AIRA off. Each change is audited with old and new values.") }}
     {{ step("lena@azentio.com", R.CONTENT, "Lena · Content publisher", "Publisher controls media audiences", "Change who can open a video. Pages, API and media files all follow it immediately.") }}
     {{ step("jay@consult.example", R.WORKSPACE, "Jay · Two organisations", "Explicit active workspace", "Pick Northwind or Meridian; everything is scoped to the one chosen.") }}
   </ol>
@@ -75,6 +76,7 @@
       <tr><td>Useful / needs evidence, evidence quality, duplicates, cited ideas</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Knowledge library with owners and reviews</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>AIRA with checked citations</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Configurator: privacy, access, AI and operational settings</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Microsoft Entra ID sign-in</td><td><span class="pill warn">Email code instead</span></td></tr>
       <tr><td>Email delivery (P1)</td><td><span class="pill warn">In-app only</span></td></tr>
       <tr><td>Guided Playground and entitled sandboxes, with feedback</td><td><span class="pill ok">Built</span></td></tr>

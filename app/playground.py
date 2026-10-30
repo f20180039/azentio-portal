@@ -5,7 +5,8 @@ import random
 import time
 
 from . import audit
-from .constants import Accuracy, Permission, parse
+from . import settings
+from .constants import Accuracy, Permission, Setting, parse
 from .auth import Ctx
 from .db import tx
 from .policy import Denied, entitled, require_grant, require_participant
@@ -255,8 +256,8 @@ def explain(conn, ctx: Ctx, run_id: int) -> dict:
 
     import httpx
 
-    _rate_limit(ctx.user_id)
-    key = os.environ.get("GROQ_API_KEY")
+    _rate_limit(conn, ctx.user_id)
+    key = os.environ.get("GROQ_API_KEY") if settings.get(conn, Setting.AIRA_ENABLED) else None
     fallback = {"text": "AI explanation is unavailable. The evidence table shows each check, its value and the policy it was compared with.", "model": None}
     if not key:
         return fallback

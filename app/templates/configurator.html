@@ -1,0 +1,29 @@
+{% extends "base.html" %}{% from "_ui.html" import head %}
+{% block title %}Configurator · azentio.ai{% endblock %}
+{% block band %}{% call head("Configurator", "Portal settings and operational controls. Every change is checked against its limits and written to the audit log.", "Portal administrator") %}<a class="btn ghost" href="{{ R.ADMIN_AUDIT }}">Audit log</a>{% endcall %}{% endblock %}
+{% block content %}
+<form method="post" class="stack">
+{% for group, rows in groups.items() %}
+<section class="card">
+  <h2>{{ group }}</h2>
+  <div class="stack">
+  {% for row in rows %}{% set spec = row.spec %}
+    <div class="setting">
+      <div>
+        <label for="{{ row.key }}">{{ spec.label }}</label>
+        <p class="hint" style="margin:0">{{ spec.help }}</p>
+        <p class="hint" style="margin:2px 0 0">Default {{ ('on' if spec.default else 'off') if spec.is_flag else spec.default }}{% if row.changed_by %}. Last changed by {{ row.changed_by }} {{ row.changed_at|ago }}.{% endif %}</p>
+      </div>
+      {% if spec.is_flag %}
+        <label class="switch"><input id="{{ row.key }}" name="{{ row.key }}" type="checkbox" {% if row.value %}checked{% endif %}><span aria-hidden="true"></span></label>
+      {% else %}
+        <input id="{{ row.key }}" name="{{ row.key }}" type="number" min="{{ spec.low }}" max="{{ spec.high }}" value="{{ row.value }}" required class="setting-num">
+      {% endif %}
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endfor %}
+<div><button class="btn">Save settings</button></div>
+</form>
+{% endblock %}

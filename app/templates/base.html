@@ -66,7 +66,7 @@
     {% if ctx.has(Permission.MODERATE) %}{% set links = links + [(R.MODERATION,'Moderation')] %}{% endif %}
     {% if ctx.is_client_admin %}{% set links = links + [(R.ORG_MEMBERS,'Members')] %}{% endif %}
     {% if ctx.has(Permission.PUBLISH_CONTENT) %}{% set links = links + [(R.CONTENT,'Site content')] %}{% endif %}
-    {% if ctx.has(Permission.PORTAL_ADMIN) %}{% set links = links + [(R.ADMIN,'Admin console')] %}{% endif %}
+    {% if ctx.has(Permission.PORTAL_ADMIN) %}{% set links = links + [(R.ADMIN,'Admin console'),(R.CONFIGURATOR,'Configurator')] %}{% endif %}
     {% for href, label in links %}<a href="{{ href }}" {% if path == href or (href != R.DASHBOARD and path.startswith(href ~ '/') and not (href == R.LEARNING and path.startswith(R.ASK))) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
   {% else %}<span class="muted">No active workspace</span>{% endif %}
   <a href="{{ R.ACCESS }}" {% if path == R.ACCESS %}aria-current="page"{% endif %}>My access</a>

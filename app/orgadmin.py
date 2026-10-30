@@ -3,13 +3,12 @@ import hashlib
 import secrets
 import time
 
-from . import audit
-from .constants import parse, CLIENT_ROLES, Route, InviteStatus, MembershipStatus, Role
+from . import audit, settings
+from .constants import parse, CLIENT_ROLES, Route, Setting, InviteStatus, MembershipStatus, Role
 from .auth import Ctx, normalise_email
 from .db import tx
 from .policy import Denied, require_client
 
-INVITE_TTL = 7 * 24 * 3600
 
 
 def _h(v: str) -> str:
@@ -48,7 +47,7 @@ def invite(conn, ctx: Ctx, email: str, raw_role: str) -> str:
         conn.execute(f"UPDATE invitations SET status='{InviteStatus.REVOKED}' WHERE org_id=? AND email=? AND status='{InviteStatus.PENDING}'", (ctx.org_id, email))
         inv_id = conn.execute(
             "INSERT INTO invitations (token_hash, org_id, email, role, invited_by, expires_at) VALUES (?,?,?,?,?,?)",
-            (_h(token), ctx.org_id, email, role, ctx.user_id, time.time() + INVITE_TTL),
+            (_h(token), ctx.org_id, email, role, ctx.user_id, time.time() + settings.get(conn, Setting.INVITE_DAYS) * 86400),
         ).lastrowid
         conn.execute(
             "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",

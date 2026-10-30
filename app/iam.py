@@ -2,8 +2,8 @@
 resource audiences. Every privileged change is audited."""
 import time
 
-from . import audit
-from .constants import parse, Route, Audience, MembershipStatus, OrgKind, Permission, RequestStatus, Role, Visibility
+from . import audit, settings
+from .constants import parse, Route, Setting, Audience, MembershipStatus, OrgKind, Permission, RequestStatus, Role, Visibility
 from .auth import Ctx
 from .db import tx
 from .learning import notify
@@ -11,7 +11,6 @@ from .policy import Denied, require_client, require_grant, require_signed_in
 
 PERMISSIONS = list(Permission)
 PERMISSION_LABELS = {p: p.label for p in Permission}
-SUPPORT_TTL = 30 * 60
 
 
 def _azentio_org_id(conn) -> int:
@@ -165,9 +164,9 @@ def decide_support(conn, ctx: Ctx, grant_id: int, approve: bool) -> None:
         raise Denied(404, "Support request not found.")
     with tx(conn):
         conn.execute("UPDATE support_grants SET status=?, approved_by=?, expires_at=? WHERE id=?",
-                     (RequestStatus.APPROVED if approve else RequestStatus.DENIED, ctx.user_id, time.time() + SUPPORT_TTL if approve else None, grant_id))
+                     (RequestStatus.APPROVED if approve else RequestStatus.DENIED, ctx.user_id, time.time() + settings.get(conn, Setting.SUPPORT_MINUTES) * 60 if approve else None, grant_id))
         audit.record(conn, ctx.user_id, f"support.{RequestStatus.APPROVED if approve else RequestStatus.DENIED}", f"support_grant:{grant_id}")
-        notify(conn, g["admin_id"], f"Support access was {'approved for 30 minutes' if approve else 'declined'} by the client.", Route.ADMIN)
+        notify(conn, g["admin_id"], f"Support access was {'approved' if approve else 'declined'} by the client.", Route.ADMIN)
 
 
 def revoke_support(conn, ctx: Ctx, grant_id: int) -> None:
