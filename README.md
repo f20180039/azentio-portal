@@ -7,14 +7,14 @@ This is a hackathon build of the azentio.ai public site plus a secure portal. In
 
 All organisations, people and figures are fictional. Synthetic data only.
 
-- **Live:** https://azentio-portal.onrender.com. Start at `/demo` and press **Reset demo data**.
+- **Live:** https://azentio-portal.onrender.com. Start at `/demo` and press **Reset demo data**. The live demo is used through the seeded demo personas (the `/demo` guide or the **View as** switcher); see [Sign-in on the live demo](#sign-in-on-the-live-demo).
 - **Repo:** https://github.com/f20180039/azentio-portal
 
 ## Submission checklist (event rules)
 
 | Rule | Where it is covered |
 |---|---|
-| 1. Working prototype | Live URL above; 206 automated tests; one-click demo guide at `/demo` |
+| 1. Working prototype | Live URL above; 223 automated tests; one-click demo guide at `/demo` |
 | 3. Built during the challenge; reuse declared | [Reused components](#reused-components-declared) |
 | 4. Repo, README, architecture, models and tools, key prompts and workflows, dependencies, run instructions | [Architecture](#architecture-overview), [Models, tools and dependencies](#models-tools-and-dependencies), [Key prompts and workflows](#key-prompts-and-workflows), [Run it](#run-it) |
 | 5. No customer or production data | All data is synthetic and generated in `app/seed.py`; organisations are fictional |
@@ -71,7 +71,7 @@ flowchart LR
 
 - **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1, PyJWT 2.10.1 (with cryptography) for Entra ID tokens.
 - **Database:** SQLite with FTS5, from the Python standard library.
-- **Tests:** pytest 8.3.4 (206 tests). The browser checks used Playwright with local Chrome during development.
+- **Tests:** pytest 8.3.4 (223 tests). The browser checks used Playwright with local Chrome during development.
 - **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then Google `gemini-2.5-flash` and `gemini-2.5-flash-lite`, then to a non-AI listing. Each provider accepts several keys.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
@@ -109,10 +109,10 @@ Built solely by **Anshuman Singh**, using Claude Code as an AI pair programmer (
 | Area | What Anshuman did |
 |---|---|
 | Problem and scope | Read the brief and the reference prototype; chose to build the brief's end-to-end scenario and access rules first, then cycled through every remaining requirement |
-| Architecture and security | Server-side policy layer, tenant and audience model, cohort and differencing safeguards, typed routes and states (`constants.py`); commissioned two independent security reviews and had all 14 findings fixed with tests |
+| Architecture and security | Server-side policy layer, tenant and audience model, cohort and differencing safeguards, typed routes and states (`constants.py`); commissioned two independent security reviews and had every finding fixed (15 fixes, listed in commits `bb97913` and `ed7d773`), then an independent judge review whose defects were fixed the same way |
 | Product and UX | Azentio-themed design, role-aware navigation, demo guide and "View as" switcher, two-column forms, accessible dropdowns |
 | Features | Collective learning lifecycle, moderation, themes, ideas, AIRA, Playground, live sessions, library, Lab, Configurator, outbox, Trends, Entra ID sign-in, federated-learning track |
-| Quality and delivery | 206 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
+| Quality and delivery | 223 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
 
 Anshuman can explain any part of the code. The quickest tour: `policy.py` (who can see what), `learning.py` (lifecycle, cohort rules, search), `constants.py` (routes and states), then the Technology page.
 
@@ -121,7 +121,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 | Criterion | Evidence |
 |---|---|
 | Problem understanding | The brief's own seasonality scenario runs end to end; two kinds of learning are kept apart (collective learning hub, not federated learning) |
-| Working functionality | Live site; 206 tests; every persona can be tried from the demo guide |
+| Working functionality | Live site; 223 tests; every persona can be tried from the demo guide |
 | Intelligence and reasoning | AIRA with checked citations; evidence-backed Playground results; duplicate detection; distinct-organisation theme statistics |
 | Architecture | Typed routes and states in one place; services behind one policy layer; schema checks generated from enums |
 | Security | Server-side checks on every page, API and media route; least-privilege grants; client-approved, time-boxed support access; hash-chained audit; differencing-safe filters; prompt-injection guard |
@@ -134,11 +134,11 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 206 tests
+uv run pytest -q             # 223 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
-- Sign-in uses a one-time email code. No email provider is configured, so the code appears on screen in a clearly labelled **demo mailbox**.
+- Sign-in uses a one-time email code. For the seeded demo personas the code appears on screen in a clearly labelled **demo mailbox** (while `DEMO_MODE=1`). Any other address gets its code only by email, which needs an email provider; see below.
 - Optional: set `GROQ_API_KEYS` and/or `GEMINI_API_KEYS` for AIRA. Without any key, AIRA shows the matching approved contributions with citations and no summary.
 
 Settings (environment variables):
@@ -149,8 +149,16 @@ Settings (environment variables):
 | `MIN_COHORT` | `3` | Distinct organisations a theme needs before clients see it. |
 | `SMALL_SAMPLE` | `5` | Below this, themes carry a "small sample" warning. |
 | `DEMO_MODE` | `1` | Demo shortcuts: the "View as" switcher, the demo guide, on-screen sign-in codes and invitation links for seeded personas, the demo mailbox, and demo reset. Set `0` on any deployment that is not a public sandbox; all of them then return 404. `DEMO_MAILBOX` is accepted as the older name. |
-| `RESEND_API_KEY`, `EMAIL_FROM`, `PUBLIC_URL` | none | Optional email provider for the outbox; without them emails stay queued. `PUBLIC_URL` builds links in emails. |
-| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_ALLOWED_DOMAIN` | none; domain `azentio.com` | Microsoft sign-in. Register a web app in Entra ID with redirect URI `<PUBLIC_URL>/auth/entra/callback` and scopes `openid email profile`. |
+| `RESEND_API_KEY`, `EMAIL_FROM`, `PUBLIC_URL` | none | Optional email provider for the outbox; without them emails stay queued. `EMAIL_FROM` must be on a domain verified in Resend, otherwise Resend delivers only to the Resend account owner's address. `PUBLIC_URL` builds links in emails and the Entra redirect URI. |
+| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_ALLOWED_DOMAIN` | none; domain `azentio.com` | Microsoft sign-in. Register a web app in Entra ID with redirect URI `<PUBLIC_URL>/auth/entra/callback` and scopes `openid email profile`. Only accounts in that tenant whose domain matches are admitted. |
+
+### Sign-in on the live demo
+
+- **Use the demo personas.** On https://azentio-portal.onrender.com, sign in through the `/demo` guide or the **View as** switcher, or request a code for a persona's address: its code appears on screen.
+- **Email codes are fully built, but not delivered live.** Each code is also queued in the email outbox (`enqueue` in `auth.request_code`). No email provider is configured on the deployment, and queued emails are sent only when a portal administrator clicks **Send queued emails now** (`outbox.deliver_pending`). So a new address cannot receive a code on the live site today.
+- **To enable email delivery:** set `RESEND_API_KEY` and `EMAIL_FROM` (a domain verified in Resend; otherwise Resend only delivers to the account owner's address) and `PUBLIC_URL`. The next step after that is to dispatch sign-in codes immediately instead of waiting for the administrator's dispatch.
+- **Microsoft Entra sign-in is built and switched off live.** Enabling it needs an app registration with redirect URI `<PUBLIC_URL>/auth/entra/callback`, plus `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` and `ENTRA_ALLOWED_DOMAIN`. It admits only accounts in that tenant whose domain matches.
+- **Joining is invitation-only.** Even with delivery enabled, a new address signs in to an account with no workspace until a client administrator invites it or a portal administrator approves an employee request.
 | `GROQ_API_KEYS`, `AIRA_MODELS` | none; `openai/gpt-oss-120b,openai/gpt-oss-20b` | Groq keys (comma- or newline-separated) and models, tried first. `GROQ_API_KEY` still works for a single key. |
 | `GEMINI_API_KEYS`, `GEMINI_MODELS` | none; `gemini-2.5-flash,gemini-2.5-flash-lite` | Backup provider, used when every Groq key and model fails. `GEMINI_API_KEY` works for a single key. |
 
@@ -163,7 +171,7 @@ Settings (environment variables):
 - Both the menu and the reset are demo-only: they exist while `DEMO_MODE=1`, accept only the seeded personas, and are audited. Turn the flag off and they return 404.
 - **The live site is a shared sandbox.** Anyone can switch persona, including to the portal administrator, so other visitors may be using it at the same time. That is deliberate for judging, and it is why `DEMO_MODE` exists.
 - Reset keeps the audit log: it appends a `demo.reset` entry, rebuilds every other table, and the hash chain still verifies. Resets are limited to one a minute for the whole process.
-- The demo mailbox and on-screen sign-in codes are limited to the seeded personas. Any other address gets its code only by email.
+- The demo mailbox and on-screen sign-in codes are limited to the seeded personas. Any other address gets its code only by email, once an email provider is configured.
 - Request bodies are capped at 3 MB while they stream in. Cross-site posts are refused; see [CSRF](#access-model-server-side-every-request).
 
 ## Five-minute demo (the brief's seasonality scenario)
@@ -337,11 +345,11 @@ stateDiagram-v2
 |---|---|
 | Public site: catalogue, products, media, insights, demo request, hackathon registration | Built |
 | IAM-01/02: RBAC, tenant membership, audience, entitlements, active workspace, least privilege | Built and tested through the API and media routes |
-| Portal admin: organisations, grants, employee provisioning, client-approved support access | Built |
+| Portal admin: create, suspend and reactivate client organisations; grants, employee provisioning, client-approved support access with an optional ticket reference | Built (ticket references are recorded, not sent to a ticketing system) |
 | Client admin role changes; content publisher resource audiences | Built |
-| Sign-in | Email one-time code (expiry, attempt lock, rate limit), plus Microsoft Entra ID OpenID Connect with PKCE: signature, issuer, audience, nonce, tenant and @azentio.com domain checked; membership rules still apply. Entra turns on when its three settings are present. |
+| Sign-in | Email one-time code (expiry, attempt lock, rate limit), plus Microsoft Entra ID OpenID Connect with PKCE: signature, issuer, audience, nonce, tenant and @azentio.com domain checked; membership rules still apply. Built; on the live demo only the seeded personas can sign in (no email provider, Entra off). See [Sign-in on the live demo](#sign-in-on-the-live-demo). |
 | Client invitation journey and terms | Built |
-| Client dashboard, entitled demos, My and organisation observations, shared feed with filters | Built |
+| Client dashboard, entitled demos, My and organisation observations, sessions for you, shared feed with filters | Built |
 | Observation capture, validation (client and server), draft / submit / edit-returned / withdraw | Built |
 | Attachments: PDF/PNG/JPEG/CSV/TXT, 2 MB, 5 per record, content-type check, data declaration, restricted-text flag; record's audience; never in shared copies | Built |
 | Moderation: redact, clarify, reject, publish versions, reports, suspend | Built |
@@ -351,12 +359,16 @@ stateDiagram-v2
 | AIRA reachable from every page (floating panel, conversation kept across pages) | Built |
 | AIRA for visitors: FAQ answers and public pages only | Built |
 | AIRA finds pages, linking only pages the user's role can open and refusing others | Built |
-| Employee dashboard, employee-only content excluded from client search and AIRA | Built (internal notes, recordings, release notes) |
+| Employee dashboard (Live and Lab links, internal sessions), employee-only content excluded from client search and AIRA | Built (internal notes, recordings, release notes) |
 | Guided Playground (employees: all sandboxes; clients: entitled only), evidence, AIRA explanation, structured feedback | Built |
 | Sandbox saved scenarios (private or organisation) and CSV uploads (type, size, declaration, restricted-data screen; private to the uploader) | Built |
 | Live sessions and recordings with audiences; knowledge library with owners, review dates and feedback | Built |
 | Experiment submissions, hackathon team spaces, audience-scoped release notes | Built |
 | Differencing-safe filters, audited CSV export, consent history | Built |
+| Shared copies k-anonymous on sector and region, with month-level publication dates | Built |
+| Theme evidence cards show sector, region, period, confidence and evidence type | Built |
+| Footer with Explore, Discover and Connect, placeholder Privacy, Terms and Accessibility pages, "Part of Azentio" link | Built (the policy pages are prototype placeholders) |
+| Phone layout: collapsible site menu, no sideways scrolling at 400px | Built (checked in Chrome) |
 | Useful / needs-evidence votes, moderator evidence quality, duplicate check, ideas citing contributions | Built |
 | Prototype public routes: Solutions, AI Lab, Technology, Insights | Built |
 | Configurator: cohort minimum, small-sample warning, support duration, invitation expiry, AIRA switch and rate, publishing pause (validated, audited) | Built |
@@ -368,6 +380,7 @@ stateDiagram-v2
 
 ## Known limits
 
+- **Sign-in on the live demo:** only the seeded personas can sign in; no email provider is configured and Entra is off. See [Sign-in on the live demo](#sign-in-on-the-live-demo).
 - **Hosting:** the free Render instance uses an ephemeral SQLite file. Each restart reseeds the demo data, and the instance sleeps after 15 idle minutes, so the first request is slow.
 - **CSRF:** there are no per-form tokens. Protection is the same-origin check described under the access model, plus `SameSite=Lax` cookies. A client that strips both `Origin` and `Referer` cannot post with a session at all.
 - **Rate limiting:** the AIRA limit is in memory, per process.
@@ -377,7 +390,7 @@ stateDiagram-v2
 ## AI tools used
 
 - **Building:** developed with Claude Code (Anthropic's AI coding assistant) under the team's direction.
-  - It was used for code generation, refactoring, tests, browser checks and an independent security review. The six findings from that review were fixed, with tests.
+  - It was used for code generation, refactoring, tests, browser checks and two independent security reviews. Every finding from those reviews was fixed (15 fixes, listed in commits `bb97913` and `ed7d773`).
   - Every feature was specified, reviewed and accepted by the team.
 - **At runtime:** AIRA and the Playground explanations call Groq-hosted open-weight models (`gpt-oss`), with Google Gemini as backup and a non-AI fallback.
 - No Azentio confidential data, HealthPlix code or real customer data is used.

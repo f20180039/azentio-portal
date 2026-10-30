@@ -3,6 +3,7 @@ import threading
 import time
 
 import httpx
+from contextlib import asynccontextmanager
 from enum import StrEnum
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -22,7 +23,17 @@ from .seed import DEMO_PERSONAS, seed
 
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=BASE / "templates")
-app = FastAPI(title="azentio.ai portal", docs_url=Route.API_DOCS, redoc_url=None)
+
+
+@asynccontextmanager
+async def _lifespan(_app):
+    conn = connect()
+    seed(conn)
+    conn.close()
+    yield
+
+
+app = FastAPI(title="azentio.ai portal", docs_url=Route.API_DOCS, redoc_url=None, lifespan=_lifespan)
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 
 
@@ -48,13 +59,6 @@ templates.env.globals["asset_version"] = max(int(f.stat().st_mtime) for f in (BA
 IST = timezone(timedelta(hours=5, minutes=30))
 templates.env.filters["when"] = lambda ts: datetime.fromtimestamp(ts, IST).strftime("%a %d %b, %H:%M IST") if ts else ""
 templates.env.filters["date"] = lambda ts: datetime.fromtimestamp(ts, timezone.utc).strftime("%d %b %Y") if ts else ""
-
-
-@app.on_event("startup")
-def _startup():
-    conn = connect()
-    seed(conn)
-    conn.close()
 
 
 MAX_BODY = 3_000_000  # above the largest allowed upload (2 MB attachment)

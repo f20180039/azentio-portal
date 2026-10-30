@@ -29,7 +29,7 @@
   </ol>
 </section>
 <section>
-  <div class="section-title"><h2>3. Playground: entitled sandboxes</h2><span class="hint">About 3 minutes</span></div>
+  <div class="section-title"><h2>2. Playground: entitled sandboxes</h2><span class="hint">About 3 minutes</span></div>
   <ol class="demo-steps">
     {{ step("asha@kestrel.example", R.PLAYGROUND_SCENARIO.url(slug="financial-analysis-intelligence"), "Asha · Kestrel Bank admin", "Seasonal dip or real decline?", "Run it: quarter-on-quarter flags a drop, same-season comparison shows it is seasonal. This is the improvement idea from step 5, working.") }}
     {{ step("asha@kestrel.example", R.PLAYGROUND_SCENARIO.url(slug="riva"), "Asha · Kestrel Bank admin", "Not entitled, not reachable", "Kestrel has no RIVA entitlement, so the sandbox answers 404 even by direct URL.") }}
@@ -38,7 +38,7 @@
   </ol>
 </section>
 <section>
-  <div class="section-title"><h2>4. Federated learning (optional advanced track)</h2><span class="hint">About 3 minutes</span></div>
+  <div class="section-title"><h2>3. Federated learning (optional advanced track)</h2><span class="hint">About 3 minutes</span></div>
   <ol class="demo-steps">
     {{ step("asha@kestrel.example", R.FEDERATED, "Asha · Kestrel Bank admin", "Separate programme consent", "Joining a workspace or sharing observations is not consent to train. Only the client administrator opts in or out.") }}
     {{ step("admin@azentio.com", R.FEDERATED, "Arjun · Portal admin", "Run a round with a poisoned participant", "Pick Northwind as malicious and run: its update is rejected, the rest aggregate. Try two dropouts: the round aborts below the minimum.") }}
@@ -46,7 +46,7 @@
   </ol>
 </section>
 <section>
-  <div class="section-title"><h2>2. Identity and access tour</h2><span class="hint">About 4 minutes</span></div>
+  <div class="section-title"><h2>4. Identity and access tour</h2><span class="hint">About 4 minutes</span></div>
   <ol class="demo-steps">
     {{ step("dev@azentio.com", R.ACCESS, "Dev · Employee", "Employee status implies nothing extra", "Moderation, publishing and administration all say No: each is a separate grant.") }}
     {{ step("newhire@azentio.com", R.ACCESS, "Nisha · New joiner", "A work email alone grants nothing", "No workspace until an administrator approves her request.") }}
@@ -78,7 +78,10 @@
       <tr><td>Public site, catalogue, media, demo and hackathon forms</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Server-side access: role, tenant, audience, entitlement</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Least privilege, separate grants, audited admin</td><td><span class="pill ok">Built</span></td></tr>
-      <tr><td>Client-approved, time-boxed support access</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Client-approved, time-boxed support access, with an optional ticket reference</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Create, suspend and reactivate client organisations</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Shared copies: sector and region shown only for enough organisations, month-level dates</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Dashboards with relevant live sessions; employee Live and Lab links</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Invitations, roles, workspace switcher</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Observations, consent, moderation, versions, reports</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Cohort-gated themes, ideas, withdrawal</td><td><span class="pill ok">Built</span></td></tr>
@@ -88,11 +91,12 @@
       <tr><td>AIRA with checked citations</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Configurator: privacy, access, AI and operational settings</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Product owners work only with assigned themes' evidence</td><td><span class="pill ok">Built</span></td></tr>
-      <tr><td>Microsoft Entra ID sign-in (OIDC + PKCE)</td><td><span class="pill warn">Built; turns on with tenant settings</span></td></tr>
+      <tr><td>Microsoft Entra ID sign-in (OIDC + PKCE)</td><td><span class="pill warn">Built; off on the live demo until tenant settings are added</span></td></tr>
+      <tr><td>Sign-in by email code for any address</td><td><span class="pill warn">Built; the live demo has no email provider, so use the personas</span></td></tr>
       <tr><td>Email outbox and weekly digest (P1)</td><td><span class="pill warn">Built; sends once a provider key is set</span></td></tr>
       <tr><td>Guided Playground and entitled sandboxes, with feedback</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Saved scenarios and screened CSV uploads, isolated per person and organisation</td><td><span class="pill ok">Built</span></td></tr>
-      <tr><td>Experiment submissions, hackathon team spaces</td><td><span class="pill bad">Not built</span></td></tr>
+      <tr><td>Experiment submissions, hackathon team spaces</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Comments, bookmarks, saved searches</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Private attachments on observations</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Trend changes, suggested groupings, assisted prioritisation, digests</td><td><span class="pill ok">Built</span></td></tr>
