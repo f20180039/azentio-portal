@@ -1,15 +1,46 @@
-{% extends "base.html" %}{% block title %}{{ 'Request a demo' if kind=='demo' else 'Hackathon registration' }} · azentio.ai{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head %}
+{% block title %}{{ 'Request a demo' if kind=='demo' else 'Hackathon registration' }} · azentio.ai{% endblock %}
+{% block band %}{% if kind == 'demo' %}{{ head("Request a demo", "Tell us what you want to see. A product specialist replies by email.", "Talk to us") }}
+{% else %}{{ head("Register for the Build Lab", "Build with Azentio's sandboxes, synthetic data and mentors.", "November hackathon") }}{% endif %}{% endblock %}
 {% block content %}
-<div style="max-width:620px">
-<h1>{{ 'Request a demo' if kind=='demo' else 'Register for the Build Lab' }}</h1>
+<div class="cols enquiry">
 <form method="post" class="card">
-  <div class="two"><div class="field"><label for="name">Name</label><input id="name" name="name" type="text" required minlength="2" maxlength="80"></div>
-  <div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" required></div></div>
-  <div class="field"><label for="company">{{ 'Company' if kind=='demo' else 'Team or organisation' }}</label><input id="company" name="company" type="text" required maxlength="120"></div>
+  <h2>{{ 'Your details' if kind=='demo' else 'Your team' }}</h2>
+  <div class="two"><div class="field"><label for="name">{{ 'Name' if kind=='demo' else 'Team lead' }}</label><input id="name" name="name" type="text" required minlength="2" maxlength="80" autocomplete="name"></div>
+  <div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" required autocomplete="email"></div></div>
+  <div class="field"><label for="company">{{ 'Company' if kind=='demo' else 'Team or organisation' }}</label><input id="company" name="company" type="text" required maxlength="120" autocomplete="organization"></div>
   {% if offerings %}<div class="field"><label for="interest">Product of interest</label><select id="interest" name="interest">{% for o in offerings %}<option value="{{ o.slug }}">{{ o.name }}</option>{% endfor %}</select></div>
-  {% else %}<div class="field"><label for="interest">Team size</label><select id="interest" name="interest"><option>1</option><option>2</option><option>3</option></select></div>{% endif %}
-  <div class="field"><label for="message">Message</label><textarea id="message" name="message" maxlength="1000"></textarea></div>
-  <button class="btn">{{ 'Send request' if kind=='demo' else 'Register' }}</button>
-  <p class="hint">Stored for follow-up. No email is sent from this demo.</p>
-</form></div>
+  {% else %}<div class="field"><label for="interest">Team size</label><select id="interest" name="interest"><option value="1">1 person</option><option value="2">2 people</option><option value="3">3 people</option></select></div>{% endif %}
+  <div class="field"><label for="message">{{ 'What would you like to see?' if kind=='demo' else 'What do you want to build?' }}</label><textarea id="message" name="message" maxlength="1000" placeholder="{{ 'e.g. explainable SME credit recommendations for our branch network' if kind=='demo' else 'e.g. an agent that explains credit policy changes to relationship managers' }}"></textarea><p class="hint">Optional, up to 1000 characters.</p></div>
+  <button class="btn">{{ 'Send request' if kind=='demo' else 'Register team' }}</button>
+  <p class="hint">We store this to follow up. This demo site sends no email.</p>
+</form>
+<aside class="stack">
+{% if kind == 'demo' %}
+  <div class="card"><h3>What a demo covers</h3>
+    <ul class="ticks">
+      <li>A walkthrough of the product you pick, on synthetic data</li>
+      <li>How recommendations are explained and audited</li>
+      <li>How it fits your existing systems and controls</li>
+      <li>Next steps for a sandbox for your team</li>
+    </ul></div>
+  <div class="card"><h3>Already a client?</h3><p class="muted">Entitled demos and guided sandboxes are in your workspace.</p><a class="btn ghost small" href="/signin">Sign in</a></div>
+{% else %}
+  <div class="card"><h3>How it works</h3>
+    <ol class="flow-v">
+      <li><b>Register</b><span>Tell us about your team and idea.</span></li>
+      <li><b>Get confirmed</b><span>We confirm places by email.</span></li>
+      <li><b>Build</b><span>Use product sandboxes and synthetic datasets with mentor support.</span></li>
+      <li><b>Demo</b><span>Present a working solution to the judges.</span></li>
+    </ol></div>
+  <div class="card"><h3>Ground rules</h3>
+    <ul class="ticks">
+      <li>Teams of 1 to 3 people</li>
+      <li>Synthetic or public data only; no customer or confidential data</li>
+      <li>Declare any AI coding tools and pre-built components you use</li>
+      <li>Built during the event and demoed live</li>
+    </ul></div>
+{% endif %}
+</aside>
+</div>
 {% endblock %}
