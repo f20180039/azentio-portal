@@ -7,7 +7,7 @@
 <td>{% if p.status == MembershipStatus.ACTIVE and p.id != ctx.user_id %}<form method="post" action="{{ R.ORG_MEMBER_REVOKE.url(uid=p.id) }}" class="inline"><button class="btn small ghost">Revoke</button></form>{% endif %}</td></tr>{% endfor %}
 </table></div>
 <h2 style="margin-top:20px">Invitations</h2><div class="scroll"><table><tr><th>Email</th><th>Role</th><th>Status</th><th>Expires</th><th></th></tr>
-{% for i in invites %}<tr><td>{{ i.email }}</td><td>{{ i.role }}</td><td><span class="pill {{ 'warn' if i.status == InviteStatus.PENDING else ('ok' if i.status == InviteStatus.ACCEPTED else 'bad') }}">{{ 'expired' if i.status == InviteStatus.PENDING and i.expires_at < now else i.status }}</span></td><td>{{ i.expires_at|date }}</td>
+{% for i in invites %}<tr><td>{{ i.email }}</td><td>{{ i.role }}</td><td><span class="pill {{ 'warn' if i.status == InviteStatus.PENDING else ('ok' if i.status == InviteStatus.ACCEPTED else 'bad') }}">{{ 'expired' if i.status == InviteStatus.PENDING and i.expires_at < now else i.status }}</span></td><td>{{ i.expires_at|date }}{% if i.created_link and i.status == InviteStatus.PENDING %}<br><a class="mono" href="{{ i.created_link }}">invitation link</a>{% endif %}</td>
 <td>{% if i.status == InviteStatus.PENDING %}<form method="post" action="{{ R.ORG_INVITE_REVOKE.url(iid=i.id) }}" class="inline"><button class="btn small ghost">Revoke</button></form>{% endif %}</td></tr>
 {% else %}<tr><td colspan="5" class="muted">No invitations yet.</td></tr>{% endfor %}</table></div></section>
 <aside class="stack">
@@ -25,6 +25,6 @@
 <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" required></div>
 <div class="field"><label for="role">Role</label><select id="role" name="role"><option value="member">Member</option><option value="admin">Administrator</option></select></div>
 <button class="btn">Send invitation</button>
-<p class="hint">Single use, expires in 7 days, valid only for that email. You can grant client roles in {{ ctx.org.name }} only.{% if demo_mailbox %} In this demo the invitation goes to the <a href="{{ R.MAILBOX }}">demo mailbox</a>.{% endif %}</p></form></aside>
+<p class="hint">Single use, expires in 7 days, valid only for that email. You can grant client roles in {{ ctx.org.name }} only.{% if demo_mailbox %} In this demo the invitation link appears in the list for your organisation's administrators to pass on.{% endif %}</p></form></aside>
 </div>
 {% endblock %}

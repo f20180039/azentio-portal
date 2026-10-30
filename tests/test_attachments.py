@@ -78,3 +78,11 @@ def test_support_access_reads_of_attachments_are_audited(login, db):
     login("asha@kestrel.example").post(f"/org/support/{gid}", data={"action": "approve"})
     assert login("admin@azentio.com").get(f"/observations/{obs}/attachments/{aid}").status_code == 200
     assert db.execute("SELECT COUNT(*) FROM audit WHERE action='support.attachment_read'").fetchone()[0] == 1
+
+
+def test_non_latin_filenames_download_safely(login, db):
+    ravi, obs = login("ravi@kestrel.example"), oid(db, "Two-step review")
+    assert attach(ravi, obs, "报告.pdf", PDF).status_code == 303
+    aid = db.execute("SELECT id FROM observation_attachments").fetchone()["id"]
+    r = ravi.get(f"/observations/{obs}/attachments/{aid}")
+    assert r.status_code == 200 and r.content == PDF and "filename*=UTF-8''" in r.headers["content-disposition"]

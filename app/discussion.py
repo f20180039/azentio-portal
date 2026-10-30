@@ -7,18 +7,17 @@ from . import audit
 from .auth import Ctx
 from .constants import CommentStatus, OrgKind, Permission, Route, SharedStatus
 from .db import tx
-from .learning import SECTOR_OF, FeedFilters, _visible_item, hidden_item_ids, notify_moderators, scan_sensitive
+from .learning import FeedFilters, _visible_item, hidden_item_ids, notify_moderators, scan_sensitive
 from .policy import Denied, require_grant, require_participant
 
 
 def _author_label(conn, ctx: Ctx, row) -> str:
-    """Commenters are shown by role and sector only, so a comment never reveals which organisation wrote it."""
+    """Client commenters are shown only as 'Participant': even a sector can narrow the author to fewer organisations
+    than the cohort minimum."""
     if row["user_id"] == ctx.user_id:
         return "You"
-    org = conn.execute("SELECT kind, industry FROM orgs WHERE id=?", (row["org_id"],)).fetchone()
-    if org["kind"] == OrgKind.AZENTIO:
-        return "Azentio team"
-    return f"Participant · {SECTOR_OF.get(org['industry'], 'Financial services')}"
+    org = conn.execute("SELECT kind FROM orgs WHERE id=?", (row["org_id"],)).fetchone()
+    return "Azentio team" if org["kind"] == OrgKind.AZENTIO else "Participant"
 
 
 def comments_for(conn, ctx: Ctx, shared_ids: list[int]) -> dict[int, list[dict]]:

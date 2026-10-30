@@ -5,7 +5,7 @@ import time
 
 from . import audit, outbox, settings
 from .constants import parse, CLIENT_ROLES, Route, Setting, InviteStatus, MembershipStatus, Role
-from .auth import Ctx, normalise_email
+from .auth import Ctx, demo_mailbox_enabled, normalise_email
 from .db import tx
 from .policy import Denied, require_client
 
@@ -27,9 +27,9 @@ def members(conn, ctx: Ctx):
         "SELECT u.id, u.email, u.name, m.role, m.status FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.org_id=? ORDER BY u.name",
         (ctx.org_id,),
     ).fetchall()
-    invites = conn.execute(
-        "SELECT id, email, role, status, expires_at FROM invitations WHERE org_id=? ORDER BY id DESC", (ctx.org_id,)
-    ).fetchall()
+    invites = [dict(r) for r in conn.execute(
+        "SELECT id, email, role, status, expires_at, created_link FROM invitations WHERE org_id=? ORDER BY id DESC", (ctx.org_id,)
+    ).fetchall()]
     return people, invites
 
 
@@ -46,8 +46,9 @@ def invite(conn, ctx: Ctx, email: str, raw_role: str) -> str:
     with tx(conn):
         conn.execute(f"UPDATE invitations SET status='{InviteStatus.REVOKED}' WHERE org_id=? AND email=? AND status='{InviteStatus.PENDING}'", (ctx.org_id, email))
         inv_id = conn.execute(
-            "INSERT INTO invitations (token_hash, org_id, email, role, invited_by, expires_at) VALUES (?,?,?,?,?,?)",
-            (_h(token), ctx.org_id, email, role, ctx.user_id, time.time() + settings.get(conn, Setting.INVITE_DAYS) * 86400),
+            "INSERT INTO invitations (token_hash, org_id, email, role, invited_by, expires_at, created_link) VALUES (?,?,?,?,?,?,?)",
+            (_h(token), ctx.org_id, email, role, ctx.user_id, time.time() + settings.get(conn, Setting.INVITE_DAYS) * 86400,
+             Route.INVITE.url(token=token) if demo_mailbox_enabled() else None),
         ).lastrowid
         conn.execute(
             "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",

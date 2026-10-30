@@ -156,8 +156,10 @@ def propose_share(conn, ctx: Ctx, obs_id: int, consent_publish: bool, consent_at
 
 
 def _unindex(conn, shared_ids: list[int]) -> None:
+    """Removes items from search and cancels queued emails that quote them, in the caller's transaction."""
     for sid in shared_ids:
         conn.execute("DELETE FROM shared_fts WHERE rowid=?", (sid,))
+    outbox.cancel_referencing(conn, shared_ids)
 
 
 def withdraw(conn, ctx: Ctx, obs_id: int) -> int:

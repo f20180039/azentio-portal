@@ -61,7 +61,7 @@ def attach(conn, ctx: Ctx, obs_id: int, filename: str, data: bytes, declared: bo
     if len(listing(conn, obs_id)) >= MAX_PER_RECORD:
         raise Denied(409, f"A record can hold at most {MAX_PER_RECORD} attachments.")
     ftype = _type_for(filename, data)
-    safe_name = re.sub(r"[^\w.\- ]", "_", filename)[:100] or "attachment"
+    safe_name = re.sub(r"[^A-Za-z0-9._\- ]", "_", filename)[:100] or "attachment"
     flags = ", ".join(scan_sensitive(data.decode("utf-8"))) if ftype.magic is None else ""
     with tx(conn):
         aid = conn.execute("INSERT INTO observation_attachments (observation_id, uploader_id, filename, mime, size, content, flags, created_at)"

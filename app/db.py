@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS invitations (
   id INTEGER PRIMARY KEY, token_hash TEXT UNIQUE NOT NULL, org_id INTEGER NOT NULL REFERENCES orgs(id),
   email TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ({CLIENT_ROLE_LIST})),
   invited_by INTEGER NOT NULL REFERENCES users(id), expires_at REAL NOT NULL,
-  status TEXT NOT NULL DEFAULT '{InviteStatus.PENDING}' CHECK (status IN ({sql_in(InviteStatus)}))
+  status TEXT NOT NULL DEFAULT '{InviteStatus.PENDING}' CHECK (status IN ({sql_in(InviteStatus)})),
+  created_link TEXT  -- demo mode only: shown to the organisation's administrators instead of an email
 );
 
 -- the private source record; never leaves its organisation
@@ -223,9 +224,14 @@ CREATE TABLE IF NOT EXISTS email_outbox (
   id INTEGER PRIMARY KEY, idempotency_key TEXT UNIQUE NOT NULL, user_id INTEGER REFERENCES users(id), to_email TEXT NOT NULL,
   subject TEXT NOT NULL, body TEXT NOT NULL, notification_id INTEGER REFERENCES notifications(id),
   status TEXT NOT NULL DEFAULT '{EmailStatus.QUEUED}' CHECK (status IN ({sql_in(EmailStatus)})),
-  attempts INTEGER NOT NULL DEFAULT 0, provider_id TEXT, last_error TEXT, created_at REAL NOT NULL, sent_at REAL
+  attempts INTEGER NOT NULL DEFAULT 0, provider_id TEXT, last_error TEXT, created_at REAL NOT NULL, sent_at REAL,
+  shared_refs TEXT NOT NULL DEFAULT ''  -- ',id,id,' of shared items quoted in the body
 );
 -- short-lived OIDC login attempts: state, nonce and PKCE verifier, single use
+-- a Microsoft identity (tenant + object id) is bound to exactly one portal user; email alone never decides
+CREATE TABLE IF NOT EXISTS entra_identities (
+  subject TEXT PRIMARY KEY, user_id INTEGER UNIQUE NOT NULL REFERENCES users(id), linked_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS oidc_attempts (
   state TEXT PRIMARY KEY, nonce TEXT NOT NULL, verifier TEXT NOT NULL, next TEXT NOT NULL, expires_at REAL NOT NULL
 );

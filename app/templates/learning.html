@@ -35,7 +35,7 @@
     </div>{% else %}<p class="muted" style="margin:6px 0">No comments yet.</p>{% endfor %}
     <form method="post" action="{{ R.SHARED_COMMENT.url(sid=it.id) }}" class="row" style="margin-top:8px"><input type="hidden" name="next" value="{{ here }}">
       <input type="text" name="body" required minlength="3" maxlength="1000" placeholder="Add to the discussion" style="flex:1;min-width:200px" aria-label="Comment"><button class="btn small">Post</button></form>
-    <p class="hint">Shown by role and sector only, never your organisation. Comments follow this contribution's visibility.</p>
+    <p class="hint">Shown as 'Participant', never your name or organisation. Comments follow this contribution's visibility.</p>
   </details>
   <details style="margin-top:8px"><summary class="muted">Report this contribution</summary>
     <form method="post" action="{{ R.SHARED_REPORT.url(sid=it.id) }}" class="row" style="margin-top:8px"><input type="text" name="reason" required minlength="5" maxlength="500" placeholder="What is misleading, confidential or inappropriate?" style="flex:1;min-width:200px"><button class="btn small ghost">Send report</button></form>

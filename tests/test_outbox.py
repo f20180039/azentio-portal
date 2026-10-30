@@ -73,3 +73,14 @@ def test_weekly_digest_is_once_per_person_per_week_and_respects_visibility(login
     assert len(queued(db, "idempotency_key LIKE 'digest:%'")) == first  # idempotent per week
     asha = next(d for d in digests if d["to_email"] == "asha@kestrel.example")
     assert "Calendar-driven" not in asha["body"]  # below-cohort items never reach a client's digest
+
+
+def test_withdrawal_cancels_queued_emails_that_quote_the_item(login, db):
+    db.execute("UPDATE shared_items SET published_at=strftime('%s','now') - 3600")
+    login("admin@azentio.com").post("/admin/outbox/digest")
+    sid = db.execute("SELECT id, observation_id FROM shared_items WHERE title LIKE 'Phone-photo%'").fetchone()
+    quoting = db.execute("SELECT COUNT(*) FROM email_outbox WHERE shared_refs LIKE ? AND status='queued'", (f"%,{sid['id']},%",)).fetchone()[0]
+    assert quoting > 0
+    login("wanjiru@harbour.example").post(f"/observations/{sid['observation_id']}/withdraw")
+    assert db.execute("SELECT COUNT(*) FROM email_outbox WHERE shared_refs LIKE ? AND status='queued'", (f"%,{sid['id']},%",)).fetchone()[0] == 0
+    assert db.execute("SELECT COUNT(*) FROM email_outbox WHERE status='cancelled'").fetchone()[0] == quoting

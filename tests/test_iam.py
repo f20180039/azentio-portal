@@ -153,10 +153,36 @@ def test_demo_reset_restores_the_starting_state(app, db):
         c.post("/demo/view-as", data={"email": "omar@azentio.com"})
         mid = db.execute("SELECT id FROM observations WHERE title LIKE 'Compare against%'").fetchone()["id"]
         c.post(f"/moderation/{mid}/return", data={"note": "Please clarify the period."})
+        assert c.post("/demo/reset").status_code == 403  # only a portal administrator may reset
+        c.post("/demo/view-as", data={"email": "admin@azentio.com"})
         assert c.post("/demo/reset", follow_redirects=False).status_code == 303
         from app.db import connect
         fresh = connect()
         assert fresh.execute("SELECT share_state FROM observations WHERE title LIKE 'Compare against%'").fetchone()[0] == "submitted"
-        assert fresh.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 12
+        assert fresh.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 13
         fresh.close()
         assert c.get("/api/v1/me").status_code == 401
+
+
+def test_anonymous_and_cross_site_demo_actions_are_refused(app, db):
+    with TestClient(app) as c:
+        r = c.post("/demo/reset", follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"].startswith("/signin")  # anonymous: sent to sign in
+        assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 13  # nothing was wiped
+        r = c.post("/demo/view-as", data={"email": "admin@azentio.com"}, headers={"Origin": "https://evil.example"})
+        assert r.status_code == 403 and c.get("/api/v1/me").status_code == 401
+        assert c.post("/demo/view-as", data={"email": "admin@azentio.com"}, headers={"Origin": "http://testserver"},
+                      follow_redirects=False).status_code == 303
+
+
+def test_mailbox_only_shows_seeded_personas(client, login):
+    login("asha@kestrel.example").post("/org/invite", data={"email": "judge@example.com", "role": "member"})
+    assert client.get("/mailbox", params={"email": "judge@example.com"}).status_code == 404
+    page = client.post("/signin", data={"email": "judge@example.com"}).text
+    assert "Your code is" not in page
+    assert "invitation link" in login("asha@kestrel.example").get("/org/members").text  # the inviting admin passes it on
+
+
+def test_oversized_bodies_are_refused_before_reading(client):
+    r = client.post("/connect", content=b"x" * 3_100_000, headers={"Content-Type": "application/x-www-form-urlencoded"})
+    assert r.status_code == 413

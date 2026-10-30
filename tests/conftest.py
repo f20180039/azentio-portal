@@ -38,7 +38,16 @@ def login(app):
         c.__enter__()
         clients.append(c)
         page = c.post("/signin", data={"email": email}).text
-        code = re.search(r"Your code is (\d{6})", page).group(1)
+        shown = re.search(r"Your code is (\d{6})", page)  # on screen only for demo personas
+        if shown:
+            code = shown.group(1)
+        else:  # any other address: read what the email would contain, from the server-side record
+            from app.db import connect
+
+            conn = connect()
+            body = conn.execute("SELECT body FROM demo_mailbox WHERE email=? ORDER BY id DESC LIMIT 1", (email,)).fetchone()["body"]
+            conn.close()
+            code = re.search(r"Your code is (\d{6})", body).group(1)
         r = c.post("/signin/verify", data={"email": email, "code": code}, follow_redirects=False)
         assert r.status_code == 303
         if workspace:

@@ -14,6 +14,11 @@ from .db import tx
 from .policy import Denied
 
 ATTEMPT_TTL = 600
+COOKIE = "azp_oidc"  # binds the attempt to the browser that started it (login CSRF protection)
+
+
+def browser_binding(state: str) -> str:
+    return hashlib.sha256(("oidc:" + state).encode()).hexdigest()
 
 
 def config() -> dict | None:
@@ -38,8 +43,8 @@ def _cfg() -> dict:
     return cfg
 
 
-def start(conn, next_path: str) -> str:
-    """Returns the Microsoft authorization URL for a fresh, single-use attempt."""
+def start(conn, next_path: str) -> tuple[str, str]:
+    """Returns (Microsoft authorization URL, state) for a fresh, single-use attempt; the caller sets the binding cookie."""
     cfg = _cfg()
     state, nonce, verifier = secrets.token_urlsafe(24), secrets.token_urlsafe(24), secrets.token_urlsafe(48)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
@@ -49,7 +54,7 @@ def start(conn, next_path: str) -> str:
     params = httpx.QueryParams({"client_id": cfg["client_id"], "response_type": "code", "redirect_uri": cfg["redirect"],
                                 "response_mode": "query", "scope": "openid email profile", "state": state, "nonce": nonce,
                                 "code_challenge": challenge, "code_challenge_method": "S256"})
-    return f"{cfg['authorize']}?{params}"
+    return f"{cfg['authorize']}?{params}", state
 
 
 def exchange_code(cfg: dict, code: str, verifier: str) -> str:
@@ -64,14 +69,16 @@ def signing_key(cfg: dict, token: str):
     return jwt.PyJWKClient(cfg["jwks"]).get_signing_key_from_jwt(token).key
 
 
-def finish(conn, code: str, state: str) -> tuple[str, str]:
-    """Validates the callback and returns (verified email, next path). Every failure is a plain 401 with no detail leaked."""
+def finish(conn, code: str, state: str, binding: str | None) -> tuple[dict, str]:
+    """Validates the callback and returns (identity, next path). Every failure is a plain 401 with no detail leaked."""
     cfg = _cfg()
     with tx(conn):
         attempt = conn.execute("SELECT * FROM oidc_attempts WHERE state=?", (state,)).fetchone()
         conn.execute("DELETE FROM oidc_attempts WHERE state=?", (state,))  # single use, even when it fails
     if not attempt or attempt["expires_at"] < time.time() or not code:
         raise Denied(401, "This sign-in link has expired or was already used. Start again.")
+    if not binding or not secrets.compare_digest(binding, browser_binding(state)):
+        raise Denied(401, "This sign-in was started in a different browser. Start again here.")
     token = exchange_code(cfg, code, attempt["verifier"])
     try:
         claims = jwt.decode(token, signing_key(cfg, token), algorithms=["RS256"], audience=cfg["client_id"], issuer=cfg["issuer"],
@@ -80,17 +87,27 @@ def finish(conn, code: str, state: str) -> tuple[str, str]:
         raise Denied(401, "Microsoft sign-in could not be verified.")
     if claims.get("nonce") != attempt["nonce"] or claims.get("tid") != cfg["tenant"]:
         raise Denied(401, "Microsoft sign-in could not be verified.")
-    email = (claims.get("email") or claims.get("preferred_username") or "").strip().lower()
-    if not email.endswith("@" + cfg["domain"]):
+    # the sign-in name (UPN) is set by the tenant's administrators; the optional 'email' claim is user-editable, so it never decides
+    email = (claims.get("preferred_username") or "").strip().lower()
+    if not email.endswith("@" + cfg["domain"]) or not claims.get("oid"):
         raise Denied(403, f"Use your @{cfg['domain']} work account.")
-    return email, attempt["next"]
+    return {"email": email, "subject": f"{claims['tid']}:{claims['oid']}"}, attempt["next"]
 
 
-def sign_in(conn, email: str) -> int:
-    """Finds or creates the user. A new account has no membership, so it reaches nothing until an administrator approves it."""
+def sign_in(conn, identity: dict) -> int:
+    """Signs in the user bound to this Microsoft identity, binding it on first use. A user already bound to a different
+    identity is refused. A new account has no membership, so it reaches nothing until an administrator approves it."""
+    email, subject = identity["email"], identity["subject"]
     with tx(conn):
-        row = conn.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
-        user_id = row["id"] if row else conn.execute("INSERT INTO users (email, name) VALUES (?,?)",
-                                                     (email, email.split("@")[0].replace(".", " ").title())).lastrowid
+        bound = conn.execute("SELECT user_id FROM entra_identities WHERE subject=?", (subject,)).fetchone()
+        if bound:
+            user_id = bound["user_id"]
+        else:
+            row = conn.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
+            if row and conn.execute("SELECT 1 FROM entra_identities WHERE user_id=?", (row["id"],)).fetchone():
+                raise Denied(403, "This portal account is linked to a different Microsoft identity.")
+            user_id = row["id"] if row else conn.execute("INSERT INTO users (email, name) VALUES (?,?)",
+                                                         (email, email.split("@")[0].replace(".", " ").title())).lastrowid
+            conn.execute("INSERT INTO entra_identities VALUES (?,?,?)", (subject, user_id, time.time()))
         audit.record(conn, user_id, "auth.signed_in", f"user:{user_id}", {"method": "entra_id"})
     return user_id

@@ -11,7 +11,8 @@ def test_comments_are_deidentified_and_follow_visibility(login, db):
     assert ravi.post(f"/learning/shared/{sid}/comments", data={"body": "We see the same at quarter ends."}, follow_redirects=False).status_code == 303
     feed = login("sam@northwind.example").get("/learning").text
     main = feed[feed.index("<main"):]
-    assert "We see the same at quarter ends." in main and "Participant · Banking" in main
+    assert "We see the same at quarter ends." in main and "<b>Participant</b>" in main
+    assert "Participant · " not in main  # no sector: it could narrow the author below the cohort minimum
     assert "Kestrel" not in main and "Ravi" not in main
     hidden = item(db, "Calendar-driven")  # in a below-cohort theme
     assert login("asha@kestrel.example").post(f"/learning/shared/{hidden}/comments", data={"body": "Hello there"}).status_code == 404

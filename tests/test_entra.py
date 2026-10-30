@@ -23,7 +23,7 @@ def configured(monkeypatch):
 
 def token(nonce, key=KEY, **over):
     claims = {"iss": f"https://login.microsoftonline.com/{TENANT}/v2.0", "aud": CLIENT, "tid": TENANT, "nonce": nonce,
-              "iat": int(time.time()), "exp": int(time.time()) + 600, "preferred_username": "dev@azentio.com"} | over
+              "iat": int(time.time()), "exp": int(time.time()) + 600, "preferred_username": "dev@azentio.com", "oid": "oid-dev"} | over
     return jwt.encode(claims, key, algorithm="RS256")
 
 
@@ -51,7 +51,7 @@ def test_valid_sign_in_creates_a_session_and_membership_rules_still_apply(config
     assert db.execute("SELECT COUNT(*) FROM audit WHERE detail LIKE '%entra_id%'").fetchone()[0] == 1
     # a verified identity without an approved membership reaches nothing
     state, nonce = begin(client)
-    monkeypatch.setattr(entra, "exchange_code", lambda cfg, code, verifier: token(nonce, preferred_username="new.joiner@azentio.com"))
+    monkeypatch.setattr(entra, "exchange_code", lambda cfg, code, verifier: token(nonce, preferred_username="new.joiner@azentio.com", oid="oid-new"))
     client.get("/auth/entra/callback", params={"code": "c", "state": state})
     assert client.get("/api/v1/me").json()["memberships"] == []
 
@@ -75,3 +75,27 @@ def test_other_domains_and_replayed_or_forged_state_are_rejected(configured, cli
     assert client.get("/auth/entra/callback", params={"code": "c", "state": state}).status_code == 403
     assert client.get("/auth/entra/callback", params={"code": "c", "state": state}).status_code == 401  # state is single use
     assert client.get("/auth/entra/callback", params={"code": "c", "state": "forged"}).status_code == 401
+
+
+def test_callback_from_another_browser_is_refused(configured, app, client, monkeypatch):
+    """Login CSRF: an attacker's own code and state replayed in the victim's browser lack the binding cookie."""
+    from fastapi.testclient import TestClient
+
+    state, nonce = begin(client)
+    monkeypatch.setattr(entra, "exchange_code", lambda cfg, code, verifier: token(nonce))
+    with TestClient(app) as victim:
+        assert victim.get("/auth/entra/callback", params={"code": "c", "state": state}).status_code == 401
+        assert victim.get("/api/v1/me").status_code == 401
+
+
+def test_editable_email_claim_and_identity_swaps_are_refused(configured, client, monkeypatch):
+    state, nonce = begin(client)
+    monkeypatch.setattr(entra, "exchange_code", lambda cfg, code, verifier: token(nonce, preferred_username="someone@contractor.example",
+                                                                              email="ceo@azentio.com"))
+    assert client.get("/auth/entra/callback", params={"code": "c", "state": state}).status_code == 403  # email claim ignored
+    state, nonce = begin(client)
+    monkeypatch.setattr(entra, "exchange_code", lambda cfg, code, verifier: token(nonce))
+    client.get("/auth/entra/callback", params={"code": "c", "state": state})  # binds dev@azentio.com to oid-dev
+    state, nonce = begin(client)
+    monkeypatch.setattr(entra, "exchange_code", lambda cfg, code, verifier: token(nonce, oid="oid-impostor"))
+    assert client.get("/auth/entra/callback", params={"code": "c", "state": state}).status_code == 403

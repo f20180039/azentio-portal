@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 
 | Rule | Where it is covered |
 |---|---|
-| 1. Working prototype | Live URL above; 170 automated tests; one-click demo guide at `/demo` |
+| 1. Working prototype | Live URL above; 177 automated tests; one-click demo guide at `/demo` |
 | 3. Built during the challenge; reuse declared | [Reused components](#reused-components-declared) |
 | 4. Repo, README, architecture, models and tools, key prompts and workflows, dependencies, run instructions | [Architecture](#architecture-overview), [Models, tools and dependencies](#models-tools-and-dependencies), [Key prompts and workflows](#key-prompts-and-workflows), [Run it](#run-it) |
 | 5. No customer or production data | All data is synthetic and generated in `app/seed.py`; organisations are fictional |
@@ -68,7 +68,7 @@ flowchart LR
 
 - **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1, PyJWT 2.10.1 (with cryptography) for Entra ID tokens.
 - **Database:** SQLite with FTS5, from the Python standard library.
-- **Tests:** pytest 8.3.4 (170 tests). The browser checks used Playwright with local Chrome during development.
+- **Tests:** pytest 8.3.4 (177 tests). The browser checks used Playwright with local Chrome during development.
 - **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then to a non-AI listing.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
@@ -100,19 +100,24 @@ After the answer comes back, any `[S<id>]` that was not retrieved is stripped, s
 
 ## Who built what
 
-> Fill in before submitting: rule 7 evaluates each member's individual contribution.
+Built solely by **Anshuman Singh**, using Claude Code as an AI pair programmer (disclosed under [AI tools used](#ai-tools-used)).
 
-| Member | Built | Can explain |
-|---|---|---|
-| Anshuman Singh | Problem scoping, requirement prioritisation, design and UX direction, review and testing of every feature, deployment | Whole system; access model (`policy.py`), learning lifecycle (`learning.py`), Configurator |
-| _Teammate_ | _…_ | _…_ |
+| Area | What Anshuman did |
+|---|---|
+| Problem and scope | Read the brief and the reference prototype; chose to build the brief's end-to-end scenario and access rules first, then cycled through every remaining requirement |
+| Architecture and security | Server-side policy layer, tenant and audience model, cohort and differencing safeguards, typed routes and states (`constants.py`); commissioned two independent security reviews and had all 14 findings fixed with tests |
+| Product and UX | Azentio-themed design, role-aware navigation, demo guide and "View as" switcher, two-column forms, accessible dropdowns |
+| Features | Collective learning lifecycle, moderation, themes, ideas, AIRA, Playground, live sessions, library, Lab, Configurator, outbox, Trends, Entra ID sign-in, federated-learning track |
+| Quality and delivery | 177 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
+
+Anshuman can explain any part of the code. The quickest tour: `policy.py` (who can see what), `learning.py` (lifecycle, cohort rules, search), `constants.py` (routes and states), then the Technology page.
 
 ## How this meets the judging criteria
 
 | Criterion | Evidence |
 |---|---|
 | Problem understanding | The brief's own seasonality scenario runs end to end; two kinds of learning are kept apart (collective learning hub, not federated learning) |
-| Working functionality | Live site; 170 tests; every persona can be tried from the demo guide |
+| Working functionality | Live site; 177 tests; every persona can be tried from the demo guide |
 | Intelligence and reasoning | AIRA with checked citations; evidence-backed Playground results; duplicate detection; distinct-organisation theme statistics |
 | Architecture | Typed routes and states in one place; services behind one policy layer; schema checks generated from enums |
 | Security | Server-side checks on every page, API and media route; least-privilege grants; client-approved, time-boxed support access; hash-chained audit; differencing-safe filters; prompt-injection guard |
@@ -125,7 +130,7 @@ After the answer comes back, any `[S<id>]` that was not retrieved is stripped, s
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 170 tests
+uv run pytest -q             # 177 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -148,9 +153,11 @@ Settings (environment variables):
 
 - Open **`/demo`** on the running site.
 - Each step has one button that signs in as the right persona and opens the right page. It runs on the server, so that persona's real permissions apply.
-- **Reset demo data** puts everything back to the starting state.
+- **Reset demo data** puts everything back to the starting state. Only the portal administrator can reset; the guide offers a one-click switch to Arjun first.
 - The **View as** menu in the header switches persona from any page.
 - Both the menu and the reset are demo-only: they exist while `DEMO_MAILBOX=1`, accept only the seeded personas, and are audited. Turn the flag off and they return 404.
+- The demo mailbox and on-screen sign-in codes are limited to the seeded personas. Any other address gets its code only by email.
+- Form posts from other websites are refused site-wide (Origin check), and request bodies are capped at 3 MB while they stream in.
 
 ## Five-minute demo (the brief's seasonality scenario)
 

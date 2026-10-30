@@ -22,6 +22,7 @@
   <div class="field"><label for="code">Code</label><input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus autocomplete="one-time-code"></div>
   <button class="btn">Sign in</button> <a href="{{ R.SIGNIN }}?email={{ email }}">Use another email</a>
 </form>
+{% if not mail and demo_mailbox %}<div class="demo-note">Codes appear on screen only for the seeded demo personas. Other addresses receive their code by email once an email provider is configured.</div>{% endif %}
 {% if mail %}<div class="demo-note"><b>Demo mailbox.</b> Email delivery is not configured in this hackathon build, so the message appears here: <span class="mono">{{ mail.body }}</span></div>{% endif %}
 {% endif %}
 </div>

@@ -40,6 +40,7 @@ USERS = [
     (10, "jay@consult.example", "Jay Kapoor", [(3, Role.MEMBER), (4, Role.MEMBER)], []),
     (11, "wanjiru@harbour.example", "Wanjiru Otieno", [(5, Role.ADMIN)], []),
     (12, "newhire@azentio.com", "Nisha Verma", [], []),
+    (13, "kiran@kestrel.example", "Kiran Shah", [], []),
 ]
 
 # (email, label, what this persona demonstrates) — the only accounts the demo "view as" switcher may use
@@ -55,6 +56,7 @@ DEMO_PERSONAS = [
     ("admin@azentio.com", "Arjun · Azentio", "Portal administrator"),
     ("dev@azentio.com", "Dev · Azentio", "Employee, no extra grants"),
     ("newhire@azentio.com", "Nisha · new joiner", "Work email, not yet approved"),
+    ("kiran@kestrel.example", "Kiran · invitee", "No membership yet; accepts an invitation"),
 ]
 
 ENTITLEMENTS = [

@@ -1,8 +1,11 @@
 import os
 import time
+
+import httpx
 from enum import StrEnum
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -51,6 +54,55 @@ def _startup():
     conn = connect()
     seed(conn)
     conn.close()
+
+
+MAX_BODY = 3_000_000  # above the largest allowed upload (2 MB attachment)
+UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def _cross_site(request: Request) -> bool:
+    """A browser form post from another site carries a foreign Origin (or Referer); refuse it before any handler runs."""
+    source = request.headers.get("origin") or request.headers.get("referer")
+    if not source:
+        return False  # non-browser clients; session cookies are SameSite=Lax as a second layer
+    return httpx.URL(source).host != request.url.hostname
+
+
+@app.middleware("http")
+async def _guards(request: Request, call_next):
+    if request.method in UNSAFE:
+        if _cross_site(request):
+            return JSONResponse({"error": "Cross-site form submissions are not accepted.", "status": 403}, status_code=403)
+        length = request.headers.get("content-length")
+        if length and length.isdigit() and int(length) > MAX_BODY:
+            return JSONResponse({"error": "The request is too large.", "status": 413}, status_code=413)
+    return await call_next(request)
+
+
+class BodyLimit:
+    """Caps request bodies while they stream in, so chunked uploads without a Content-Length cannot exceed MAX_BODY."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        seen = 0
+
+        async def limited():
+            nonlocal seen
+            message = await receive()
+            if message["type"] == "http.request":
+                seen += len(message.get("body", b""))
+                if seen > MAX_BODY:
+                    raise Denied(413, "The request is too large.")
+            return message
+
+        await self.app(scope, limited, send)
+
+
+app.add_middleware(BodyLimit)
 
 
 @app.middleware("http")
@@ -220,7 +272,8 @@ async def signin_request(request: Request):
     if "@" not in email:
         raise Denied(422, "Enter a valid email address.")
     auth.request_code(request.state.conn, email)
-    mail = auth.latest_demo_mail(request.state.conn, email) if auth.demo_mailbox_enabled() else None
+    is_persona = email in {p[0] for p in DEMO_PERSONAS}
+    mail = auth.latest_demo_mail(request.state.conn, email) if auth.demo_mailbox_enabled() and is_persona else None
     return render(request, "signin.html", {"next": f.get("next") or Route.DASHBOARD, "email": email, "step": "code", "mail": mail})
 
 
@@ -251,14 +304,21 @@ def _session_redirect(request: Request, conn, user_id: int, nxt: str) -> Redirec
 
 @app.get(Route.ENTRA_START)
 def entra_start(request: Request, next: str = Route.DASHBOARD):
-    return RedirectResponse(entra.start(request.state.conn, _safe_next(next, Route.DASHBOARD)), status_code=303)
+    url, state = entra.start(request.state.conn, _safe_next(next, Route.DASHBOARD))
+    resp = RedirectResponse(url, status_code=303)
+    # SameSite=Lax still sends this on Microsoft's top-level redirect back to the callback
+    resp.set_cookie(entra.COOKIE, entra.browser_binding(state), httponly=True, samesite="lax", max_age=entra.ATTEMPT_TTL,
+                    secure=request.url.scheme == "https" or os.environ.get("SECURE_COOKIES") == "1")
+    return resp
 
 
 @app.get(Route.ENTRA_CALLBACK)
 def entra_callback(request: Request, code: str = "", state: str = ""):
     conn = request.state.conn
-    email, nxt = entra.finish(conn, code, state)
-    return _session_redirect(request, conn, entra.sign_in(conn, email), nxt)
+    identity, nxt = entra.finish(conn, code, state, request.cookies.get(entra.COOKIE))
+    resp = _session_redirect(request, conn, entra.sign_in(conn, identity), nxt)
+    resp.delete_cookie(entra.COOKIE)
+    return resp
 
 
 @app.post(Route.SIGNOUT)
@@ -311,6 +371,7 @@ def demo_guide(request: Request):
 def demo_reset(request: Request):
     if not auth.demo_mailbox_enabled():
         raise Denied(404, "Not found.")
+    policy.require_grant(request.state.ctx, Permission.PORTAL_ADMIN)
     from .seed import reset
 
     reset(request.state.conn)
@@ -349,8 +410,12 @@ async def workspace_set(request: Request):
 def mailbox(request: Request, email: str = ""):
     if not auth.demo_mailbox_enabled():
         raise Denied(404, "Not found.")
+    address = auth.normalise_email(email)
+    persona = address in {p[0] for p in DEMO_PERSONAS}
     mails = request.state.conn.execute("SELECT * FROM demo_mailbox WHERE email=? ORDER BY id DESC LIMIT 10",
-                                       (auth.normalise_email(email),)).fetchall() if email else []
+                                       (address,)).fetchall() if email and persona else []
+    if email and not persona:
+        raise Denied(404, "The demo mailbox only shows messages for the seeded demo personas.")
     return render(request, "mailbox.html", {"email": email, "mails": mails})
 
 
@@ -475,7 +540,8 @@ async def observation_attach(request: Request, oid: int):
 def attachment_download(request: Request, oid: int, aid: int):
     row = attachments.fetch(request.state.conn, request.state.ctx, oid, aid)
     return Response(row["content"], media_type=row["mime"], headers={
-        "Content-Disposition": f'attachment; filename="{row["filename"]}"', "Cache-Control": "private, no-store",
+        "Content-Disposition": f'attachment; filename="{row["filename"]}"; filename*=UTF-8\'\'{quote(row["filename"])}',
+        "Cache-Control": "private, no-store",
         "Content-Security-Policy": "sandbox"})
 
 
@@ -821,7 +887,7 @@ def trends_page(request: Request):
         "changes": trends.trend_changes(conn, ctx),
         "groupings": trends.suggested_groupings(conn, ctx) if ctx.has(Permission.MODERATE) else [],
         "priorities": trends.prioritise(conn, ctx) if ctx.has(Permission.PRODUCT_OWNER) else [],
-        "all_themes": conn.execute("SELECT id, name FROM themes ORDER BY name").fetchall()})
+        "all_themes": conn.execute("SELECT id, name FROM themes ORDER BY name").fetchall() if ctx.has(Permission.MODERATE) else []})
 
 
 @app.post(Route.TRENDS_FILE)

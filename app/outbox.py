@@ -24,11 +24,19 @@ def provider_configured() -> bool:
     return bool(os.environ.get("RESEND_API_KEY") and os.environ.get("EMAIL_FROM"))
 
 
-def enqueue(conn, key: str, user_id: int | None, to_email: str, subject: str, body: str, notification_id: int | None = None) -> bool:
+def enqueue(conn, key: str, user_id: int | None, to_email: str, subject: str, body: str, notification_id: int | None = None,
+            shared_ids: list[int] | None = None) -> bool:
     """Returns False when a message with this key already exists, so retries and repeated events never duplicate email."""
-    cur = conn.execute("INSERT OR IGNORE INTO email_outbox (idempotency_key, user_id, to_email, subject, body, notification_id, created_at)"
-                       " VALUES (?,?,?,?,?,?,?)", (key, user_id, to_email, subject, body, notification_id, time.time()))
+    refs = "," + ",".join(str(i) for i in shared_ids) + "," if shared_ids else ""
+    cur = conn.execute("INSERT OR IGNORE INTO email_outbox (idempotency_key, user_id, to_email, subject, body, notification_id, created_at, shared_refs)"
+                       " VALUES (?,?,?,?,?,?,?,?)", (key, user_id, to_email, subject, body, notification_id, time.time(), refs))
     return cur.rowcount == 1
+
+
+def cancel_referencing(conn, shared_ids: list[int]) -> None:
+    """Withdrawal reaches the outbox too: queued emails quoting a withdrawn or suspended item are never sent."""
+    for sid in shared_ids:
+        conn.execute("UPDATE email_outbox SET status=? WHERE status=? AND shared_refs LIKE ?", (EmailStatus.CANCELLED, EmailStatus.QUEUED, f"%,{sid},%"))
 
 
 def enqueue_notification(conn, notification_id: int, user_id: int, text: str, link: str | None) -> None:
@@ -115,7 +123,8 @@ def queue_weekly_digest(conn, ctx: Ctx) -> int:
         lines = "\n".join(f"- {i['title']} ({i['industry']}, {i['region']})" for i in items[:10])
         body = f"New approved contributions you can see this week:\n\n{lines}\n\nOpen: {public_url()}{Route.LEARNING}"
         with tx(conn):
-            if enqueue(conn, f"digest:{u['id']}:{week}", u["id"], u["email"], f"azentio.ai shared learning: {len(items)} new this week", body):
+            if enqueue(conn, f"digest:{u['id']}:{week}", u["id"], u["email"], f"azentio.ai shared learning: {len(items)} new this week", body,
+                       shared_ids=[i["id"] for i in items[:10]]):
                 queued += 1
     with tx(conn):
         audit.record(conn, ctx.user_id, "email.digest_queued", "outbox", {"week": week, "queued": queued})

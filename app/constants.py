@@ -344,10 +344,12 @@ class EmailStatus(StrEnum):
     QUEUED = "queued"
     SENT = "sent"
     FAILED = "failed"
+    CANCELLED = "cancelled"  # its content was withdrawn before sending
 
     @property
     def label(self) -> str:
-        return {"queued": "Email queued, not sent yet", "sent": "Email accepted by the provider", "failed": "Email could not be sent"}[self.value]
+        return {"queued": "Email queued, not sent yet", "sent": "Email accepted by the provider", "failed": "Email could not be sent",
+                "cancelled": "Email cancelled before sending"}[self.value]
 
 
 class ModelStatus(StrEnum):

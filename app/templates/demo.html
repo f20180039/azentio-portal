@@ -1,7 +1,8 @@
 {% extends "base.html" %}{% from "_ui.html" import head %}
 {% block title %}Demo guide · azentio.ai{% endblock %}
 {% block band %}{% call head("Demo guide", "Each step signs you in as the right persona on the server and opens the page to show. Their real permissions apply.", "For judges and presenters") %}
-<form method="post" action="{{ R.DEMO_RESET }}"><button class="btn ghost">Reset demo data</button></form>{% endcall %}{% endblock %}
+{% if ctx.has(Permission.PORTAL_ADMIN) %}<form method="post" action="{{ R.DEMO_RESET }}"><button class="btn ghost">Reset demo data</button></form>
+{% else %}<form method="post" action="{{ R.DEMO_VIEW_AS }}"><input type="hidden" name="email" value="admin@azentio.com"><input type="hidden" name="next" value="{{ R.DEMO }}"><button class="btn ghost" title="Only the portal administrator can reset the data">Switch to Arjun to reset</button></form>{% endif %}{% endcall %}{% endblock %}
 
 {% macro step(email, path, persona, title, show) -%}
 <li class="card demo-step">
