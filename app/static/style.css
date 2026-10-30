@@ -122,7 +122,7 @@ main { padding-block: 28px 72px; }
 .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .grid.three { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .cols { display: grid; gap: 22px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
-@media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
 .card h3 a { text-decoration: none; color: var(--ink); }
 .card h3 a:hover { color: var(--accent-ink); }
@@ -464,3 +464,19 @@ input[type=file]::file-selector-button:hover { background: var(--accent); color:
 .aira-form input { flex: 1; min-width: 0; }
 .aira-dock[hidden], .aira-panel[hidden] { display: none; }
 @media print { .aira-dock { display: none; } }
+
+/* phone and tablet: collapsible site menu, nothing wider than the screen */
+.nav-toggle { display: none; }
+.foot { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }  /* room for the floating AIRA button */
+.hero { overflow: hidden; }
+@media (max-width: 1023px) {
+  .nav { flex-wrap: wrap; }
+  .top.has-toggle .nav-toggle { display: inline-flex; }
+  .top.has-toggle .nav { display: none; }
+  .top.has-toggle.open .nav { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding-block: 6px 10px; max-height: calc(100dvh - 130px); overflow-y: auto; }
+  .top.open .menu-btn svg { display: none; }
+  .top.open .menu-panel { display: block; position: static; min-width: 0; margin: 0; padding: 0 0 0 12px; background: none; border: 0; box-shadow: none; }
+  .top.open .menu-panel a { padding: 4px 0; }
+  .top.open .menu-panel span { display: none; }
+}
+@media (max-width: 480px) { .viewas .dd { width: 132px; } .top .brand { font-size: 1.2rem; } }
