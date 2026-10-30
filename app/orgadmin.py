@@ -5,7 +5,7 @@ import time
 
 from . import audit, outbox, settings
 from .constants import parse, CLIENT_ROLES, Route, Setting, InviteStatus, MembershipStatus, Role
-from .auth import Ctx, demo_mailbox_enabled, normalise_email
+from .auth import Ctx, demo_mode, normalise_email
 from .db import tx
 from .policy import Denied, require_client
 
@@ -48,7 +48,7 @@ def invite(conn, ctx: Ctx, email: str, raw_role: str) -> str:
         inv_id = conn.execute(
             "INSERT INTO invitations (token_hash, org_id, email, role, invited_by, expires_at, created_link) VALUES (?,?,?,?,?,?,?)",
             (_h(token), ctx.org_id, email, role, ctx.user_id, time.time() + settings.get(conn, Setting.INVITE_DAYS) * 86400,
-             Route.INVITE.url(token=token) if demo_mailbox_enabled() else None),
+             Route.INVITE.url(token=token) if demo_mode() else None),
         ).lastrowid
         conn.execute(
             "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",

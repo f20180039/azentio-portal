@@ -4,6 +4,8 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
+from app import audit
+
 
 def oid(db, prefix):
     return db.execute("SELECT id FROM observations WHERE title LIKE ?", (prefix + "%",)).fetchone()["id"]
@@ -31,7 +33,7 @@ def test_view_as_signs_in_as_the_persona_with_their_real_permissions(app):
 def test_view_as_is_limited_to_seeded_personas_and_demo_mode(app, monkeypatch, db):
     with TestClient(app) as c:
         assert c.post("/demo/view-as", data={"email": "stranger@evil.example"}).status_code == 403
-        monkeypatch.setenv("DEMO_MAILBOX", "0")
+        monkeypatch.setenv("DEMO_MODE", "0")
         assert c.post("/demo/view-as", data={"email": "admin@azentio.com"}).status_code == 404
     assert db.execute("SELECT COUNT(*) FROM audit WHERE action='auth.demo_view_as'").fetchone()[0] == 0
 
@@ -186,3 +188,44 @@ def test_mailbox_only_shows_seeded_personas(client, login):
 def test_oversized_bodies_are_refused_before_reading(client):
     r = client.post("/connect", content=b"x" * 3_100_000, headers={"Content-Type": "application/x-www-form-urlencoded"})
     assert r.status_code == 413
+
+
+def test_demo_mode_off_refuses_every_demo_shortcut(app, monkeypatch, db):
+    monkeypatch.setenv("DEMO_MODE", "0")
+    with TestClient(app) as c:
+        assert c.post("/demo/view-as", data={"email": "admin@azentio.com"}).status_code == 404
+        assert c.get("/demo").status_code == 404
+        assert c.get("/mailbox", params={"email": "asha@kestrel.example"}).status_code == 404
+        assert "Your code is" not in c.post("/signin", data={"email": "asha@kestrel.example"}).text
+    admin = _admin_session(app, db)
+    assert admin.post("/demo/reset").status_code == 404
+    assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 13
+
+
+def _admin_session(app, db) -> TestClient:
+    """A portal-admin session made directly, for when demo shortcuts are switched off."""
+    from app import auth
+
+    c = TestClient(app, headers={"Origin": "http://testserver"})
+    c.cookies.set(auth.COOKIE, auth.create_session(db, 4))
+    return c
+
+
+def test_demo_reset_keeps_the_audit_log_and_is_rate_limited(app, db):
+    with TestClient(app) as c:
+        c.post("/demo/view-as", data={"email": "admin@azentio.com"})
+        before = db.execute("SELECT COUNT(*) FROM audit").fetchone()[0]
+        assert c.post("/demo/reset", follow_redirects=False).status_code == 303
+        from app.db import connect
+        fresh = connect()
+        actions = [r[0] for r in fresh.execute("SELECT action FROM audit ORDER BY id")]
+        assert len(actions) > before and actions[-2:] == ["demo.reset", "system.seeded"]
+        assert audit.verify_chain(fresh)
+        fresh.close()
+        c.post("/demo/view-as", data={"email": "admin@azentio.com"})
+        assert c.post("/demo/reset", follow_redirects=False).status_code == 429  # one reset a minute, process-wide
+
+
+def test_demo_page_says_it_is_a_shared_sandbox(client):
+    page = client.get("/demo").text.lower()
+    assert "shared sandbox" in page and "synthetic data" in page and "other visitors" in page

@@ -12,6 +12,7 @@ def app(tmp_path, monkeypatch):
     from app import aira, main
 
     aira._recent.clear()  # per-process rate-limit history; each test starts clean
+    main._last_reset["at"] = 0.0
     return main.app
 
 

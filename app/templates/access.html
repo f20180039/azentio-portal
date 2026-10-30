@@ -44,7 +44,7 @@
     {% else %}<form method="post" action="{{ R.ACCESS_REQUEST }}"><div class="field"><label for="reason">Why do you need access?</label><input id="reason" name="reason" type="text" required minlength="5" maxlength="300"></div><button class="btn small">Request employee access</button></form>{% endif %}
   </div>
   {% endif %}
-  {% if demo_mailbox %}<p class="hint">Use "View as" in the header to compare roles. It signs you in as that persona on the server, so their real permissions apply.</p>{% endif %}
+  {% if demo_mode %}<p class="hint">Use "View as" in the header to compare roles. It signs you in as that persona on the server, so their real permissions apply.</p>{% endif %}
 </aside>
 </div>
 {% endblock %}

@@ -22,8 +22,9 @@ def _h(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def demo_mailbox_enabled() -> bool:
-    return os.environ.get("DEMO_MAILBOX", "1") == "1"
+def demo_mode() -> bool:
+    """Persona switching, on-screen codes, the demo mailbox and demo reset. DEMO_MAILBOX is the older name."""
+    return os.environ.get("DEMO_MODE", os.environ.get("DEMO_MAILBOX", "1")) == "1"
 
 
 def normalise_email(email: str) -> str:
@@ -205,7 +206,7 @@ def switch_to(conn, old_token: str | None, email: str) -> str:
     from .policy import Denied
     from .seed import DEMO_PERSONAS
 
-    if not demo_mailbox_enabled():
+    if not demo_mode():
         raise Denied(404, "Not found.")
     if email not in {p[0] for p in DEMO_PERSONAS}:
         raise Denied(403, "Only the seeded demo personas can be viewed.")

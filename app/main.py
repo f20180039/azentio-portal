@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 
 import httpx
@@ -140,7 +141,7 @@ def render(request: Request, name: str, data: dict | None = None, status: int = 
     unread = 0
     if ctx.signed_in:
         unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND read=0", (ctx.user_id,)).fetchone()[0]
-    base = {"request": request, "ctx": ctx, "unread": unread, "demo_mailbox": auth.demo_mailbox_enabled(),
+    base = {"request": request, "ctx": ctx, "unread": unread, "demo_mode": auth.demo_mode(),
             "offering_names": {r["slug"]: r["name"] for r in conn.execute("SELECT slug, name FROM offerings")},
             "min_cohort": learning.min_cohort(conn), "personas": DEMO_PERSONAS, "entra_enabled": entra.enabled()}
     return templates.TemplateResponse(request, name, base | (data or {}), status_code=status)
@@ -273,7 +274,7 @@ async def signin_request(request: Request):
         raise Denied(422, "Enter a valid email address.")
     auth.request_code(request.state.conn, email)
     is_persona = email in {p[0] for p in DEMO_PERSONAS}
-    mail = auth.latest_demo_mail(request.state.conn, email) if auth.demo_mailbox_enabled() and is_persona else None
+    mail = auth.latest_demo_mail(request.state.conn, email) if auth.demo_mode() and is_persona else None
     return render(request, "signin.html", {"next": f.get("next") or Route.DASHBOARD, "email": email, "step": "code", "mail": mail})
 
 
@@ -358,7 +359,7 @@ async def demo_view_as(request: Request):
 
 @app.get(Route.DEMO, response_class=HTMLResponse)
 def demo_guide(request: Request):
-    if not auth.demo_mailbox_enabled():
+    if not auth.demo_mode():
         raise Denied(404, "Not found.")
     conn = request.state.conn
     ids = {k: (conn.execute("SELECT id FROM observations WHERE title LIKE ?", (v + "%",)).fetchone() or {"id": 0})["id"]
@@ -367,14 +368,24 @@ def demo_guide(request: Request):
     return render(request, "demo.html", {"ids": ids, "seasonality": seasonality})
 
 
+RESET_INTERVAL = 60
+_last_reset = {"at": 0.0}
+_reset_lock = threading.Lock()
+
+
 @app.post(Route.DEMO_RESET)
 def demo_reset(request: Request):
-    if not auth.demo_mailbox_enabled():
+    if not auth.demo_mode():
         raise Denied(404, "Not found.")
-    policy.require_grant(request.state.ctx, Permission.PORTAL_ADMIN)
+    ctx = request.state.ctx
+    policy.require_grant(ctx, Permission.PORTAL_ADMIN)
     from .seed import reset
 
-    reset(request.state.conn)
+    with _reset_lock:
+        if time.time() - _last_reset["at"] < RESET_INTERVAL:
+            raise Denied(429, "The demo was reset less than a minute ago. Try again shortly.")
+        _last_reset["at"] = time.time()
+    reset(request.state.conn, ctx.user_id)
     resp = RedirectResponse(f"{Route.DEMO}?flash=Demo data reset to its starting state. Everyone was signed out.", status_code=303)
     resp.delete_cookie(auth.COOKIE)
     return resp
@@ -408,7 +419,7 @@ async def workspace_set(request: Request):
 
 @app.get(Route.MAILBOX, response_class=HTMLResponse)
 def mailbox(request: Request, email: str = ""):
-    if not auth.demo_mailbox_enabled():
+    if not auth.demo_mode():
         raise Denied(404, "Not found.")
     address = auth.normalise_email(email)
     persona = address in {p[0] for p in DEMO_PERSONAS}

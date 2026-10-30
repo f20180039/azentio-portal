@@ -32,10 +32,10 @@
       </div>
       {% endfor %}
       <a href="{{ R.ABOUT }}" {% if path.startswith(R.ABOUT) %}aria-current="page"{% endif %}>About</a>
-      {% if demo_mailbox %}<a href="{{ R.DEMO }}" class="demo-link" {% if path == R.DEMO %}aria-current="page"{% endif %}>Demo guide</a>{% endif %}
+      {% if demo_mode %}<a href="{{ R.DEMO }}" class="demo-link" {% if path == R.DEMO %}aria-current="page"{% endif %}>Demo guide</a>{% endif %}
     </nav>
     <div class="who">
-      {% if demo_mailbox %}
+      {% if demo_mode %}
       <form method="post" action="{{ R.DEMO_VIEW_AS }}" class="viewas" title="Demo only: signs you in as this persona on the server; their real permissions apply">
         <label for="viewas">View as</label>
         <select id="viewas" name="email" onchange="this.form.submit()">
@@ -47,7 +47,7 @@
       </form>
       {% endif %}
       {% if ctx.signed_in %}
-        {% if not demo_mailbox %}<span>{{ ctx.user.email }}</span>{% endif %}
+        {% if not demo_mode %}<span>{{ ctx.user.email }}</span>{% endif %}
         <form class="inline" method="post" action="{{ R.SIGNOUT }}"><button class="btn small ghost">Sign out</button></form>
       {% else %}
         <a class="btn ghost small" href="{{ R.SIGNIN }}">Sign in</a>

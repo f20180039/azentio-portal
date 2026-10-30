@@ -3,7 +3,7 @@ import time
 
 from . import audit
 from .constants import Audience, ExperimentStage, TeamRole, IdeaStatus, OrgKind, Permission, Priority, Role, SessionStatus, ShareState, SharedStatus, Visibility
-from .db import init
+from .db import init, tx
 from .learning import SECTOR_OF
 
 OFFERINGS = [
@@ -172,11 +172,13 @@ THEME_SUMMARIES = {
 }
 
 
-def reset(conn) -> None:
-    """Demo only: drop everything and seed again, so each walkthrough starts from the same state."""
+def reset(conn, actor_id: int) -> None:
+    """Demo only: drop everything except the audit log and seed again, so each walkthrough starts from the same state."""
+    with tx(conn):
+        audit.record(conn, actor_id, "demo.reset", "portal")
     conn.execute("PRAGMA foreign_keys = OFF")
     conn.execute("DROP TABLE IF EXISTS shared_fts")
-    for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall():
+    for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name<>'audit'").fetchall():
         conn.execute(f'DROP TABLE IF EXISTS "{name}"')
     conn.execute("PRAGMA foreign_keys = ON")
     seed(conn)

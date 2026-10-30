@@ -148,7 +148,7 @@ Settings (environment variables):
 | `PORTAL_DB` | `portal.db` | SQLite file. It is created and seeded on first start. |
 | `MIN_COHORT` | `3` | Distinct organisations a theme needs before clients see it. |
 | `SMALL_SAMPLE` | `5` | Below this, themes carry a "small sample" warning. |
-| `DEMO_MAILBOX` | `1` | Show codes and invitations on screen instead of emailing them. |
+| `DEMO_MODE` | `1` | Demo shortcuts: the "View as" switcher, the demo guide, on-screen sign-in codes and invitation links for seeded personas, the demo mailbox, and demo reset. Set `0` on any deployment that is not a public sandbox; all of them then return 404. `DEMO_MAILBOX` is accepted as the older name. |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `PUBLIC_URL` | none | Optional email provider for the outbox; without them emails stay queued. `PUBLIC_URL` builds links in emails. |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_ALLOWED_DOMAIN` | none; domain `azentio.com` | Microsoft sign-in. Register a web app in Entra ID with redirect URI `<PUBLIC_URL>/auth/entra/callback` and scopes `openid email profile`. |
 | `GROQ_API_KEYS`, `AIRA_MODELS` | none; `openai/gpt-oss-120b,openai/gpt-oss-20b` | Groq keys (comma- or newline-separated) and models, tried first. `GROQ_API_KEY` still works for a single key. |
@@ -160,7 +160,9 @@ Settings (environment variables):
 - Each step has one button that signs in as the right persona and opens the right page. It runs on the server, so that persona's real permissions apply.
 - **Reset demo data** puts everything back to the starting state. Only the portal administrator can reset; the guide offers a one-click switch to Arjun first.
 - The **View as** menu in the header switches persona from any page.
-- Both the menu and the reset are demo-only: they exist while `DEMO_MAILBOX=1`, accept only the seeded personas, and are audited. Turn the flag off and they return 404.
+- Both the menu and the reset are demo-only: they exist while `DEMO_MODE=1`, accept only the seeded personas, and are audited. Turn the flag off and they return 404.
+- **The live site is a shared sandbox.** Anyone can switch persona, including to the portal administrator, so other visitors may be using it at the same time. That is deliberate for judging, and it is why `DEMO_MODE` exists.
+- Reset keeps the audit log: it appends a `demo.reset` entry, rebuilds every other table, and the hash chain still verifies. Resets are limited to one a minute for the whole process.
 - The demo mailbox and on-screen sign-in codes are limited to the seeded personas. Any other address gets its code only by email.
 - Form posts from other websites are refused site-wide (Origin check), and request bodies are capped at 3 MB while they stream in.
 

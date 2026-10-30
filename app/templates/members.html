@@ -25,6 +25,6 @@
 <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" required></div>
 <div class="field"><label for="role">Role</label><select id="role" name="role"><option value="member">Member</option><option value="admin">Administrator</option></select></div>
 <button class="btn">Send invitation</button>
-<p class="hint">Single use, expires in 7 days, valid only for that email. You can grant client roles in {{ ctx.org.name }} only.{% if demo_mailbox %} In this demo the invitation link appears in the list for your organisation's administrators to pass on.{% endif %}</p></form></aside>
+<p class="hint">Single use, expires in 7 days, valid only for that email. You can grant client roles in {{ ctx.org.name }} only.{% if demo_mode %} In this demo the invitation link appears in the list for your organisation's administrators to pass on.{% endif %}</p></form></aside>
 </div>
 {% endblock %}
