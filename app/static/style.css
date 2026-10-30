@@ -258,5 +258,6 @@ details summary { cursor: pointer; font-weight: 600; }
 .flow-v li { position: relative; padding-left: 44px; min-height: 30px; }
 .flow-v li::before { counter-increment: step; content: counter(step); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; font-weight: 700; font-family: var(--display); }
 .flow-v li:not(:last-child)::after { content: ""; position: absolute; left: 14px; top: 32px; bottom: -12px; width: 2px; background: var(--accent-wash); }
-.flow-v b { display: block; }
+.flow-v b { display: block; margin-bottom: 2px; }
+.flow-v br { display: none; }
 .flow-v span { color: var(--ink-soft); font-size: .95rem; }
