@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% from "_ui.html" import head %}
+{% block title %}{{ t.name }} · Team space{% endblock %}
+{% block band %}{{ head(t.name, t.challenge, "Hackathon team space") }}{% endblock %}
+{% block content %}
+<div class="cols">
+<section class="stack">
+  <form method="post" action="{{ R.TEAM_POST.url(tid=t.id) }}" class="card"><h2>Post an update</h2>
+    <textarea name="body" required minlength="2" maxlength="2000" style="min-height:80px" aria-label="Update"></textarea><p></p><button class="btn small">Post</button></form>
+  {% for p in posts %}<div class="card"><b>{{ p.name }}</b> <span class="muted">{{ p.created_at|ago }}</span><p style="margin:6px 0 0;white-space:pre-line">{{ p.body }}</p></div>
+  {% else %}<p class="muted">No updates yet.</p>{% endfor %}
+</section>
+<aside class="stack">
+  <div class="card"><h2>Members</h2>
+    {% for m in members %}<div class="row between" style="margin-bottom:6px"><span>{{ m.name }} <span class="pill {{ 'ok' if m.role == TeamRole.LEAD else '' }}">{{ m.role }}</span></span>
+      {% if role == TeamRole.LEAD and m.id != ctx.user_id %}<form method="post" action="{{ R.TEAM_MEMBER.url(tid=t.id) }}"><input type="hidden" name="user_id" value="{{ m.id }}"><button class="btn small ghost" name="action" value="{{ Action.REMOVE }}">Remove</button></form>{% endif %}</div>{% endfor %}
+    {% if role == TeamRole.LEAD and members|length < max_team and colleagues %}
+    <form method="post" action="{{ R.TEAM_MEMBER.url(tid=t.id) }}" class="row" style="margin-top:8px"><select name="user_id" aria-label="Colleague" style="width:auto">{% for c in colleagues %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select><button class="btn small" name="action" value="{{ Action.ADD }}">Add</button></form>{% endif %}
+    <p class="hint">Only members can see this space. Teams have up to {{ max_team }} people.</p>
+  </div>
+  <a href="{{ R.EXPERIMENTS }}">Back to the Lab</a>
+</aside>
+</div>
+{% endblock %}

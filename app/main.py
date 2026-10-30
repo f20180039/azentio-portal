@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, audit, auth, content, iam, settings, ideas, learning, library, live, orgadmin, playground, policy
+from . import aira, audit, auth, content, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
 from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
@@ -525,6 +525,81 @@ async def library_feedback(request: Request, iid: int):
     f = await form(request)
     library.feedback(request.state.conn, request.state.ctx, iid, f.get("verdict") or "", f.get("comment") or "")
     return back(Route.LIBRARY_ITEM.url(iid=iid), "Thanks. The owner sees your feedback.")
+
+
+# ---- experiments, team spaces, release notes --------------------------------------------------------------------
+
+@app.get(Route.EXPERIMENTS, response_class=HTMLResponse)
+def experiments_list(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    return render(request, "experiments.html", {"rows": innovation.experiments(conn, ctx), "offerings": conn.execute("SELECT * FROM offerings").fetchall(),
+                                                "teams": innovation.my_teams(conn, ctx)})
+
+
+@app.post(Route.EXPERIMENTS)
+async def experiment_submit(request: Request):
+    eid = innovation.submit_experiment(request.state.conn, request.state.ctx, await form(request))
+    return back(Route.EXPERIMENT.url(eid=eid), "Experiment submitted. Colleagues can now comment on it.")
+
+
+@app.get(Route.EXPERIMENT, response_class=HTMLResponse)
+def experiment_view(request: Request, eid: int):
+    e, comments = innovation.experiment(request.state.conn, request.state.ctx, eid)
+    return render(request, "experiment.html", {"e": e, "comments": comments})
+
+
+@app.post(Route.EXPERIMENT_UPDATE)
+async def experiment_update(request: Request, eid: int):
+    f = await form(request)
+    innovation.update_experiment(request.state.conn, request.state.ctx, eid, f.get("stage") or "", f.get("result") or "")
+    return back(Route.EXPERIMENT.url(eid=eid), "Experiment updated.")
+
+
+@app.post(Route.EXPERIMENT_COMMENT)
+async def experiment_comment(request: Request, eid: int):
+    innovation.comment_experiment(request.state.conn, request.state.ctx, eid, (await form(request)).get("body") or "")
+    return back(Route.EXPERIMENT.url(eid=eid), "Feedback posted.")
+
+
+@app.post(Route.TEAMS)
+async def team_create(request: Request):
+    f = await form(request)
+    tid = innovation.create_team(request.state.conn, request.state.ctx, f.get("name") or "", f.get("challenge") or "")
+    return back(Route.TEAM.url(tid=tid), "Team space created. Only its members can see it.")
+
+
+@app.get(Route.TEAM, response_class=HTMLResponse)
+def team_view(request: Request, tid: int):
+    conn, ctx = request.state.conn, request.state.ctx
+    t, role, members, posts = innovation.team(conn, ctx, tid)
+    return render(request, "team.html", {"t": t, "role": role, "members": members, "posts": posts,
+                                         "colleagues": innovation.colleagues(conn, ctx, tid), "max_team": innovation.MAX_TEAM})
+
+
+@app.post(Route.TEAM_MEMBER)
+async def team_member(request: Request, tid: int):
+    f = await form(request)
+    innovation.set_member(request.state.conn, request.state.ctx, tid, _int(f.get("user_id")), f.get("action") == Action.ADD)
+    return back(Route.TEAM.url(tid=tid), "Team updated.")
+
+
+@app.post(Route.TEAM_POST)
+async def team_post(request: Request, tid: int):
+    innovation.post(request.state.conn, request.state.ctx, tid, (await form(request)).get("body") or "")
+    return back(Route.TEAM.url(tid=tid))
+
+
+@app.get(Route.RELEASES, response_class=HTMLResponse)
+def releases(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    return render(request, "releases.html", {"rows": innovation.release_notes(conn, ctx), "offerings": conn.execute("SELECT * FROM offerings").fetchall(),
+                                             "choices": iam.audience_choices(conn) if ctx.has(Permission.PUBLISH_CONTENT) else []})
+
+
+@app.post(Route.RELEASES)
+async def release_publish(request: Request):
+    innovation.publish_release(request.state.conn, request.state.ctx, await form(request))
+    return back(Route.RELEASES, "Release notes published to their audience.")
 
 
 # ---- playground -----------------------------------------------------------------------------------------------

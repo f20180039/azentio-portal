@@ -20,7 +20,7 @@
       <a href="{{ R.SOLUTIONS }}" {% if path.startswith(R.SOLUTIONS) %}aria-current="page"{% endif %}>Solutions</a>
       {% set menus = [
         ("Innovation", [(R.LAB, "AI Lab", "Experiments from shared learning"), (R.TECHNOLOGY, "Technology", "How access and AI are kept safe"), (R.HACKATHON, "Hackathons", "Build with our sandboxes")]),
-        ("Explore", [(R.INSIGHTS, "Insights", "Perspectives and articles"), (R.MEDIA, "Media", "Videos, demos and resources"), (R.LIVE, "Live sessions", "Webinars, demo days and recordings")]),
+        ("Explore", [(R.INSIGHTS, "Insights", "Perspectives and articles"), (R.MEDIA, "Media", "Videos, demos and resources"), (R.LIVE, "Live sessions", "Webinars, demo days and recordings"), (R.RELEASES, "Release notes", "What changed in each product")]),
       ] %}
       {% for label, items in menus %}
       <div class="menu">
@@ -60,7 +60,7 @@
   {% if ctx.org %}
     {% set links = [(R.DASHBOARD,'Dashboard')] %}
     {% set links = links + [(R.PLAYGROUND,'Playground')] %}
-    {% if ctx.is_employee %}{% set links = links + [(R.LIBRARY,'Library')] %}{% endif %}
+    {% if ctx.is_employee %}{% set links = links + [(R.EXPERIMENTS,'Lab')] %}{% endif %}
     {% if ctx.is_client %}{% set links = links + [(R.OBSERVATIONS,'Observations')] %}{% endif %}
     {% set links = links + [(R.LEARNING,'Shared learning'),(R.ASK,'Ask AIRA')] %}
     {% if ctx.has(Permission.MODERATE) %}{% set links = links + [(R.MODERATION,'Moderation')] %}{% endif %}

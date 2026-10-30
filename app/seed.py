@@ -2,7 +2,7 @@
 import time
 
 from . import audit
-from .constants import Audience, IdeaStatus, OrgKind, Permission, Priority, Role, SessionStatus, ShareState, SharedStatus, Visibility
+from .constants import Audience, ExperimentStage, TeamRole, IdeaStatus, OrgKind, Permission, Priority, Role, SessionStatus, ShareState, SharedStatus, Visibility
 from .db import init
 from .learning import SECTOR_OF
 
@@ -255,5 +255,32 @@ def seed(conn) -> None:
     ]
     for t, body, team, owner, review in library:
         conn.execute("INSERT INTO library_items (title, body, team, owner_id, review_by, updated_at) VALUES (?,?,?,?,?,?)", (t, body, team, owner, review, now - 20 * day))
+    experiments = [
+        ("Same-season comparison in ratio commentary", "Comparing each quarter with the same quarter last year cuts false decline flags for seasonal SMEs by half.",
+         "financial-analysis-intelligence", "Replay 400 synthetic agri-input applicants through both comparisons and count flags.", ExperimentStage.RUNNING, "", 1),
+        ("Page-join repair for statements", "A join-aware parser removes most duplicated or dropped transactions at page breaks.",
+         "financial-analysis-intelligence", "Synthetic multi-page statements with planted page-break errors; measure recovery.", ExperimentStage.PROPOSED, "", 5),
+        ("Policy what-if narratives", "Relationship managers understand a policy change faster from a short narrative than from a table.",
+         "credit-strategy-simulator", "A/B on synthetic scenarios with five volunteer RMs.", ExperimentStage.CONCLUDED,
+         "Narratives helped for approval-rate changes but confused loss-rate changes; keep the table alongside.", 1),
+    ]
+    for t, hyp, off, approach, stage, result, owner in experiments:
+        conn.execute("INSERT INTO experiments (title, hypothesis, offering, approach, stage, result, owner_id, updated_at, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                     (t, hyp, off, approach, stage, result, owner, now - 3 * day, now - 10 * day))
+    team = conn.execute("INSERT INTO teams (name, challenge, created_by, created_at) VALUES (?,?,1,?)",
+                        ("Seasonal Signals", "Prototype same-season explanations in the Workbench for the November Build Lab.", now - 2 * day)).lastrowid
+    conn.executemany("INSERT INTO team_members VALUES (?,?,?)", [(team, 1, TeamRole.LEAD), (team, 5, TeamRole.MEMBER)])
+    conn.execute("INSERT INTO team_posts (team_id, user_id, body, created_at) VALUES (?,5,?,?)",
+                 (team, "Synthetic seasonal dataset is in the Playground; next is the explanation text.", now - day))
+    releases = [
+        ("sme-credit-decisioning", "4.2", "Workbench 4.2: internal rollout notes", "Rollout plan, known issues and support runbook for 4.2.", Audience.EMPLOYEES, None),
+        ("sme-credit-decisioning", "4.2", "What's new in Workbench 4.2", "Clearer policy evidence, faster statement upload and a new reviewer checklist.",
+         Audience.ENTITLED, "sme-credit-decisioning"),
+        ("riva", "3.1", "RIVA 3.1 validation rules", "New blank-subtotal and negative-exposure checks for synthetic returns.", Audience.ENTITLED, "riva"),
+        ("financial-analysis-intelligence", "2.0", "Financial Analysis Intelligence 2.0", "Ratio explanations now cite the statement lines they use.", Audience.PUBLIC, None),
+    ]
+    for off, ver, t, body, atype, aref in releases:
+        conn.execute("INSERT INTO release_notes (offering, version, title, body, audience_type, audience_ref, published_by, published_at) VALUES (?,?,?,?,?,?,3,?)",
+                     (off, ver, t, body, atype, aref, now - 4 * day))
     audit.record(conn, None, "system.seeded", "portal", {"note": "synthetic demo data"})
     conn.execute("COMMIT")

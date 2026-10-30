@@ -2,7 +2,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-from .constants import (Audience, ConsentEvent, Setting, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
+from .constants import (Audience, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
                         IdeaStatus, ReportStatus, RequestStatus, Role, SessionStatus, ShareState, SharedStatus, Visibility,
                         EnquiryKind, sql_in)
 
@@ -158,6 +158,34 @@ CREATE TABLE IF NOT EXISTS library_feedback (
 CREATE TABLE IF NOT EXISTS theme_assignments (
   theme_id INTEGER NOT NULL REFERENCES themes(id), user_id INTEGER NOT NULL REFERENCES users(id),
   assigned_by INTEGER NOT NULL REFERENCES users(id), assigned_at REAL NOT NULL, PRIMARY KEY (theme_id, user_id)
+);
+-- employee experiments: internal only, never indexed for clients or AIRA
+CREATE TABLE IF NOT EXISTS experiments (
+  id INTEGER PRIMARY KEY, title TEXT NOT NULL, hypothesis TEXT NOT NULL, offering TEXT NOT NULL REFERENCES offerings(slug),
+  approach TEXT NOT NULL, stage TEXT NOT NULL CHECK (stage IN ({sql_in(ExperimentStage)})), result TEXT NOT NULL DEFAULT '',
+  owner_id INTEGER NOT NULL REFERENCES users(id), updated_at REAL NOT NULL, created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS experiment_comments (
+  id INTEGER PRIMARY KEY, experiment_id INTEGER NOT NULL REFERENCES experiments(id), user_id INTEGER NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL, created_at REAL NOT NULL
+);
+-- hackathon team spaces: visible only to their members
+CREATE TABLE IF NOT EXISTS teams (
+  id INTEGER PRIMARY KEY, name TEXT NOT NULL, challenge TEXT NOT NULL, created_by INTEGER NOT NULL REFERENCES users(id), created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS team_members (
+  team_id INTEGER NOT NULL REFERENCES teams(id), user_id INTEGER NOT NULL REFERENCES users(id),
+  role TEXT NOT NULL CHECK (role IN ({sql_in(TeamRole)})), PRIMARY KEY (team_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS team_posts (
+  id INTEGER PRIMARY KEY, team_id INTEGER NOT NULL REFERENCES teams(id), user_id INTEGER NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL, created_at REAL NOT NULL
+);
+-- release notes follow the same audience model as resources
+CREATE TABLE IF NOT EXISTS release_notes (
+  id INTEGER PRIMARY KEY, offering TEXT NOT NULL REFERENCES offerings(slug), version TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
+  audience_type TEXT NOT NULL CHECK (audience_type IN ({sql_in(Audience)})), audience_ref TEXT,
+  published_by INTEGER NOT NULL REFERENCES users(id), published_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY CHECK (key IN ({sql_in(Setting)})), value TEXT NOT NULL,

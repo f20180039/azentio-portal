@@ -97,6 +97,15 @@ class Route(StrEnum):
     CONFIGURATOR = "/configurator"
     SHARED_VOTE = "/learning/shared/{sid}/vote"
     SOLUTIONS = "/solutions"
+    EXPERIMENTS = "/lab/experiments"
+    EXPERIMENT = "/lab/experiments/{eid}"
+    EXPERIMENT_UPDATE = "/lab/experiments/{eid}/update"
+    EXPERIMENT_COMMENT = "/lab/experiments/{eid}/comments"
+    TEAMS = "/hackathon/teams"
+    TEAM = "/hackathon/teams/{tid}"
+    TEAM_MEMBER = "/hackathon/teams/{tid}/members"
+    TEAM_POST = "/hackathon/teams/{tid}/posts"
+    RELEASES = "/releases"
     LAB = "/lab"
     TECHNOLOGY = "/technology"
     INSIGHTS = "/insights"
@@ -273,6 +282,20 @@ class Setting(StrEnum):
     AIRA_ENABLED = "aira_enabled"
     AIRA_PER_MINUTE = "aira_per_minute"
     PUBLISHING_PAUSED = "publishing_paused"
+
+
+class ExperimentStage(StrEnum):
+    """Internal stage of an employee experiment."""
+
+    PROPOSED = "Proposed"
+    RUNNING = "Running"
+    CONCLUDED = "Concluded"
+    STOPPED = "Stopped"
+
+
+class TeamRole(StrEnum):
+    LEAD = "lead"
+    MEMBER = "member"
 
 
 class LabStage(StrEnum):

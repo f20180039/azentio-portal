@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% from "_ui.html" import head %}
+{% block title %}{{ e.title }} · Lab{% endblock %}
+{% block band %}{{ head(e.title, offering_names[e.offering] ~ ". Owner " ~ e.owner ~ ".", "Experiment · " ~ e.stage) }}{% endblock %}
+{% block content %}
+<div class="cols">
+<section class="stack">
+  <div class="card"><h3>Hypothesis</h3><p>{{ e.hypothesis }}</p><h3>Approach</h3><p style="margin:0">{{ e.approach }}</p></div>
+  {% if e.result %}<div class="card stripe ok"><h3>What we learned</h3><p style="margin:0">{{ e.result }}</p></div>{% endif %}
+  <div class="card"><h2>Feedback</h2>
+    {% for c in comments %}<div style="margin-bottom:10px"><b>{{ c.name }}</b> <span class="muted">{{ c.created_at|ago }}</span><p style="margin:2px 0 0">{{ c.body }}</p></div>
+    {% else %}<p class="muted">No feedback yet.</p>{% endfor %}
+    <form method="post" action="{{ R.EXPERIMENT_COMMENT.url(eid=e.id) }}" class="row" style="margin-top:10px"><input type="text" name="body" required minlength="3" maxlength="1000" placeholder="Add feedback for the owner" style="flex:1;min-width:200px" aria-label="Feedback"><button class="btn small">Post</button></form>
+  </div>
+</section>
+<aside class="stack">
+  {% if e.owner_id == ctx.user_id %}
+  <form method="post" action="{{ R.EXPERIMENT_UPDATE.url(eid=e.id) }}" class="card">
+    <h3>Update stage</h3>
+    <div class="field"><label for="stage">Stage</label><select id="stage" name="stage">{% for s in ExperimentStage %}<option value="{{ s }}" {% if s == e.stage %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="result">What you learned</label><textarea id="result" name="result" maxlength="2000" style="min-height:80px">{{ e.result }}</textarea><p class="hint">Required when concluding or stopping.</p></div>
+    <button class="btn small">Save</button>
+  </form>
+  {% endif %}
+  <a href="{{ R.EXPERIMENTS }}">All experiments</a>
+</aside>
+</div>
+{% endblock %}

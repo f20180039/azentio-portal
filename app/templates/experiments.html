@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% from "_ui.html" import head, empty, glyph %}
+{% block title %}Lab · azentio.ai{% endblock %}
+{% block band %}{% call head("Lab", "Internal experiments, hackathon team spaces and the knowledge library. Employee-only; never shown to clients or AIRA.", "Employees only") %}<a class="btn ghost" href="{{ R.LIBRARY }}">Knowledge library</a>{% endcall %}{% endblock %}
+{% block content %}
+<div class="cols">
+<section class="stack">
+  <h2>Experiments</h2>
+  {% for e in rows %}
+  <article class="card stripe {{ 'ok' if e.stage == ExperimentStage.CONCLUDED else ('warn' if e.stage == ExperimentStage.RUNNING else '') }}">
+    <div class="row"><span class="pill {{ 'ok' if e.stage == ExperimentStage.CONCLUDED else ('warn' if e.stage == ExperimentStage.RUNNING else '') }}">{{ e.stage }}</span><span class="pill">{{ offering_names[e.offering] }}</span></div>
+    <h3 style="margin-top:8px"><a href="{{ R.EXPERIMENT.url(eid=e.id) }}">{{ e.title }}</a></h3>
+    <p class="muted" style="margin:0">{{ e.hypothesis }}</p>
+    <div class="meta"><span>{{ e.owner }}</span><span>updated {{ e.updated_at|ago }}</span><span>{{ e.comments }} comment(s)</span></div>
+  </article>
+  {% else %}{{ empty("No experiments yet.") }}{% endfor %}
+</section>
+<aside class="stack">
+  <div class="card"><h2>Your team spaces</h2>
+    {% for t in teams %}<p style="margin:0 0 8px"><a href="{{ R.TEAM.url(tid=t.id) }}"><b>{{ t.name }}</b></a><br><span class="muted">{{ t.size }} member(s) · you are {{ t.role }}</span></p>
+    {% else %}<p class="muted">You are not in a team yet.</p>{% endfor %}
+    <details><summary>Create a team space</summary>
+      <form method="post" action="{{ R.TEAMS }}" style="margin-top:10px">
+        <div class="field"><label for="tn">Team name</label><input id="tn" name="name" type="text" required minlength="3" maxlength="60"></div>
+        <div class="field"><label for="tc">Challenge</label><textarea id="tc" name="challenge" required minlength="10" maxlength="600" style="min-height:70px"></textarea></div>
+        <button class="btn small">Create</button><p class="hint">Only members see a team space. Up to 3 people.</p></form></details>
+  </div>
+  <form method="post" action="{{ R.EXPERIMENTS }}" class="card">
+    <h2>Submit an experiment</h2>
+    <div class="field"><label for="title">Title</label><input id="title" name="title" type="text" required minlength="5" maxlength="120"></div>
+    <div class="field"><label for="offering">Offering</label><select id="offering" name="offering">{% for o in offerings %}<option value="{{ o.slug }}">{{ o.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="hypothesis">Hypothesis</label><textarea id="hypothesis" name="hypothesis" required minlength="20" maxlength="1000" style="min-height:70px" placeholder="What do you expect, and how will you know?"></textarea></div>
+    <div class="field"><label for="approach">Approach</label><textarea id="approach" name="approach" required minlength="20" maxlength="2000" style="min-height:70px" placeholder="Synthetic data only."></textarea></div>
+    <button class="btn">Submit</button>
+  </form>
+</aside>
+</div>
+{% endblock %}
