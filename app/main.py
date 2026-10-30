@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, audit, auth, content, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
+from . import aira, audit, auth, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
 from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
@@ -693,6 +693,9 @@ def learning_feed(request: Request, q: str = "", offering: str = "", industry: s
     result = learning.search_shared(conn, ctx, filters)
     return render(request, "learning.html", {"items": result.items, "suppressed": result.suppressed, "facets": learning.facet_values(conn, ctx),
                                              "votes": learning.vote_summary(conn, ctx, [i["id"] for i in result.items]),
+                                             "comments": discussion.comments_for(conn, ctx, [i["id"] for i in result.items]),
+                                             "bookmarks": discussion.bookmarked_ids(conn, ctx),
+                                             "searches": discussion.saved_searches(conn, ctx),
                                              "f": filters.__dict__, "export_query": str(request.url.query)})
 
 
@@ -753,6 +756,56 @@ async def shared_vote(request: Request, sid: int):
     return back(_safe_next(f.get("next"), Route.LEARNING))
 
 
+@app.post(Route.SHARED_COMMENT)
+async def shared_comment(request: Request, sid: int):
+    f = await form(request)
+    status = discussion.add_comment(request.state.conn, request.state.ctx, sid, f.get("body") or "")
+    note = "Comment posted." if status == constants.CommentStatus.VISIBLE else "Your comment looks like it may contain restricted data, so a moderator will review it first."
+    return back(_safe_next(f.get("next"), Route.LEARNING), note)
+
+
+@app.post(Route.COMMENT_REPORT)
+async def comment_report(request: Request, cid: int):
+    f = await form(request)
+    discussion.report_comment(request.state.conn, request.state.ctx, cid, f.get("reason") or "")
+    return back(_safe_next(f.get("next"), Route.LEARNING), "Comment reported to the moderators.")
+
+
+@app.post(Route.MODERATION_COMMENT)
+async def moderation_comment(request: Request, cid: int):
+    discussion.moderate_comment(request.state.conn, request.state.ctx, cid, (await form(request)).get("action") == Action.HIDE)
+    return back(Route.MODERATION, "Comment decision recorded.")
+
+
+@app.post(Route.SHARED_BOOKMARK)
+async def shared_bookmark(request: Request, sid: int):
+    f = await form(request)
+    on = discussion.toggle_bookmark(request.state.conn, request.state.ctx, sid)
+    return back(_safe_next(f.get("next"), Route.LEARNING), "Saved to your list." if on else "Removed from your list.")
+
+
+@app.get(Route.SAVED, response_class=HTMLResponse)
+def saved_page(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    items = discussion.bookmarked_items(conn, ctx)
+    return render(request, "saved.html", {"items": items, "searches": discussion.saved_searches(conn, ctx),
+                                          "votes": learning.vote_summary(conn, ctx, [i["id"] for i in items])})
+
+
+@app.post(Route.SAVED_SEARCHES)
+async def saved_search_create(request: Request):
+    f = await form(request)
+    filters = _filters(*(f.get(k) or "" for k in ("q", "offering", "industry", "region", "topic", "period")))
+    discussion.save_search(request.state.conn, request.state.ctx, f.get("name") or "", filters)
+    return back(Route.SAVED, "Search saved.")
+
+
+@app.post(Route.SAVED_SEARCH_DELETE)
+def saved_search_delete(request: Request, qid: int):
+    discussion.delete_search(request.state.conn, request.state.ctx, qid)
+    return back(Route.SAVED, "Saved search deleted.")
+
+
 @app.post(Route.SHARED_REPORT)
 async def shared_report(request: Request, sid: int):
     f = await form(request)
@@ -766,6 +819,7 @@ async def shared_report(request: Request, sid: int):
 def moderation(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     return render(request, "moderation.html", {"queue": learning.moderation_queue(conn, ctx), "reports": learning.open_reports(conn, ctx),
+                                               "comment_queue": discussion.moderation_comments(conn, ctx),
                                                "paused": settings.get(conn, constants.Setting.PUBLISHING_PAUSED)})
 
 

@@ -17,4 +17,10 @@
     <button class="btn small danger" name="action" value="{{ Action.UPHOLD }}">Uphold and remove</button><button class="btn small" name="action" value="{{ Action.DISMISS }}">Dismiss</button></form>
   </div></div>
 {% else %}<p class="muted">No open reports.</p>{% endfor %}</section>
+<section><h2>Comments to review</h2>
+{% for c in comment_queue %}<div class="card stripe warn" style="margin-bottom:10px">
+  <div class="row"><span class="pill warn">{{ 'Held by the screen' if c.status == CommentStatus.HELD else 'Reported' }}</span><span class="muted">on “{{ c.title }}”</span></div>
+  <p style="margin:8px 0">{{ c.body }}</p>{% if c.report_reason %}<p class="hint" style="margin:0 0 8px">Reason: {{ c.report_reason }}</p>{% endif %}
+  <form method="post" action="{{ R.MODERATION_COMMENT.url(cid=c.id) }}" class="row"><button class="btn small danger" name="action" value="{{ Action.HIDE }}">Hide</button><button class="btn small" name="action" value="{{ Action.RESTORE }}">Publish</button></form>
+</div>{% else %}<p class="muted">No comments waiting.</p>{% endfor %}</section>
 {% endblock %}

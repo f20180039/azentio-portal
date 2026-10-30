@@ -9,8 +9,11 @@
     {% endfor %}
     <div class="field"><label for="period">Observation period contains</label><input id="period" name="period" type="text" value="{{ f.period }}" placeholder="e.g. 2026"></div>
   </div>
-  <button class="btn small">Apply</button> <a href="{{ R.LEARNING }}">Clear</a>
+  <div class="row"><button class="btn small">Apply</button> <a href="{{ R.LEARNING }}">Clear</a> <a href="{{ R.SAVED }}">Your saved items and searches</a></div>
 </form>
+{% if f.values()|select|list %}<form method="post" action="{{ R.SAVED_SEARCHES }}" class="row" style="margin-bottom:12px">
+  {% for k, v in f.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <input type="text" name="name" required minlength="3" maxlength="60" placeholder="Name this search" style="max-width:260px" aria-label="Search name"><button class="btn small ghost">Save search</button></form>{% endif %}
 {% if suppressed %}<div class="demo-note"><b>Results hidden to protect contributors.</b> These filters narrow the results to fewer than {{ min_cohort }} organisations, which could identify who contributed. Broaden the filters to see results.</div>
 {% else %}<div class="row between"><p class="muted" style="margin:0">{{ items|length }} result(s)</p>{% if items %}<a class="btn small ghost" href="{{ R.LEARNING_EXPORT }}{% if export_query %}?{{ export_query }}{% endif %}">Export CSV</a>{% endif %}</div>{% endif %}
 <div class="stack">{% for it in items %}
@@ -18,7 +21,22 @@
   <div class="row"><span class="cite">S{{ it.id }}</span><span class="pill">{{ offering_names[it.offering] }}</span><span class="pill">{{ it.topic }}</span></div>
   <h3>{{ it.title }}</h3><p>{{ it.body }}</p>
   <div class="meta"><span>{{ it.industry }}</span><span>{{ it.region }}</span><span>{{ it.period }}</span><span>{{ it.evidence_type }}</span><span>confidence {{ it.confidence }}</span><span>{{ it.attribution or 'Not attributed' }}</span><span>v{{ it.version }}</span></div>
-  {{ vote_bar(it, votes, request.url.path ~ ('?' ~ request.url.query if request.url.query else '')) }}
+  {% set here = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') %}
+  <div class="row between">{{ vote_bar(it, votes, here) }}
+    <form method="post" action="{{ R.SHARED_BOOKMARK.url(sid=it.id) }}" class="inline"><input type="hidden" name="next" value="{{ here }}">
+      <button class="vote {{ 'on' if it.id in bookmarks else '' }}" aria-pressed="{{ 'true' if it.id in bookmarks else 'false' }}">{{ 'Saved' if it.id in bookmarks else 'Save' }}</button></form></div>
+  {% set thread = comments.get(it.id, []) %}
+  <details class="thread" {% if request.query_params.get('open') == it.id|string %}open{% endif %}><summary class="muted">Discussion ({{ thread|length }})</summary>
+    {% for c in thread %}<div class="comment {{ 'held' if c.status == CommentStatus.HELD else '' }}"><b>{{ c.author }}</b> <span class="muted">{{ c.created_at|ago }}</span>
+      {% if c.status == CommentStatus.HELD %}<span class="pill warn">Waiting for a moderator</span>{% endif %}
+      <p style="margin:2px 0 0">{{ c.body }}</p>
+      {% if not c.mine and c.status == CommentStatus.VISIBLE %}<details><summary class="muted" style="font-size:.85rem">Report</summary>
+        <form method="post" action="{{ R.COMMENT_REPORT.url(cid=c.id) }}" class="row" style="margin-top:4px"><input type="hidden" name="next" value="{{ here }}"><input type="text" name="reason" required minlength="5" maxlength="300" placeholder="What is wrong?" style="flex:1;min-width:180px" aria-label="Report reason"><button class="btn small ghost">Send</button></form></details>{% endif %}
+    </div>{% else %}<p class="muted" style="margin:6px 0">No comments yet.</p>{% endfor %}
+    <form method="post" action="{{ R.SHARED_COMMENT.url(sid=it.id) }}" class="row" style="margin-top:8px"><input type="hidden" name="next" value="{{ here }}">
+      <input type="text" name="body" required minlength="3" maxlength="1000" placeholder="Add to the discussion" style="flex:1;min-width:200px" aria-label="Comment"><button class="btn small">Post</button></form>
+    <p class="hint">Shown by role and sector only, never your organisation. Comments follow this contribution's visibility.</p>
+  </details>
   <details style="margin-top:8px"><summary class="muted">Report this contribution</summary>
     <form method="post" action="{{ R.SHARED_REPORT.url(sid=it.id) }}" class="row" style="margin-top:8px"><input type="text" name="reason" required minlength="5" maxlength="500" placeholder="What is misleading, confidential or inappropriate?" style="flex:1;min-width:200px"><button class="btn small ghost">Send report</button></form>
     <p class="hint">Your identity is not shown to the contributor.</p></details>

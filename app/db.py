@@ -2,7 +2,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-from .constants import (Audience, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
+from .constants import (Audience, CommentStatus, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
                         IdeaStatus, ReportStatus, RequestStatus, Role, SessionStatus, ShareState, SharedStatus, Visibility,
                         EnquiryKind, sql_in)
 
@@ -198,6 +198,20 @@ CREATE TABLE IF NOT EXISTS playground_uploads (
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
   offering TEXT NOT NULL, filename TEXT NOT NULL, size INTEGER NOT NULL, content TEXT NOT NULL,
   run_id INTEGER REFERENCES playground_runs(id), created_at REAL NOT NULL
+);
+-- discussion on shared contributions: author identity never leaves the server; only role and sector are shown
+CREATE TABLE IF NOT EXISTS shared_comments (
+  id INTEGER PRIMARY KEY, shared_id INTEGER NOT NULL REFERENCES shared_items(id), user_id INTEGER NOT NULL REFERENCES users(id),
+  org_id INTEGER NOT NULL REFERENCES orgs(id), body TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ({sql_in(CommentStatus)})), report_reason TEXT, created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS bookmarks (
+  user_id INTEGER NOT NULL REFERENCES users(id), shared_id INTEGER NOT NULL REFERENCES shared_items(id), created_at REAL NOT NULL,
+  PRIMARY KEY (user_id, shared_id)
+);
+CREATE TABLE IF NOT EXISTS saved_searches (
+  id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
+  name TEXT NOT NULL, query TEXT NOT NULL, created_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY CHECK (key IN ({sql_in(Setting)})), value TEXT NOT NULL,

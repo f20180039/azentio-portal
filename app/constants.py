@@ -99,6 +99,13 @@ class Route(StrEnum):
     LEARNING_EXPORT = "/learning/export.csv"
     CONFIGURATOR = "/configurator"
     SHARED_VOTE = "/learning/shared/{sid}/vote"
+    SHARED_COMMENT = "/learning/shared/{sid}/comments"
+    SHARED_BOOKMARK = "/learning/shared/{sid}/bookmark"
+    COMMENT_REPORT = "/learning/comments/{cid}/report"
+    MODERATION_COMMENT = "/moderation/comments/{cid}"
+    SAVED = "/learning/saved"
+    SAVED_SEARCHES = "/learning/searches"
+    SAVED_SEARCH_DELETE = "/learning/searches/{qid}/delete"
     SOLUTIONS = "/solutions"
     EXPERIMENTS = "/lab/experiments"
     EXPERIMENT = "/lab/experiments/{eid}"
@@ -309,6 +316,15 @@ class LabStage(StrEnum):
     GRADUATED = "Now in a product"
 
 
+class CommentStatus(StrEnum):
+    """Comments inherit their contribution's audience; moderation applies to them too."""
+
+    VISIBLE = "visible"
+    HELD = "held"  # flagged by the restricted-data screen, waiting for a moderator
+    REPORTED = "reported"
+    HIDDEN = "hidden"
+
+
 class ConsentEvent(StrEnum):
     """Consent history of one contribution (brief §09): each change is kept, never overwritten."""
 
@@ -334,6 +350,8 @@ class Action(StrEnum):
     RETURN = "return"
     REJECT = "reject"
     CANCEL = "cancel"
+    HIDE = "hide"
+    RESTORE = "restore"
     SAVE = "save"
 
 

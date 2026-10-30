@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% from "_ui.html" import head, empty, vote_bar %}
+{% block title %}Saved · Shared learning{% endblock %}
+{% block band %}{{ head("Saved", "Your bookmarked contributions and searches. Items that are withdrawn or hidden drop out automatically.", "Shared learning") }}{% endblock %}
+{% block content %}
+<div class="cols">
+<section class="stack">
+  <h2>Bookmarked contributions</h2>
+  {% for it in items %}<article class="card shared-zone">
+    <div class="row"><span class="cite">S{{ it.id }}</span><span class="pill">{{ offering_names[it.offering] }}</span></div>
+    <h3 style="margin-top:8px">{{ it.title }}</h3><p>{{ it.body }}</p>
+    <div class="row between">{{ vote_bar(it, votes, request.url.path) }}
+      <form method="post" action="{{ R.SHARED_BOOKMARK.url(sid=it.id) }}" class="inline"><input type="hidden" name="next" value="{{ request.url.path }}"><button class="vote on">Remove</button></form></div>
+  </article>{% else %}{{ empty("Nothing saved yet. Use Save on any shared contribution.") }}{% endfor %}
+</section>
+<aside class="card">
+  <h2>Saved searches</h2>
+  {% for s in searches %}<div class="row between" style="margin-bottom:8px">
+    <span><a href="{{ s.url }}"><b>{{ s.name }}</b></a><br><span class="muted">{% for k, v in s.query.items() %}{{ k }}: {{ v }}{{ ', ' if not loop.last }}{% endfor %}</span></span>
+    <form method="post" action="{{ R.SAVED_SEARCH_DELETE.url(qid=s.id) }}" class="inline"><button class="btn small ghost" aria-label="Delete {{ s.name }}">Delete</button></form></div>
+  {% else %}<p class="muted" style="margin:0">None yet. Filter the feed, then use Save search.</p>{% endfor %}
+  <p class="hint">Saved searches run with today's visibility rules every time, so they never show more than you could see anyway.</p>
+</aside>
+</div>
+{% endblock %}
