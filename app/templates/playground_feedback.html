@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% from "_ui.html" import head, empty %}
+{% block title %}Playground feedback · azentio.ai{% endblock %}
+{% block band %}{{ head("Playground feedback", "Aggregated across employees and clients. No names, organisations or run details.", "Product owner") }}{% endblock %}
+{% block content %}
+<div class="card scroll">{% if rows %}<table><tr><th>Sandbox</th><th>Runs</th><th>Rated</th><th>Average rating</th><th>Not as expected</th></tr>
+{% for r in rows %}<tr><td>{{ offering_names[r.offering] }}</td><td>{{ r.runs }}</td><td>{{ r.rated }}</td><td>{{ '%.1f'|format(r.avg_rating) if r.avg_rating else '–' }}</td><td>{{ r.unexpected or 0 }}</td></tr>{% endfor %}
+</table>{% else %}{{ empty("No runs yet.") }}{% endif %}</div>
+<h2 style="margin-top:24px">Latest comments</h2>
+<div class="stack">{% for c in comments %}<div class="card"><div class="row"><span class="pill">{{ offering_names[c.offering] }}</span>{% if c.rating %}<span class="pill ok">{{ c.rating }}/5</span>{% endif %}</div><p style="margin:8px 0 0">{{ c.comment }}</p></div>{% else %}<p class="muted">No comments yet.</p>{% endfor %}</div>
+{% endblock %}

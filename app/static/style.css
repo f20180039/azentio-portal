@@ -331,3 +331,14 @@ table.grants td, table.grants th { text-align: center; } table.grants td:first-c
 .viewas .dd { width: 230px; }
 @media (max-width: 760px) { .viewas .dd { width: 170px; } }
 .dd-list.dd-dark { max-height: 460px; }
+
+/* playground chart */
+.bars { width: 100%; height: auto; }
+.bars .grid-line { stroke: var(--line); stroke-width: 1; }
+.bars .axis { fill: var(--ink-soft); font-size: 11px; font-family: var(--body); }
+.bars .bar-this { fill: var(--accent); }
+.bars .bar-last { fill: color-mix(in srgb, var(--ink-soft) 45%, transparent); }
+.legend { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-left: 8px; }
+.legend.this { background: var(--accent); } .legend.last { background: color-mix(in srgb, var(--ink-soft) 45%, transparent); }
+input[type=number] { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font: inherit; background: var(--card); color: var(--ink); }
+.inputs td { padding: 5px 4px; font-size: .9rem; } .inputs td:last-child { text-align: right; font-variant-numeric: tabular-nums; word-break: break-word; }

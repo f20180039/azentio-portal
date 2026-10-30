@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% from "_ui.html" import head %}
+{% block title %}{{ sc.title }} · Playground{% endblock %}
+{% block band %}{{ head(sc.title, sc.story, offering_names[slug]) }}{% endblock %}
+{% block content %}
+<div class="cols">
+<form method="post" class="card">
+  <h2>Inputs</h2>
+  <p class="hint">Synthetic values. Change any of them and run again to see how the evidence moves.</p>
+  <div class="two">
+  {% for f in sc.fields %}
+    {% if f.series is defined %}
+    <div class="field" style="grid-column:1/-1"><label for="{{ f.name }}">{{ f.label }} <span class="muted">({{ f.unit }})</span></label>
+      <input id="{{ f.name }}" name="{{ f.name }}" type="text" value="{{ f.series|join(', ') }}" required><p class="hint">12 numbers separated by commas.</p></div>
+    {% else %}
+    <div class="field"><label for="{{ f.name }}">{{ f.label }}{% if f.unit %} <span class="muted">({{ f.unit }})</span>{% endif %}</label>
+      <input id="{{ f.name }}" name="{{ f.name }}" type="number" value="{{ f.value }}" min="{{ f.min }}" max="{{ f.max }}" step="{{ f.step }}" {% if not f.name.startswith('line_') %}required{% endif %}></div>
+    {% endif %}
+  {% endfor %}
+  </div>
+  <button class="btn">Run demonstration</button>
+</form>
+<aside class="stack">
+  <div class="card"><h3>What happens</h3>
+    <ul class="ticks"><li>The sandbox runs a fixed, explainable calculation; same inputs, same result.</li><li>Every check is shown with its value and the policy it is compared with.</li><li>You can ask AIRA to explain the run in plain language.</li><li>Your run is private to you in {{ ctx.org.name }}.</li></ul></div>
+  <div class="demo-note">Simulated output on synthetic data. Not a credit or business decision.</div>
+</aside>
+</div>
+{% endblock %}

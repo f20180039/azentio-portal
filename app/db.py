@@ -120,6 +120,12 @@ CREATE TABLE IF NOT EXISTS support_grants (
   reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','denied','revoked')),
   approved_by INTEGER REFERENCES users(id), expires_at REAL, created_at REAL NOT NULL
 );
+-- sandbox runs are private to their author within the workspace they ran in
+CREATE TABLE IF NOT EXISTS playground_runs (
+  id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
+  offering TEXT NOT NULL REFERENCES offerings(slug), inputs TEXT NOT NULL, result TEXT NOT NULL, created_at REAL NOT NULL,
+  rating INTEGER CHECK (rating BETWEEN 1 AND 5), accuracy TEXT, comment TEXT NOT NULL DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS enquiries (
   id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('demo','hackathon')), name TEXT NOT NULL,
   email TEXT NOT NULL, company TEXT NOT NULL, interest TEXT NOT NULL, message TEXT NOT NULL, created_at REAL NOT NULL

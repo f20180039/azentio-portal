@@ -47,13 +47,14 @@
   {% if ctx.org %}<span class="org" title="Active workspace"><i></i>{{ ctx.org.name }} <span class="pill">{{ ctx.role }}</span></span>{% endif %}
   {% if ctx.org %}
     {% set links = [('/dashboard','Dashboard')] %}
+    {% set links = links + [('/playground','Playground')] %}
     {% if ctx.is_client %}{% set links = links + [('/observations','Observations')] %}{% endif %}
-    {% set links = links + [('/learning','Shared learning'),('/learning/themes','Themes'),('/learning/ideas','Ideas'),('/learning/ask','Ask AIRA')] %}
+    {% set links = links + [('/learning','Shared learning'),('/learning/ask','Ask AIRA')] %}
     {% if ctx.has('moderate') %}{% set links = links + [('/moderation','Moderation')] %}{% endif %}
     {% if ctx.is_client_admin %}{% set links = links + [('/org/members','Members')] %}{% endif %}
     {% if ctx.has('publish_content') %}{% set links = links + [('/content','Site content')] %}{% endif %}
     {% if ctx.has('portal_admin') %}{% set links = links + [('/admin','Admin console')] %}{% endif %}
-    {% for href, label in links %}<a href="{{ href }}" {% if path == href or (href not in ('/learning','/dashboard') and path.startswith(href)) or (href == '/learning' and path == '/learning') %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    {% for href, label in links %}<a href="{{ href }}" {% if path == href or (href != '/dashboard' and path.startswith(href ~ '/') and not (href == '/learning' and path.startswith('/learning/ask'))) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
   {% else %}<span class="muted">No active workspace</span>{% endif %}
   <a href="/access" {% if path == '/access' %}aria-current="page"{% endif %}>My access</a>
   <span class="spacer"></span>

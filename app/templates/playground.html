@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, empty %}
+{% block title %}Playground · azentio.ai{% endblock %}
+{% block band %}{% call head("Playground", "Run guided demonstrations on synthetic scenarios, inspect the evidence and tell the product team what you think.", "Sandbox") %}{% if ctx.has('product_owner') %}<a class="btn ghost" href="/playground/feedback">Feedback summary</a>{% endif %}{% endcall %}{% endblock %}
+{% block content %}
+<div class="demo-note">Sample data and simulated outputs only. Nothing here is an approved credit or business decision.</div>
+<div class="cols">
+<section>
+  <h2>{{ 'All sandboxes' if ctx.is_employee else 'Sandboxes ' ~ ctx.org.name ~ ' is entitled to' }}</h2>
+  <div class="grid">{% for it in items %}
+    <article class="card link product-card">{{ glyph(it.slug) }}<span class="cat">{{ it.name }}</span><h3><a href="/playground/{{ it.slug }}">{{ it.title }}</a></h3><p class="muted">{{ it.story }}</p><a class="more" href="/playground/{{ it.slug }}">Open sandbox</a></article>
+  {% else %}{{ empty("Your organisation has no entitled sandboxes yet. Your administrator can ask Azentio to enable one.") }}{% endfor %}</div>
+</section>
+<aside class="card">
+  <h2>Your recent runs</h2>
+  <p class="hint">Only you can see these, in this workspace.</p>
+  {% for r in runs %}<div class="stripe {{ r.verdict }}" style="padding-left:12px;margin-bottom:12px"><a href="/playground/runs/{{ r.id }}"><b>{{ r.headline }}</b></a>
+    <div class="meta"><span>{{ offering_names[r.offering] }}</span><span>{{ r.created_at|ago }}</span>{% if r.rating %}<span>rated {{ r.rating }}/5</span>{% endif %}</div></div>
+  {% else %}<p class="muted">No runs yet.</p>{% endfor %}
+</aside>
+</div>
+{% endblock %}

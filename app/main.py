@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, audit, auth, iam, ideas, learning, orgadmin, policy
+from . import aira, audit, auth, iam, ideas, learning, orgadmin, playground, policy
 from .db import connect, tx
 from .policy import Denied
 from .seed import DEMO_PERSONAS, seed
@@ -422,6 +422,53 @@ async def observation_share(request: Request, oid: int):
 def observation_withdraw(request: Request, oid: int):
     n = learning.withdraw(request.state.conn, request.state.ctx, oid)
     return back(f"/observations/{oid}", f"Withdrawn. {n} shared version(s) removed from search and AIRA immediately.")
+
+
+# ---- playground -----------------------------------------------------------------------------------------------
+
+@app.get("/playground", response_class=HTMLResponse)
+def playground_home(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    return render(request, "playground.html", {"items": playground.available(conn, ctx), "runs": playground.my_runs(conn, ctx)})
+
+
+@app.get("/playground/feedback", response_class=HTMLResponse)
+def playground_feedback_summary(request: Request):
+    rows, comments = playground.feedback_summary(request.state.conn, request.state.ctx)
+    return render(request, "playground_feedback.html", {"rows": rows, "comments": comments})
+
+
+@app.get("/playground/runs/{rid}", response_class=HTMLResponse)
+def playground_run_view(request: Request, rid: int):
+    r = playground.get_run(request.state.conn, request.state.ctx, rid)
+    return render(request, "playground_run.html", {"r": r, "accuracy": playground.ACCURACY, "explanation": None})
+
+
+@app.post("/playground/runs/{rid}/feedback")
+async def playground_run_feedback(request: Request, rid: int):
+    f = await form(request)
+    playground.feedback(request.state.conn, request.state.ctx, rid, f.get("rating") or "", f.get("accuracy") or "", f.get("comment") or "")
+    return back(f"/playground/runs/{rid}", "Thanks. Your feedback goes to the product owner without your name or organisation.")
+
+
+@app.post("/playground/runs/{rid}/explain", response_class=HTMLResponse)
+def playground_run_explain(request: Request, rid: int):
+    conn, ctx = request.state.conn, request.state.ctx
+    r = playground.get_run(conn, ctx, rid)
+    return render(request, "playground_run.html", {"r": r, "accuracy": playground.ACCURACY, "explanation": playground.explain(conn, ctx, rid)})
+
+
+@app.get("/playground/{slug}", response_class=HTMLResponse)
+def playground_scenario(request: Request, slug: str):
+    conn, ctx = request.state.conn, request.state.ctx
+    sc = playground.scenario(conn, ctx, slug)
+    return render(request, "playground_form.html", {"slug": slug, "sc": sc})
+
+
+@app.post("/playground/{slug}")
+async def playground_execute(request: Request, slug: str):
+    rid = playground.run(request.state.conn, request.state.ctx, slug, await form(request))
+    return back(f"/playground/runs/{rid}")
 
 
 # ---- shared learning ------------------------------------------------------------------------------------------

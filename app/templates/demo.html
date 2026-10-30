@@ -27,6 +27,15 @@
   </ol>
 </section>
 <section>
+  <div class="section-title"><h2>3. Playground: entitled sandboxes</h2><span class="hint">About 3 minutes</span></div>
+  <ol class="demo-steps">
+    {{ step("asha@kestrel.example", "/playground/financial-analysis-intelligence", "Asha · Kestrel Bank admin", "Seasonal dip or real decline?", "Run it: quarter-on-quarter flags a drop, same-season comparison shows it is seasonal. This is the improvement idea from step 5, working.") }}
+    {{ step("asha@kestrel.example", "/playground/riva", "Asha · Kestrel Bank admin", "Not entitled, not reachable", "Kestrel has no RIVA entitlement, so the sandbox answers 404 even by direct URL.") }}
+    {{ step("sam@northwind.example", "/playground/riva", "Sam · Northwind admin", "Validate a regulatory return", "Clear one line and run: validation flags the blank line and the subtotal mismatch. Rate the run.") }}
+    {{ step("priya@azentio.com", "/playground/feedback", "Priya · Product owner", "Feedback without identities", "Ratings and comments per sandbox, with no names or organisations.") }}
+  </ol>
+</section>
+<section>
   <div class="section-title"><h2>2. Identity and access tour</h2><span class="hint">About 4 minutes</span></div>
   <ol class="demo-steps">
     {{ step("dev@azentio.com", "/access", "Dev · Employee", "Employee status implies nothing extra", "Moderation, publishing and administration all say No: each is a separate grant.") }}
@@ -64,7 +73,8 @@
       <tr><td>AIRA with checked citations</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Microsoft Entra ID sign-in</td><td><span class="pill warn">Email code instead</span></td></tr>
       <tr><td>Email delivery (P1)</td><td><span class="pill warn">In-app only</span></td></tr>
-      <tr><td>Employee Playground, live broadcasts</td><td><span class="pill bad">Not built</span></td></tr>
+      <tr><td>Guided Playground and entitled sandboxes, with feedback</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Live broadcasts, team spaces, knowledge library</td><td><span class="pill bad">Not built</span></td></tr>
       <tr><td>Attachments, comments, bookmarks, saved searches</td><td><span class="pill bad">Not built</span></td></tr>
       <tr><td>Federated model learning (P2)</td><td><span class="pill bad">Not built</span></td></tr>
     </table>

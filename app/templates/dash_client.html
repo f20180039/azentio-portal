@@ -31,6 +31,7 @@
 <aside class="stack">
   <div class="card"><h2>Entitled products</h2>
   {% for e in entitlements %}<div class="row" style="margin-bottom:8px;flex-wrap:nowrap">{{ glyph(e.slug) }}<a href="/products/{{ e.slug }}">{{ e.name }}</a></div>{% else %}<p class="muted">No entitlements assigned.</p>{% endfor %}</div>
+  <div class="card"><h2>Sandboxes</h2><p class="muted">Run guided demonstrations on synthetic data for the products you are entitled to.</p><a class="btn small" href="/playground">Open the Playground</a></div>
   <div class="card"><h2>Demos &amp; briefings</h2>
   {% for r in resources %}<div style="margin:0 0 10px"><span class="pill">{{ r.kind|capitalize }}</span><br><a href="/resources/{{ r.id }}">{{ r.title }}</a></div>{% else %}<p class="muted">Nothing assigned yet.</p>{% endfor %}</div>
 </aside>

@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 90 tests
+uv run pytest -q             # 100 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -103,6 +103,19 @@ Settings (environment variables):
 - **Resource audiences.** Content publishers set who may open each resource, including video: public, employees, clients entitled to an offering, or one organisation.
 - **My access** (`/access`) shows each capability for the current account, whether it is allowed, and why.
 
+## Playground
+
+- **Four deterministic sandboxes on synthetic data:**
+  - SME credit policy checks (DSCR, leverage, current ratio, years trading);
+  - a credit-policy simulator over 400 synthetic applications against a baseline;
+  - seasonal-versus-real decline for monthly revenue (the seasonality theme, working);
+  - validation of a regulatory return.
+- **Results:** every result shows each check, its value and what it was compared with, and is labelled as a simulation, not a decision.
+- **Access:** employees see every sandbox. Clients see only those their active organisation is entitled to, checked on the server for both the page and the run.
+- **Privacy:** runs are private to their author within that workspace.
+- **AIRA explanation:** optional, using only that run's synthetic data.
+- **Feedback:** ratings and comments reach product owners aggregated, without names or organisations.
+
 ## Learning lifecycle
 
 ```mermaid
@@ -174,7 +187,8 @@ stateDiagram-v2
 | Themes, improvement ideas, audited status, contributor updates | Built |
 | AIRA with checked citations | Built |
 | Employee dashboard, employee-only content excluded from client search and AIRA | Built (internal notes, recordings, release notes) |
-| Employee Playground, live broadcast configuration, hackathon team spaces | **Not built** |
+| Guided Playground (employees: all sandboxes; clients: entitled only), evidence, AIRA explanation, structured feedback | Built |
+| Live broadcast configuration, hackathon team spaces, knowledge library | **Not built** |
 | Email delivery (P1), saved searches, bookmarks, comments | **Not built** |
 | Federated model-learning track (P2) | **Not built** |
 
