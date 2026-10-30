@@ -187,6 +187,18 @@ CREATE TABLE IF NOT EXISTS release_notes (
   audience_type TEXT NOT NULL CHECK (audience_type IN ({sql_in(Audience)})), audience_ref TEXT,
   published_by INTEGER NOT NULL REFERENCES users(id), published_at REAL NOT NULL
 );
+-- saved sandbox inputs: private to the author, or shared with the author's organisation only
+CREATE TABLE IF NOT EXISTS playground_scenarios (
+  id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
+  offering TEXT NOT NULL REFERENCES offerings(slug), name TEXT NOT NULL, form TEXT NOT NULL,
+  visibility TEXT NOT NULL CHECK (visibility IN ({sql_in(Visibility)})), created_at REAL NOT NULL
+);
+-- uploaded sandbox evidence: private to the uploader in that workspace, kept with the run it produced
+CREATE TABLE IF NOT EXISTS playground_uploads (
+  id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
+  offering TEXT NOT NULL, filename TEXT NOT NULL, size INTEGER NOT NULL, content TEXT NOT NULL,
+  run_id INTEGER REFERENCES playground_runs(id), created_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY CHECK (key IN ({sql_in(Setting)})), value TEXT NOT NULL,
   updated_by INTEGER REFERENCES users(id), updated_at REAL NOT NULL

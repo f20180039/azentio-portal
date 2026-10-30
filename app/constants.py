@@ -64,6 +64,9 @@ class Route(StrEnum):
     PLAYGROUND_FEEDBACK = "/playground/feedback"
     PLAYGROUND_SCENARIO = "/playground/{slug}"
     PLAYGROUND_RUN = "/playground/runs/{rid}"
+    PLAYGROUND_UPLOAD = "/playground/{slug}/upload"
+    PLAYGROUND_TEMPLATE = "/playground/{slug}/template.csv"
+    PLAYGROUND_SAVED_DELETE = "/playground/saved/{sid}/delete"
     PLAYGROUND_RUN_FEEDBACK = "/playground/runs/{rid}/feedback"
     PLAYGROUND_RUN_EXPLAIN = "/playground/runs/{rid}/explain"
 
@@ -331,6 +334,7 @@ class Action(StrEnum):
     RETURN = "return"
     REJECT = "reject"
     CANCEL = "cancel"
+    SAVE = "save"
 
 
 class EnquiryKind(StrEnum):

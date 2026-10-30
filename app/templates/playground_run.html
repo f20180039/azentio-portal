@@ -42,7 +42,7 @@
     <button class="btn">Send feedback</button>
     <p class="hint">Product owners see ratings and comments without your name or organisation.</p>
   </form>
-  <div class="card"><h3>Inputs used</h3><table class="inputs">
+  <div class="card"><h3>Inputs used</h3>{% if upload %}<p class="hint">From your upload <span class="mono">{{ upload.filename }}</span> ({{ upload.size }} bytes).</p>{% endif %}<table class="inputs">
   {% if r.inputs.lines is defined %}{% for name, v in r.inputs.lines %}<tr><td>{{ name }}</td><td>{{ '{:,.0f}'.format(v) if v is not none else 'blank' }}</td></tr>{% endfor %}
     <tr><td>Reported subtotal</td><td>{{ '{:,.0f}'.format(r.inputs.reported_total) }}</td></tr>
   {% else %}{% for k, v in r.inputs.items() %}<tr><td>{{ k.replace('_', ' ')|capitalize }}</td><td>{% if v is iterable and v is not string %}{{ v|map('int')|join(', ') }}{% else %}{{ v|round(2) }}{% endif %}</td></tr>{% endfor %}{% endif %}

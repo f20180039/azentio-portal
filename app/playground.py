@@ -1,14 +1,18 @@
 """Guided Playground: deterministic demonstrations on synthetic scenarios, with evidence and structured feedback.
 Outputs are simulations, never credit or business decisions. Runs are private to the person who made them."""
+import csv
+import io
 import json
 import random
+import re
 import time
 
 from . import audit
 from . import settings
-from .constants import Accuracy, Permission, Setting, parse
+from .constants import Accuracy, Permission, Setting, Visibility, parse
 from .auth import Ctx
 from .db import tx
+from .learning import scan_sensitive
 from .policy import Denied, entitled, require_grant, require_participant
 
 DISCLAIMER = "Simulated output on synthetic data. Not a credit or business decision."
@@ -209,6 +213,99 @@ def run(conn, ctx: Ctx, slug: str, form: dict) -> int:
         ).lastrowid
         audit.record(conn, ctx.user_id, "playground.run", f"run:{rid}", {"offering": slug})
     return rid
+
+
+# ---- saved scenarios and uploads ---------------------------------------------------------------------------------
+
+def _form_fields(sc: dict) -> list[str]:
+    return [f["name"] for f in sc["fields"]]
+
+
+def saved_scenarios(conn, ctx: Ctx, slug: str):
+    scenario(conn, ctx, slug)
+    return conn.execute("SELECT s.*, u.name AS author FROM playground_scenarios s JOIN users u ON u.id=s.user_id"
+                        " WHERE s.offering=? AND s.org_id=? AND (s.user_id=? OR s.visibility=?) ORDER BY s.id DESC",
+                        (slug, ctx.org_id, ctx.user_id, Visibility.ORG)).fetchall()
+
+
+def load_scenario(conn, ctx: Ctx, slug: str, sid: int) -> dict:
+    row = next((r for r in saved_scenarios(conn, ctx, slug) if r["id"] == sid), None)
+    if not row:
+        raise Denied(404, "Saved scenario not found.")
+    return json.loads(row["form"])
+
+
+def save_scenario(conn, ctx: Ctx, slug: str, form: dict) -> int:
+    sc = scenario(conn, ctx, slug)
+    _parse(sc, form)  # only valid inputs can be saved
+    name = (form.get("scenario_name") or "").strip()
+    if not 3 <= len(name) <= 60:
+        raise Denied(422, "Name the scenario (3–60 characters).")
+    visibility = Visibility.ORG if form.get("scenario_visibility") == Visibility.ORG else Visibility.PRIVATE
+    values = {k: form.get(k) for k in _form_fields(sc) if form.get(k) is not None}
+    with tx(conn):
+        sid = conn.execute("INSERT INTO playground_scenarios (user_id, org_id, offering, name, form, visibility, created_at) VALUES (?,?,?,?,?,?,?)",
+                           (ctx.user_id, ctx.org_id, slug, name, json.dumps(values), visibility, time.time())).lastrowid
+        audit.record(conn, ctx.user_id, "playground.scenario_saved", f"scenario:{sid}", {"visibility": visibility})
+    return sid
+
+
+def delete_scenario(conn, ctx: Ctx, sid: int) -> str:
+    require_participant(ctx)
+    row = conn.execute("SELECT * FROM playground_scenarios WHERE id=? AND user_id=? AND org_id=?", (sid, ctx.user_id, ctx.org_id)).fetchone()
+    if not row:
+        raise Denied(404, "Saved scenario not found.")
+    with tx(conn):
+        conn.execute("DELETE FROM playground_scenarios WHERE id=?", (sid,))
+    return row["offering"]
+
+
+MAX_UPLOAD = 20_000  # bytes
+
+
+def template_csv(conn, ctx: Ctx, slug: str) -> str:
+    sc = scenario(conn, ctx, slug)
+    lines = ["field,value"]
+    for f in sc["fields"]:
+        lines.append(f"{f['name']},{' '.join(str(v) for v in f['series']) if 'series' in f else f['value']}")
+    return "\n".join(lines) + "\n"
+
+
+def upload(conn, ctx: Ctx, slug: str, filename: str, data: bytes, declared: bool) -> int:
+    """Runs a scenario from an uploaded CSV of field,value rows. The file stays private to the uploader in this workspace."""
+    sc = scenario(conn, ctx, slug)
+    if not declared:
+        raise Denied(422, "Confirm the file contains only synthetic or explicitly approved data.")
+    if not filename.lower().endswith(".csv"):
+        raise Denied(415, "Upload a .csv file.")
+    if not 0 < len(data) <= MAX_UPLOAD:
+        raise Denied(413, f"The file must be between 1 byte and {MAX_UPLOAD // 1000} KB.")
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise Denied(415, "The file must be UTF-8 text.")
+    # scan each value on its own line, so a row of monthly figures is not mistaken for a phone number
+    if flags := scan_sensitive("\n".join(re.split(r"[\s,;]+", text))):
+        raise Denied(422, f"The file looks like it contains restricted data ({', '.join(flags)}). Use synthetic values.")
+    allowed, form = set(_form_fields(sc)), {}
+    for i, row in enumerate(csv.reader(io.StringIO(text))):
+        if not row or (i == 0 and row[0].strip().lower() == "field"):
+            continue
+        name = row[0].strip()
+        if name not in allowed or len(row) != 2:
+            raise Denied(422, f"Line {i + 1}: expected 'field,value' with a field from the template.")
+        value = row[1].strip()
+        form[name] = ",".join(value.replace(";", " ").split()) if " " in value or ";" in value else value
+    rid = run(conn, ctx, slug, form)
+    with tx(conn):
+        conn.execute("INSERT INTO playground_uploads (user_id, org_id, offering, filename, size, content, run_id, created_at) VALUES (?,?,?,?,?,?,?,?)",
+                     (ctx.user_id, ctx.org_id, slug, filename[:100], len(data), text, rid, time.time()))
+        audit.record(conn, ctx.user_id, "playground.uploaded", f"run:{rid}", {"file": filename[:100], "bytes": len(data)})
+    return rid
+
+
+def upload_for_run(conn, run_id: int):
+    return conn.execute("SELECT filename, size FROM playground_uploads WHERE run_id=?", (run_id,)).fetchone()
 
 
 def get_run(conn, ctx: Ctx, run_id: int):

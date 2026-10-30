@@ -10,16 +10,38 @@
   {% for f in sc.fields %}
     {% if f.series is defined %}
     <div class="field" style="grid-column:1/-1"><label for="{{ f.name }}">{{ f.label }} <span class="muted">({{ f.unit }})</span></label>
-      <input id="{{ f.name }}" name="{{ f.name }}" type="text" value="{{ f.series|join(', ') }}" required><p class="hint">12 numbers separated by commas.</p></div>
+      <input id="{{ f.name }}" name="{{ f.name }}" type="text" value="{{ prefill.get(f.name, f.series|join(', ')) }}" required><p class="hint">12 numbers separated by commas.</p></div>
     {% else %}
     <div class="field"><label for="{{ f.name }}">{{ f.label }}{% if f.unit %} <span class="muted">({{ f.unit }})</span>{% endif %}</label>
-      <input id="{{ f.name }}" name="{{ f.name }}" type="number" value="{{ f.value }}" min="{{ f.min }}" max="{{ f.max }}" step="{{ f.step }}" {% if not f.name.startswith('line_') %}required{% endif %}></div>
+      <input id="{{ f.name }}" name="{{ f.name }}" type="number" value="{{ prefill.get(f.name, f.value) }}" min="{{ f.min }}" max="{{ f.max }}" step="{{ f.step }}" {% if not f.name.startswith('line_') %}required{% endif %}></div>
     {% endif %}
   {% endfor %}
   </div>
-  <button class="btn">Run demonstration</button>
+  <div class="row"><button class="btn">Run demonstration</button></div>
+  <details style="margin-top:14px"><summary>Save these inputs as a scenario</summary>
+    <div class="two" style="margin-top:10px">
+      <div class="field"><label for="scenario_name">Name</label><input id="scenario_name" name="scenario_name" type="text" maxlength="60" placeholder="e.g. Harvest-season dip"></div>
+      <div class="field"><label for="scenario_visibility">Who can use it</label><select id="scenario_visibility" name="scenario_visibility"><option value="{{ Visibility.PRIVATE }}">Only me</option><option value="{{ Visibility.ORG }}">People in {{ ctx.org.name }}</option></select></div>
+    </div>
+    <button class="btn small ghost" name="action" value="{{ Action.SAVE }}">Save scenario</button>
+  </details>
 </form>
 <aside class="stack">
+  <div class="card"><h3>Saved scenarios</h3>
+    {% for s in saved %}<div class="row between" style="margin-bottom:6px">
+      <a href="{{ R.PLAYGROUND_SCENARIO.url(slug=slug) }}?saved={{ s.id }}" {% if s.id == saved_id %}aria-current="page"{% endif %}>{{ s.name }}</a>
+      <span class="row"><span class="pill">{{ 'Only me' if s.visibility == Visibility.PRIVATE else 'Organisation' }}</span>
+      {% if s.user_id == ctx.user_id %}<form method="post" action="{{ R.PLAYGROUND_SAVED_DELETE.url(sid=s.id) }}" class="inline"><button class="btn small ghost" aria-label="Delete {{ s.name }}">Delete</button></form>{% endif %}</span></div>
+    {% else %}<p class="muted" style="margin:0">None yet. Save inputs from the form.</p>{% endfor %}
+  </div>
+  <form method="post" action="{{ R.PLAYGROUND_UPLOAD.url(slug=slug) }}" enctype="multipart/form-data" class="card">
+    <h3>Run from a file</h3>
+    <p class="hint">A CSV of <span class="mono">field,value</span> rows, up to 20 KB. <a href="{{ R.PLAYGROUND_TEMPLATE.url(slug=slug) }}">Download the template</a>.</p>
+    <div class="field"><input type="file" name="file" accept=".csv,text/csv" required aria-label="CSV file"></div>
+    <label class="check"><input type="checkbox" name="declared" required> This file contains only synthetic or explicitly approved data.</label>
+    <button class="btn small">Upload and run</button>
+    <p class="hint">The file stays private to you in {{ ctx.org.name }}. Files that look like they contain account numbers or similar are refused.</p>
+  </form>
   <div class="card"><h3>What happens</h3>
     <ul class="ticks"><li>The sandbox runs a fixed, explainable calculation; same inputs, same result.</li><li>Every check is shown with its value and the policy it is compared with.</li><li>You can ask AIRA to explain the run in plain language.</li><li>Your run is private to you in {{ ctx.org.name }}.</li></ul></div>
   <div class="demo-note">Simulated output on synthetic data. Not a credit or business decision.</div>

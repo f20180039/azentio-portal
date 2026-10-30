@@ -425,3 +425,9 @@ input[type=number] { width: 100%; padding: 10px 12px; border: 1px solid var(--li
 .switch input:checked + span::after { transform: translateX(20px); }
 .switch input:focus-visible + span { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
 @media (max-width: 600px) { .setting { flex-direction: column; align-items: flex-start; } }
+
+/* file picker in the theme instead of the browser default */
+input[type=file] { font: inherit; font-size: .92rem; color: var(--ink-soft); max-width: 100%; }
+input[type=file]::file-selector-button { font: inherit; font-weight: 700; margin-right: 10px; padding: 7px 14px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent-wash); color: var(--accent-ink); }
+input[type=file]::file-selector-button:hover { background: var(--accent); color: #fff; }

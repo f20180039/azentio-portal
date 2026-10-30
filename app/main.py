@@ -619,7 +619,8 @@ def playground_feedback_summary(request: Request):
 @app.get(Route.PLAYGROUND_RUN, response_class=HTMLResponse)
 def playground_run_view(request: Request, rid: int):
     r = playground.get_run(request.state.conn, request.state.ctx, rid)
-    return render(request, "playground_run.html", {"r": r, "accuracy": playground.ACCURACY, "explanation": None})
+    return render(request, "playground_run.html", {"r": r, "accuracy": playground.ACCURACY, "explanation": None,
+                                                   "upload": playground.upload_for_run(request.state.conn, rid)})
 
 
 @app.post(Route.PLAYGROUND_RUN_FEEDBACK)
@@ -633,20 +634,50 @@ async def playground_run_feedback(request: Request, rid: int):
 def playground_run_explain(request: Request, rid: int):
     conn, ctx = request.state.conn, request.state.ctx
     r = playground.get_run(conn, ctx, rid)
-    return render(request, "playground_run.html", {"r": r, "accuracy": playground.ACCURACY, "explanation": playground.explain(conn, ctx, rid)})
+    return render(request, "playground_run.html", {"r": r, "accuracy": playground.ACCURACY, "explanation": playground.explain(conn, ctx, rid),
+                                                   "upload": playground.upload_for_run(conn, rid)})
 
 
 @app.get(Route.PLAYGROUND_SCENARIO, response_class=HTMLResponse)
-def playground_scenario(request: Request, slug: str):
+def playground_scenario(request: Request, slug: str, saved: int = 0):
     conn, ctx = request.state.conn, request.state.ctx
     sc = playground.scenario(conn, ctx, slug)
-    return render(request, "playground_form.html", {"slug": slug, "sc": sc})
+    prefill = playground.load_scenario(conn, ctx, slug, saved) if saved else {}
+    return render(request, "playground_form.html", {"slug": slug, "sc": sc, "prefill": prefill, "saved_id": saved,
+                                                    "saved": playground.saved_scenarios(conn, ctx, slug)})
 
 
 @app.post(Route.PLAYGROUND_SCENARIO)
 async def playground_execute(request: Request, slug: str):
-    rid = playground.run(request.state.conn, request.state.ctx, slug, await form(request))
+    f = await form(request)
+    if f.get("action") == Action.SAVE:
+        sid = playground.save_scenario(request.state.conn, request.state.ctx, slug, f)
+        return back(Route.PLAYGROUND_SCENARIO.url(slug=slug) + f"?saved={sid}", "Scenario saved.")
+    rid = playground.run(request.state.conn, request.state.ctx, slug, f)
     return back(Route.PLAYGROUND_RUN.url(rid=rid))
+
+
+@app.post(Route.PLAYGROUND_UPLOAD)
+async def playground_upload(request: Request, slug: str):
+    data = await request.form()
+    upload = data.get("file")
+    if upload is None or not hasattr(upload, "read"):
+        raise Denied(422, "Choose a CSV file to upload.")
+    content = await upload.read(playground.MAX_UPLOAD + 1)
+    rid = playground.upload(request.state.conn, request.state.ctx, slug, upload.filename or "", content, data.get("declared") == "on")
+    return back(Route.PLAYGROUND_RUN.url(rid=rid), "Uploaded and run. The file stays private to you in this workspace.")
+
+
+@app.get(Route.PLAYGROUND_TEMPLATE)
+def playground_template(request: Request, slug: str):
+    body = playground.template_csv(request.state.conn, request.state.ctx, slug)
+    return Response(body, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{slug}-template.csv"'})
+
+
+@app.post(Route.PLAYGROUND_SAVED_DELETE)
+def playground_saved_delete(request: Request, sid: int):
+    slug = playground.delete_scenario(request.state.conn, request.state.ctx, sid)
+    return back(Route.PLAYGROUND_SCENARIO.url(slug=slug), "Saved scenario deleted.")
 
 
 # ---- shared learning ------------------------------------------------------------------------------------------
