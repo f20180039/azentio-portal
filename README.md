@@ -311,7 +311,7 @@ stateDiagram-v2
 - **Use:** click the button (or Tab to it and press Enter), type a question, press **Ask**. Answers show their cited items (`S5 · title`) and the model used. **Clear** empties the conversation; **×** or Esc closes the panel.
 - **Kept across pages:** the panel's open state and the last 20 messages survive navigation, so a question can be asked on the dashboard and read on the feed.
 - **Who gets it:** the server renders the panel only when `Ctx.is_participant` is true. That is the same property `require_participant` uses for the API, so the button and the access rule cannot drift apart. Public visitors and signed-in users without a participant workspace never receive it, and every question still goes through `POST /api/v1/aira` with the full server-side checks.
-- **Where the conversation lives:** in the browser tab's `sessionStorage`, under a key made of the user and workspace. It is never written to the server or shared with other tabs. It is wiped on sign-out, and switching persona or workspace removes the previous identity's conversation, so one persona never sees another's answers.
+- **Where the conversation lives:** in the browser tab's `sessionStorage`, under a key made of the user and workspace. The portal never stores it, and other tabs cannot see it. It is wiped on sign-out, and switching persona or workspace removes the previous identity's conversation, so one persona never sees another's answers.
 - **Safe rendering:** answers and titles are inserted as text, never as HTML, so a contribution cannot inject markup into the page.
 - **Errors:** rate limits, a session that has ended and network failures are shown as plain messages in the panel.
 - **Accessibility:** the panel is a labelled dialog, new answers are announced (`aria-live`), focus is visible and moves to the question box when opened; it is hidden when printing and fits phone widths.
@@ -355,7 +355,7 @@ stateDiagram-v2
 - **Hosting:** the free Render instance uses an ephemeral SQLite file. Each restart reseeds the demo data, and the instance sleeps after 15 idle minutes, so the first request is slow.
 - **CSRF:** protection relies on `SameSite=Lax` cookies. A per-form token is the next step.
 - **Rate limiting:** the AIRA limit is in memory, per process.
-- **Floating AIRA panel:** the conversation is kept per browser tab, so a new tab starts empty and closing the tab loses it. This is deliberate: nothing about a question is stored on the server.
+- **Floating AIRA panel:** the conversation is kept per browser tab, so a new tab starts empty and closing the tab loses it. This is deliberate: the portal does not store questions or answers (a question is sent to the AI provider only to be answered).
 
 ## AI tools used
 
