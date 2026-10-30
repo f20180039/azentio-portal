@@ -42,11 +42,15 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body { font-family: var(--body); font-size: 16px; line-height: 1.55; color: var(--ink); background: var(--paper); }
+/* fonts chosen for this build (not Azentio's brand fonts) */
+body { font-family: var(--body); font-size: 17.5px; line-height: 1.6; color: var(--ink); background: var(--paper);
+  min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+main { flex: 1 0 auto; width: 100%; }
+.foot { flex-shrink: 0; }
 a { color: var(--accent-ink); text-underline-offset: 3px; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
 h1, h2, h3 { font-family: var(--display); line-height: 1.2; text-wrap: balance; margin: 0 0 .4em; letter-spacing: -.01em; }
-h1 { font-size: clamp(1.7rem, 3.2vw, 2.2rem); } h2 { font-size: 1.3rem; } h3 { font-size: 1.05rem; }
+h1 { font-size: clamp(1.9rem, 3.4vw, 2.5rem); } h2 { font-size: 1.45rem; } h3 { font-size: 1.15rem; }
 p { margin: 0 0 .8em; max-width: 68ch; }
 .wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .muted { color: var(--ink-soft); }
@@ -57,7 +61,7 @@ p { margin: 0 0 .8em; max-width: 68ch; }
 .top { background: var(--navy); color: var(--on-navy); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 11; background: var(--navy); }
 .top .wrap { display: flex; align-items: center; gap: 22px; min-height: 62px; flex-wrap: wrap; padding-block: 8px; }
-.brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--display); font-weight: 700; font-size: 1.3rem; text-decoration: none; color: #fff; letter-spacing: -.02em; }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--display); font-weight: 700; font-size: 1.4rem; text-decoration: none; color: #fff; letter-spacing: -.02em; }
 .brand .g { color: var(--accent-bright); }
 .brand svg { width: 26px; height: 26px; }
 .nav { display: flex; gap: 18px; flex-wrap: wrap; flex: 1; }
@@ -70,7 +74,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .workbar .wrap { display: flex; gap: 6px 18px; align-items: center; flex-wrap: wrap; min-height: 48px; padding-block: 6px; }
 .workbar .org { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; margin-right: 6px; }
 .workbar .org i { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); display: inline-block; }
-.workbar a { text-decoration: none; color: var(--ink-soft); font-weight: 600; font-size: .95rem; padding: 4px 10px; border-radius: 8px; }
+.workbar a { text-decoration: none; color: var(--ink-soft); font-weight: 600; font-size: 1rem; padding: 4px 10px; border-radius: 8px; }
 .workbar a:hover { background: var(--chip); color: var(--ink); }
 .workbar a[aria-current="page"] { background: var(--accent-wash); color: var(--accent-ink); }
 .workbar .spacer { flex: 1; }
@@ -98,9 +102,9 @@ main { padding-block: 28px 72px; }
 .band .eyebrow { color: var(--accent-bright); }
 
 .hero .wrap { display: grid; grid-template-columns: 1.1fr .9fr; gap: 28px; align-items: center; padding-block: 56px 64px; }
-.hero h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); max-width: 15ch; }
+.hero h1 { font-size: clamp(2.4rem, 5.2vw, 3.7rem); max-width: 15ch; }
 .hero h1 .g { color: var(--accent-bright); }
-.hero p.lead { font-size: 1.18rem; max-width: 52ch; }
+.hero p.lead { font-size: 1.22rem; max-width: 52ch; }
 .hero .network { width: 100%; max-width: 520px; justify-self: end; }
 @media (max-width: 860px) { .hero .wrap { grid-template-columns: 1fr; } .hero .network { justify-self: start; max-width: 380px; } }
 .hero-stats { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 26px; }
@@ -159,7 +163,7 @@ input[type=text], input[type=email], select, textarea { width: 100%; padding: 10
 input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 textarea { min-height: 120px; }
 .field { margin-bottom: 14px; }
-.hint { font-size: .86rem; color: var(--ink-soft); margin-top: 4px; }
+.hint { font-size: .9rem; color: var(--ink-soft); margin-top: 4px; }
 .check { display: flex; gap: 9px; align-items: flex-start; font-weight: 400; margin-bottom: 8px; }
 .check input { margin-top: 5px; accent-color: var(--accent); }
 .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font: inherit; font-weight: 700; padding: 9px 18px; border-radius: 9px; cursor: pointer; text-decoration: none; }
@@ -178,7 +182,7 @@ fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding:
 legend { font-weight: 700; padding: 0 6px; }
 
 /* ---- state ---- */
-.pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: .78rem; font-weight: 700; background: var(--info-wash); color: var(--ink); white-space: nowrap; }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: .84rem; font-weight: 700; background: var(--info-wash); color: var(--ink); white-space: nowrap; }
 .pill.published, .pill.Released, .pill.ok, .pill.Planned, .pill.In.progress { background: var(--accent-wash); color: var(--accent-ink); }
 .pill.submitted, .pill.returned, .pill.suspended, .pill.Under.review, .pill.warn, .pill.Proposed { background: var(--warn-wash); color: var(--warn); }
 .pill.rejected, .pill.withdrawn, .pill.Not.proceeding, .pill.bad { background: var(--bad-wash); color: var(--bad); }
@@ -190,18 +194,18 @@ legend { font-weight: 700; padding: 0 6px; }
 .kpi { position: relative; overflow: hidden; }
 .kpi b { display: block; font-family: var(--display); font-size: 2rem; font-variant-numeric: tabular-nums; line-height: 1.1; margin-top: 4px; }
 .kpi::after { content: ""; position: absolute; right: -24px; bottom: -24px; width: 80px; height: 80px; border-radius: 50%; border: 10px solid var(--accent-wash); }
-.meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: .82rem; color: var(--ink-soft); margin-top: 6px; }
+.meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: .88rem; color: var(--ink-soft); margin-top: 6px; }
 .meta span { background: var(--chip); padding: 1px 8px; border-radius: 6px; }
 .cite { font-family: var(--mono); font-size: .78rem; background: var(--accent-wash); color: var(--accent-ink); padding: 1px 6px; border-radius: 5px; font-weight: 600; }
 
 /* cohort meter: one dot per contributing organisation against the minimum */
-.cohort { display: inline-flex; align-items: center; gap: 4px; font-size: .82rem; color: var(--ink-soft); }
+.cohort { display: inline-flex; align-items: center; gap: 4px; font-size: .88rem; color: var(--ink-soft); }
 .cohort i { width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--accent); display: inline-block; }
 .cohort i.on { background: var(--accent); }
 .cohort i.min { border-style: dashed; border-color: var(--ink-soft); }
 .cohort span { margin-left: 4px; }
 
-table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+table { width: 100%; border-collapse: collapse; font-size: .97rem; }
 th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { font-size: .8rem; font-weight: 700; color: var(--ink-soft); }
 tr:last-child td { border-bottom: 0; }
@@ -217,7 +221,7 @@ details summary { cursor: pointer; font-weight: 600; }
 .empty { text-align: center; padding: 28px 16px; color: var(--ink-soft); }
 .empty svg { width: 56px; height: 56px; color: var(--accent); opacity: .7; margin-bottom: 6px; }
 
-.foot { background: var(--navy); color: var(--on-navy-soft); padding-block: 26px; font-size: .9rem; }
+.foot { background: var(--navy); color: var(--on-navy-soft); padding-block: 26px; font-size: .95rem; }
 .foot a { color: var(--on-navy); }
 .foot .wrap { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
 
