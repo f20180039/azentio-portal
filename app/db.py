@@ -213,6 +213,11 @@ CREATE TABLE IF NOT EXISTS saved_searches (
   id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
   name TEXT NOT NULL, query TEXT NOT NULL, created_at REAL NOT NULL
 );
+-- attachments stay with the private source record; they are never copied into a shared version
+CREATE TABLE IF NOT EXISTS observation_attachments (
+  id INTEGER PRIMARY KEY, observation_id INTEGER NOT NULL REFERENCES observations(id), uploader_id INTEGER NOT NULL REFERENCES users(id),
+  filename TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL, content BLOB NOT NULL, flags TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY CHECK (key IN ({sql_in(Setting)})), value TEXT NOT NULL,
   updated_by INTEGER REFERENCES users(id), updated_at REAL NOT NULL

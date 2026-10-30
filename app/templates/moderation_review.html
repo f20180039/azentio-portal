@@ -8,6 +8,7 @@
   <div class="meta"><span>{{ o.topic }}</span><span>{{ o.period }}</span><span>{{ o.evidence_type }}</span><span>confidence {{ o.confidence }}</span></div>
   {% if flags_now %}<div class="demo-note">Scan flags: {{ flags_now|join(', ') }}. Redact before publishing.</div>{% endif %}
   <p class="hint">Consents: publish {{ 'yes' if o.consent_publish else 'no' }} · attribution {{ 'yes' if o.consent_attribution else 'no' }} · training {{ 'yes' if o.consent_training else 'no' }}</p>
+  {% if files %}<p class="hint" style="margin:0">Attachments for review only (never published): {% for a in files %}<a href="{{ R.ATTACHMENT.url(oid=o.id, aid=a.id) }}">{{ a.filename }}</a>{% if a.flags %} <span class="pill warn">check</span>{% endif %}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
 </section>
 <aside class="stack">
 {% if o.share_state == ShareState.SUBMITTED %}

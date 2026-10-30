@@ -40,6 +40,9 @@ class Route(StrEnum):
     OBSERVATION_EDIT = "/observations/{oid}/edit"
     OBSERVATION_SHARE = "/observations/{oid}/share"
     OBSERVATION_WITHDRAW = "/observations/{oid}/withdraw"
+    OBSERVATION_ATTACH = "/observations/{oid}/attachments"
+    ATTACHMENT = "/observations/{oid}/attachments/{aid}"
+    ATTACHMENT_DELETE = "/observations/{oid}/attachments/{aid}/delete"
 
     LEARNING = "/learning"
     THEMES = "/learning/themes"

@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, audit, auth, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
+from . import aira, attachments, audit, auth, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
 from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
@@ -435,7 +435,33 @@ def observation_view(request: Request, oid: int):
     versions = conn.execute("SELECT id, version, status, published_at, title, body, region, attribution FROM shared_items"
                             " WHERE observation_id=? ORDER BY version DESC", (oid,)).fetchall()
     return render(request, "observation.html", _obs_form_data(conn) | {
-        "o": obs, "versions": versions, "can_edit": policy.can_edit_observation(ctx, obs), "consents": learning.consent_history(conn, oid)})
+        "o": obs, "versions": versions, "can_edit": policy.can_edit_observation(ctx, obs), "consents": learning.consent_history(conn, oid),
+        "files": attachments.listing(conn, oid), "max_files": attachments.MAX_PER_RECORD})
+
+
+@app.post(Route.OBSERVATION_ATTACH)
+async def observation_attach(request: Request, oid: int):
+    data = await request.form()
+    upload = data.get("file")
+    if upload is None or not hasattr(upload, "read"):
+        raise Denied(422, "Choose a file to attach.")
+    content = await upload.read(attachments.MAX_BYTES + 1)
+    attachments.attach(request.state.conn, request.state.ctx, oid, upload.filename or "", content, data.get("declared") == "on")
+    return back(Route.OBSERVATION.url(oid=oid), "Attached. It stays with this private record and is never published.")
+
+
+@app.get(Route.ATTACHMENT)
+def attachment_download(request: Request, oid: int, aid: int):
+    row = attachments.fetch(request.state.conn, request.state.ctx, oid, aid)
+    return Response(row["content"], media_type=row["mime"], headers={
+        "Content-Disposition": f'attachment; filename="{row["filename"]}"', "Cache-Control": "private, no-store",
+        "Content-Security-Policy": "sandbox"})
+
+
+@app.post(Route.ATTACHMENT_DELETE)
+def attachment_delete(request: Request, oid: int, aid: int):
+    attachments.remove(request.state.conn, request.state.ctx, oid, aid)
+    return back(Route.OBSERVATION.url(oid=oid), "Attachment removed.")
 
 
 @app.post(Route.OBSERVATION_EDIT)
@@ -829,7 +855,7 @@ def moderation_review(request: Request, oid: int):
     policy.require_grant(ctx, Permission.MODERATE)
     obs = learning.get_observation(conn, ctx, oid)
     org = conn.execute("SELECT industry, region FROM orgs WHERE id=?", (obs["org_id"],)).fetchone()
-    return render(request, "moderation_review.html", {"o": obs, "org": org, "themes": conn.execute("SELECT id, name FROM themes").fetchall(),
+    return render(request, "moderation_review.html", {"files": attachments.listing(conn, oid), "o": obs, "org": org, "themes": conn.execute("SELECT id, name FROM themes").fetchall(),
                                                        "similar": learning.similar_published(conn, obs), "qualities": list(EvidenceQuality),
                                                        "flags_now": learning.scan_sensitive(obs["title"], obs["body"]),
                                                        "sectors": learning.SECTORS, "default_sector": learning.SECTOR_OF.get(org["industry"], "Financial services")})

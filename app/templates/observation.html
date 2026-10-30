@@ -38,6 +38,18 @@
   </form>
   {% endif %}
 {% endif %}
+  <div class="card"><h3>Attachments</h3>
+    {% for a in files %}<div class="row between" style="margin-bottom:6px"><a href="{{ R.ATTACHMENT.url(oid=o.id, aid=a.id) }}">{{ a.filename }}</a>
+      <span class="row"><span class="muted">{{ (a.size / 1000)|round(1) }} KB</span>{% if a.flags %}<span class="pill warn" title="{{ a.flags }}">check content</span>{% endif %}
+      {% if can_edit %}<form method="post" action="{{ R.ATTACHMENT_DELETE.url(oid=o.id, aid=a.id) }}" class="inline"><button class="btn small ghost" aria-label="Remove {{ a.filename }}">Remove</button></form>{% endif %}</span></div>
+    {% else %}<p class="muted" style="margin:0">None.</p>{% endfor %}
+    {% if can_edit and files|length < max_files %}
+    <form method="post" action="{{ R.OBSERVATION_ATTACH.url(oid=o.id) }}" enctype="multipart/form-data" style="margin-top:10px">
+      <div class="field"><input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.csv,.txt" required aria-label="File"></div>
+      <label class="check"><input type="checkbox" name="declared" required> No customer identities, account numbers or confidential terms.</label>
+      <button class="btn small">Attach</button></form>{% endif %}
+    <p class="hint">PDF, PNG, JPEG, CSV or TXT, up to 2 MB, {{ max_files }} per record. Attachments stay with this private record and are never copied into a shared version.</p>
+  </div>
   <div class="card"><h3>Consent history</h3>
     {% for c in consents %}<div class="stripe {{ 'bad' if c.event == ConsentEvent.WITHDRAWN else 'ok' }}" style="padding-left:10px;margin-bottom:8px">
       <b>{{ ConsentEvent(c.event).label }}</b> <span class="muted">{{ c.at|ago }} by {{ c.name }}</span>
