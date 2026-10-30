@@ -16,7 +16,7 @@
 <p class="hint">Azentio administrators cannot open your records without your approval. Approval lasts 30 minutes, excludes private drafts, and every view is audited.</p>
 {% for s in support %}<div class="stripe {{ 'warn' if s.status == RequestStatus.PENDING else 'ok' if s.status == RequestStatus.APPROVED and s.expires_at > now else 'bad' }}" style="padding-left:12px;margin-bottom:12px">
   <div class="row"><b>{{ s.admin_name }}</b><span class="pill">{{ 'expired' if s.status == RequestStatus.APPROVED and s.expires_at <= now else s.status }}</span></div>
-  <p class="muted" style="margin:2px 0">{{ s.reason }}</p>
+  <p class="muted" style="margin:2px 0">{{ s.reason }}{% if s.ticket_ref %} <span class="pill mono">Ticket {{ s.ticket_ref }}</span>{% endif %}</p>
   {% if s.status == RequestStatus.PENDING %}<form method="post" action="{{ R.ORG_SUPPORT.url(gid=s.id) }}" class="row"><button class="btn small" name="action" value="{{ Action.APPROVE }}">Approve 30 minutes</button><button class="btn small ghost" name="action" value="{{ Action.DENY }}">Decline</button></form>
   {% elif s.status == RequestStatus.APPROVED and s.expires_at > now %}<form method="post" action="{{ R.SUPPORT_REVOKE.url(gid=s.id) }}"><button class="btn small danger">End access now</button></form>{% endif %}
 </div>{% else %}<p class="muted" style="margin:0">No requests.</p>{% endfor %}

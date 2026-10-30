@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS access_requests (
 CREATE TABLE IF NOT EXISTS support_grants (
   id INTEGER PRIMARY KEY, admin_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
   reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT '{RequestStatus.PENDING}' CHECK (status IN ({sql_in(RequestStatus)})),
-  approved_by INTEGER REFERENCES users(id), expires_at REAL, created_at REAL NOT NULL
+  approved_by INTEGER REFERENCES users(id), expires_at REAL, created_at REAL NOT NULL, ticket_ref TEXT
 );
 -- sandbox runs are private to their author within the workspace they ran in
 CREATE TABLE IF NOT EXISTS playground_runs (
@@ -299,5 +299,8 @@ def tx(conn: sqlite3.Connection):
 
 def init(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
-    if "status" not in {r["name"] for r in conn.execute("PRAGMA table_info(orgs)")}:  # databases created before organisation status
+    # databases created before these columns existed
+    if "status" not in {r["name"] for r in conn.execute("PRAGMA table_info(orgs)")}:
         conn.execute(f"ALTER TABLE orgs ADD COLUMN status TEXT NOT NULL DEFAULT '{OrgStatus.ACTIVE}' CHECK (status IN ({sql_in(OrgStatus)}))")
+    if "ticket_ref" not in {r["name"] for r in conn.execute("PRAGMA table_info(support_grants)")}:
+        conn.execute("ALTER TABLE support_grants ADD COLUMN ticket_ref TEXT")

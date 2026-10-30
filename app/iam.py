@@ -1,5 +1,6 @@
 """Portal administration: employee provisioning, platform grants, entitlements, client-approved support access and
 resource audiences. Every privileged change is audited."""
+import re
 import time
 
 from . import audit, settings
@@ -154,16 +155,23 @@ def set_entitlement(conn, ctx: Ctx, org_id: int, offering: str, on: bool) -> Non
 
 # ---- support access: requested by an admin, approved by the client, time-boxed, every read audited -------------
 
-def request_support(conn, ctx: Ctx, org_id: int, reason: str) -> int:
+TICKET_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{1,18}[A-Za-z0-9]")
+
+
+def request_support(conn, ctx: Ctx, org_id: int, reason: str, ticket_ref: str = "") -> int:
+    """The ticket reference is recorded for traceability only; no ticketing system is called."""
     require_grant(ctx, Permission.PORTAL_ADMIN)
+    ticket_ref = ticket_ref.strip() or None
+    if ticket_ref and not TICKET_REF.fullmatch(ticket_ref):
+        raise Denied(422, "A ticket reference is 3–20 letters, digits or hyphens, such as SUP-4821.")
     if not conn.execute(f"SELECT 1 FROM orgs WHERE id=? AND kind='{OrgKind.CLIENT}'", (org_id,)).fetchone():
         raise Denied(404, "Organisation not found.")
     if not 10 <= len(reason.strip()) <= 300:
         raise Denied(422, "Give the client a reason, such as a support ticket (10–300 characters).")
     with tx(conn):
-        gid = conn.execute("INSERT INTO support_grants (admin_id, org_id, reason, created_at) VALUES (?,?,?,?)",
-                           (ctx.user_id, org_id, reason.strip(), time.time())).lastrowid
-        audit.record(conn, ctx.user_id, "support.requested", f"org:{org_id}", {"grant": gid})
+        gid = conn.execute("INSERT INTO support_grants (admin_id, org_id, reason, ticket_ref, created_at) VALUES (?,?,?,?,?)",
+                           (ctx.user_id, org_id, reason.strip(), ticket_ref, time.time())).lastrowid
+        audit.record(conn, ctx.user_id, "support.requested", f"org:{org_id}", {"grant": gid, "ticket_ref": ticket_ref})
         for a in conn.execute(f"SELECT user_id FROM memberships WHERE org_id=? AND role='{Role.ADMIN}' AND status='{MembershipStatus.ACTIVE}'", (org_id,)).fetchall():
             notify(conn, a["user_id"], "Azentio support asked for temporary access to your organisation's shared records.", Route.ORG_MEMBERS)
     return gid

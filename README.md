@@ -233,7 +233,7 @@ Settings (environment variables):
 - **Organisations.** Portal administrators add client organisations (name, industry from a fixed list, region) and suspend or reactivate them (`iam.create_org`, `iam.set_org_status`, both audited). A suspended organisation's memberships stop counting at the member's next request, so they get no workspace. A new organisation starts with no members: client invitations come from that organisation's own administrator, so adding the first administrator is not built yet.
 - **Entitlements.** Administrators grant or remove offerings per client organisation. Entitled demos and media follow immediately.
 - **Support access** (brief §03: "explicit support authorisation, not merely a broad UI role"):
-  1. An administrator requests access to one client organisation and gives a reason.
+  1. An administrator requests access to one client organisation and gives a reason, optionally with a support-ticket reference (3–20 letters, digits or hyphens). The reference is shown to the client administrator who decides and is stored in the audit entry, for traceability only: no ticketing system is integrated.
   2. That client's administrator approves or declines it.
   3. Approved access lasts 30 minutes and covers records shared inside the organisation, never private drafts.
   4. Every listing and read is audited. Either side can end it early.

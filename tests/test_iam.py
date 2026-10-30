@@ -264,3 +264,16 @@ def test_suspending_a_client_cuts_its_members_off_at_the_next_request(login, db)
     assert login("ravi@kestrel.example").get("/dashboard", follow_redirects=False).status_code != 200
     admin.post(f"/admin/orgs/{kestrel}/status", data={"status": "active"})
     assert asha.get("/api/v1/observations").status_code == 200  # same session, access back at once
+
+
+def test_support_requests_carry_an_optional_validated_ticket_reference(login, db):
+    admin = login("admin@azentio.com")
+    kestrel = org(db, "Kestrel Bank")
+    reason = "Observation stuck in review"
+    assert admin.post("/admin/support", data={"org_id": kestrel, "reason": reason, "ticket_ref": "<script>"}).status_code == 422
+    assert admin.post("/admin/support", data={"org_id": kestrel, "reason": reason, "ticket_ref": "SUP-4821"}, follow_redirects=False).status_code == 303
+    assert admin.post("/admin/support", data={"org_id": kestrel, "reason": reason}, follow_redirects=False).status_code == 303  # optional
+    assert [r["ticket_ref"] for r in db.execute("SELECT ticket_ref FROM support_grants ORDER BY id")] == ["SUP-4821", None]
+    detail = db.execute("SELECT detail FROM audit WHERE action='support.requested' ORDER BY id LIMIT 1").fetchone()["detail"]
+    assert '"ticket_ref": "SUP-4821"' in detail
+    assert "SUP-4821" in login("asha@kestrel.example").get("/org/members").text

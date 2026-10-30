@@ -63,7 +63,7 @@
     <p class="muted">Administrators cannot read a client's records by role alone. Ask the client: their administrator approves, access lasts 30 minutes, covers records shared inside the organisation (never private drafts), and every read is audited.</p>
     {% for s in support %}<div class="stripe {{ 'ok' if s.status == RequestStatus.APPROVED and s.expires_at > now else 'warn' if s.status == RequestStatus.PENDING else 'bad' }}" style="padding-left:12px;margin-bottom:12px">
       <div class="row"><b>{{ s.org_name }}</b><span class="pill">{{ 'expired' if s.status == RequestStatus.APPROVED and s.expires_at <= now else s.status }}</span></div>
-      <p class="muted" style="margin:2px 0">{{ s.reason }}</p>
+      <p class="muted" style="margin:2px 0">{{ s.reason }}{% if s.ticket_ref %} <span class="pill mono">Ticket {{ s.ticket_ref }}</span>{% endif %}</p>
       {% if s.status == RequestStatus.APPROVED and s.expires_at > now %}<div class="row"><a class="btn small" href="{{ R.ADMIN_SUPPORT_RECORDS.url(gid=s.id) }}">Open records</a><span class="hint">expires in {{ ((s.expires_at - now) / 60)|round|int }} min</span>
         <form method="post" action="{{ R.SUPPORT_REVOKE.url(gid=s.id) }}" class="inline"><button class="btn small ghost">End now</button></form></div>{% endif %}
     </div>{% else %}<p class="hint">No support requests yet.</p>{% endfor %}
@@ -72,6 +72,7 @@
     <h2>Request support access</h2>
     <div class="field"><label for="org">Organisation</label><select id="org" name="org_id">{% for g in orgs %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></div>
     <div class="field"><label for="why">Reason the client will see</label><input id="why" name="reason" type="text" required minlength="10" maxlength="300" placeholder="e.g. Ticket 4821: observation stuck in review"></div>
+    <div class="field"><label for="ticket">Support ticket reference (optional)</label><input id="ticket" name="ticket_ref" type="text" maxlength="20" pattern="[A-Za-z0-9][A-Za-z0-9\-]{1,18}[A-Za-z0-9]" placeholder="e.g. SUP-4821"><p class="hint">Recorded with the request and in the audit log for traceability. No ticketing system is contacted.</p></div>
     <button class="btn">Ask the client</button>
   </form>
 </section>

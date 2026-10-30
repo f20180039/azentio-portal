@@ -1186,7 +1186,7 @@ async def admin_org_status(request: Request, oid: int):
 @app.post(Route.ADMIN_SUPPORT)
 async def admin_support_request(request: Request):
     f = await form(request)
-    iam.request_support(request.state.conn, request.state.ctx, _int(f.get("org_id")), f.get("reason") or "")
+    iam.request_support(request.state.conn, request.state.ctx, _int(f.get("org_id")), f.get("reason") or "", f.get("ticket_ref") or "")
     return back(Route.ADMIN, "Support access requested. The client's administrators must approve it.")
 
 
