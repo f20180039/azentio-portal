@@ -53,3 +53,30 @@ def test_footer_links_and_placeholder_policy_pages(client):
         assert f'href="{path}"' in home
         page = client.get(path)
         assert page.status_code == 200 and "prototype placeholder" in page.text and "synthetic" in page.text
+
+
+def test_flash_messages_from_crafted_links_are_ignored(client, login):
+    assert "Security notice" not in client.get("/signin", params={"flash": "Security notice: call +1-555-0100"}).text
+    asha = login("asha@kestrel.example")
+    r = asha.post("/org/invite", data={"email": "new@kestrel.example", "role": "member"})
+    assert "Invitation created" in r.text  # a real, signed message still shows
+
+
+def test_with_demo_mode_off_no_codes_links_or_personas_are_exposed(client, db, monkeypatch):
+    monkeypatch.setenv("DEMO_MODE", "0")
+    page = client.get("/signin").text
+    assert "Demo personas" not in page and "admin@azentio.com" not in page
+    client.post("/signin", data={"email": "someone@example.com"})
+    assert db.execute("SELECT COUNT(*) FROM demo_mailbox").fetchone()[0] == 0
+
+
+def test_secret_bearing_emails_are_redacted_once_sent_or_expired(client, db):
+    from app import outbox
+    client.post("/signin", data={"email": "old@example.com"})
+    db.execute("UPDATE email_outbox SET created_at = created_at - 3600 WHERE to_email='old@example.com'")
+    client.post("/signin", data={"email": "other@example.com"})  # the next request sweeps
+    old = db.execute("SELECT status, body FROM email_outbox WHERE to_email='old@example.com'").fetchone()
+    assert old["status"] == "cancelled" and old["body"] == outbox.REDACTED
+    db.execute("UPDATE email_outbox SET status='sent' WHERE to_email='other@example.com'")
+    outbox.redact_secrets(db)
+    assert db.execute("SELECT body FROM email_outbox WHERE to_email='other@example.com'").fetchone()["body"] == outbox.REDACTED

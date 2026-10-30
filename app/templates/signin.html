@@ -26,7 +26,7 @@
 {% if mail %}<div class="demo-note"><b>Demo mailbox.</b> Email delivery is not configured in this hackathon build, so the message appears here: <span class="mono">{{ mail.body }}</span></div>{% endif %}
 {% endif %}
 </div>
-{% if step == 'email' %}
+{% if step == 'email' and demo_mode %}
 <aside>
 <h2>Demo personas</h2>
 <p class="muted">Each one signs in through the same email-code flow. Codes appear in the demo mailbox.</p>

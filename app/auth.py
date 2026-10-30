@@ -32,14 +32,14 @@ def normalise_email(email: str) -> str:
 
 
 def request_code(conn, email: str) -> None:
-    """Issue a one-time code. Delivery goes to the demo mailbox: no email provider is configured (P1)."""
+    """Issue a one-time code: queued for email, and copied to the demo mailbox only in demo mode."""
     from .policy import Denied
 
     email = normalise_email(email)
     code = f"{secrets.randbelow(1_000_000):06d}"
     now = time.time()
     with tx(conn):
-        recent = conn.execute("SELECT COUNT(*) FROM demo_mailbox WHERE email=? AND subject LIKE '%sign-in code' AND created_at > ?",
+        recent = conn.execute("SELECT COUNT(*) FROM email_outbox WHERE to_email=? AND idempotency_key LIKE 'signin:%' AND created_at > ?",
                               (email, now - CODE_WINDOW)).fetchone()[0]
         if recent >= MAX_CODES_PER_WINDOW:
             raise Denied(429, "Too many codes requested for this address. Wait 15 minutes and try again.")
@@ -50,12 +50,14 @@ def request_code(conn, email: str) -> None:
             " attempts=CASE WHEN otp_codes.expires_at < ? THEN 0 ELSE otp_codes.attempts END",
             (email, _h(email + ":" + code), now + CODE_TTL, now),
         )
-        conn.execute(
-            "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",
-            (email, "Your azentio.ai sign-in code", f"Your code is {code}. It expires in 10 minutes.", time.time()),
-        )
-        from .outbox import enqueue
+        if demo_mode():
+            conn.execute(
+                "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",
+                (email, "Your azentio.ai sign-in code", f"Your code is {code}. It expires in 10 minutes.", time.time()),
+            )
+        from .outbox import enqueue, redact_secrets
 
+        redact_secrets(conn)
         enqueue(conn, f"signin:{email}:{int(now * 1000)}", None, email, "Your azentio.ai sign-in code",
                 f"Your code is {code}. It expires in 10 minutes. If you did not ask for it, ignore this email.")
 

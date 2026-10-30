@@ -1,4 +1,7 @@
+import hashlib
+import hmac
 import os
+import secrets
 import threading
 import time
 
@@ -149,15 +152,30 @@ def render(request: Request, name: str, data: dict | None = None, status: int = 
     unread = 0
     if ctx.signed_in:
         unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND read=0", (ctx.user_id,)).fetchone()[0]
-    base = {"request": request, "ctx": ctx, "unread": unread, "demo_mode": auth.demo_mode(),
+    base = {"request": request, "ctx": ctx, "unread": unread, "demo_mode": auth.demo_mode(), "flash": _flash(request),
             "offering_names": {r["slug"]: r["name"] for r in conn.execute("SELECT slug, name FROM offerings")},
             "min_cohort": learning.min_cohort(conn), "personas": DEMO_PERSONAS, "entra_enabled": entra.enabled()}
     return templates.TemplateResponse(request, name, base | (data or {}), status_code=status)
 
 
+FLASH_KEY = secrets.token_bytes(32)  # per process: a flash link only has to survive one redirect
+
+
+def _flash_sig(message: str) -> str:
+    return hmac.new(FLASH_KEY, message.encode(), hashlib.sha256).hexdigest()[:20]
+
+
 def back(path: str, flash: str | None = None) -> RedirectResponse:
+    """Messages travel in the URL with a signature, so a crafted link cannot make the site display its own text."""
+    if not flash:
+        return RedirectResponse(path, status_code=303)
     sep = "&" if "?" in path else "?"
-    return RedirectResponse(f"{path}{sep}flash={flash}" if flash else path, status_code=303)
+    return RedirectResponse(f"{path}{sep}flash={quote(flash, safe='')}&fs={_flash_sig(flash)}", status_code=303)
+
+
+def _flash(request: Request) -> str | None:
+    message, sig = request.query_params.get("flash"), request.query_params.get("fs") or ""
+    return message if message and hmac.compare_digest(sig, _flash_sig(message)) else None
 
 
 async def form(request: Request) -> dict:
@@ -409,7 +427,7 @@ def demo_reset(request: Request):
             raise Denied(429, "The demo was reset less than a minute ago. Try again shortly.")
         _last_reset["at"] = time.time()
     reset(request.state.conn, ctx.user_id)
-    resp = RedirectResponse(f"{Route.DEMO}?flash=Demo data reset to its starting state. Everyone was signed out.", status_code=303)
+    resp = back(Route.DEMO, "Demo data reset to its starting state. Everyone was signed out.")
     resp.delete_cookie(auth.COOKIE)
     return resp
 
@@ -707,6 +725,12 @@ async def experiment_update(request: Request, eid: int):
 async def experiment_comment(request: Request, eid: int):
     innovation.comment_experiment(request.state.conn, request.state.ctx, eid, (await form(request)).get("body") or "")
     return back(Route.EXPERIMENT.url(eid=eid), "Feedback posted.")
+
+
+@app.get(Route.TEAMS)
+def teams_home():
+    """Team spaces live with the Lab's experiments; the page there applies the employee check."""
+    return RedirectResponse(Route.EXPERIMENTS, status_code=303)
 
 
 @app.post(Route.TEAMS)
@@ -1027,7 +1051,7 @@ def moderation(request: Request):
 
 
 @app.get(Route.MODERATION_REVIEW, response_class=HTMLResponse)
-def moderation_review(request: Request, oid: int):
+def moderation_review(request: Request, oid: int, draft: dict | None = None, error: str | None = None, status: int = 200):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_grant(ctx, Permission.MODERATE)
     obs = learning.get_observation(conn, ctx, oid)
@@ -1035,7 +1059,8 @@ def moderation_review(request: Request, oid: int):
     return render(request, "moderation_review.html", {"files": attachments.listing(conn, oid), "o": obs, "org": org, "themes": conn.execute("SELECT id, name FROM themes").fetchall(),
                                                        "similar": learning.similar_published(conn, obs), "qualities": list(EvidenceQuality),
                                                        "flags_now": learning.scan_sensitive(obs["title"], obs["body"]),
-                                                       "sectors": learning.SECTORS, "default_sector": learning.SECTOR_OF.get(org["industry"], "Financial services")})
+                                                       "sectors": learning.SECTORS, "default_sector": learning.SECTOR_OF.get(org["industry"], "Financial services"),
+                                                       "draft": draft or {}, "error": error}, status=status)
 
 
 @app.post(Route.MODERATION_PUBLISH)
@@ -1043,7 +1068,12 @@ async def moderation_publish(request: Request, oid: int):
     f = await form(request)
     f["attribute"] = f.get("attribute") == "on"
     f["override_flags"] = f.get("override_flags") == "on"
-    learning.publish(request.state.conn, request.state.ctx, oid, f)
+    try:
+        learning.publish(request.state.conn, request.state.ctx, oid, f)
+    except Denied as e:
+        if e.status != 422:
+            raise
+        return moderation_review(request, oid, draft=f, error=e.message, status=422)  # keep the moderator's edits
     return back(Route.MODERATION, "Published. The contributor has been notified.")
 
 
@@ -1125,7 +1155,8 @@ def org_members(request: Request):
 async def org_invite(request: Request):
     f = await form(request)
     orgadmin.invite(request.state.conn, request.state.ctx, f.get("email") or "", f.get("role") or "")
-    return back(Route.ORG_MEMBERS, "Invitation created. In this demo it lands in the demo mailbox instead of email.")
+    return back(Route.ORG_MEMBERS, "Invitation created. In this demo it lands in the demo mailbox." if auth.demo_mode()
+                else "Invitation created and queued for email.")
 
 
 @app.post(Route.ORG_INVITE_REVOKE)
@@ -1328,7 +1359,13 @@ def api_resource(request: Request, rid: int):
 @app.post(Route.API_AIRA)
 async def api_aira(request: Request):
     body = await request.json()
-    return aira.ask(request.state.conn, request.state.ctx, str(body.get("question", "")), request.client.host if request.client else "")
+    return aira.ask(request.state.conn, request.state.ctx, str(body.get("question", "")), _visitor_address(request))
+
+
+def _visitor_address(request: Request) -> str:
+    """The right-most X-Forwarded-For hop is the one Render's proxy appended; earlier hops are whatever the client sent."""
+    hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+    return hops[-1] if hops else (request.client.host if request.client else "")
 
 
 @app.get(Route.API_MODERATION_QUEUE)

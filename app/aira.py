@@ -29,6 +29,9 @@ SYSTEM = (
 
 def _rate_limit(conn, user_id: int | str) -> None:
     now = time.time()
+    if len(_recent) > 5000:  # drop callers idle for a minute so the store cannot grow without bound
+        for key in [k for k, v in _recent.items() if not v or now - v[-1] > 60]:
+            del _recent[key]
     q = _recent[user_id]
     while q and now - q[0] > 60:
         q.popleft()

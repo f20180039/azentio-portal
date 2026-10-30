@@ -82,7 +82,7 @@
 {% block banner %}{% endblock %}
 {% block band %}{% endblock %}
 <main class="wrap">
-  {% if request.query_params.get('flash') %}<div class="flash" role="status">{{ request.query_params.get('flash') }}</div>{% endif %}
+  {% if flash %}<div class="flash" role="status">{{ flash }}</div>{% endif %}
   {% block content %}{% endblock %}
 </main>
 <footer class="foot"><div class="wrap">

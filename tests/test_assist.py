@@ -66,3 +66,12 @@ def test_shared_learning_questions_still_reach_retrieval_for_participants(login,
     monkeypatch.setattr(aira, "_call_llm", lambda q, items: (f"Breaks [S{items[0]['id']}].", "test-model"))
     r = ask(login("ravi@kestrel.example"), "what goes wrong with statement extraction?")
     assert r["mode"] == "ai" and r["citations"]
+
+
+def test_visitor_rate_limit_ignores_spoofed_forwarding_hops(client, monkeypatch):
+    from collections import defaultdict, deque
+    from app import aira
+    monkeypatch.setattr(aira, "_recent", defaultdict(deque))
+    codes = [client.post("/api/v1/aira", json={"question": "what products?"},
+                         headers={"x-forwarded-for": f"10.0.0.{i}, 203.0.113.9"}).status_code for i in range(9)]
+    assert codes[8] == 429  # a new fake first hop each time, same proxy-appended last hop

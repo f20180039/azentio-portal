@@ -288,9 +288,11 @@ table.grants td, table.grants th { text-align: center; } table.grants td:first-c
 .demo-step p { margin: 0; font-size: .95rem; }
 .demo-step .persona { font-size: .82rem; font-weight: 700; color: var(--accent-ink); }
 .demo-step form { flex: none; }
-@media (max-width: 640px) { .demo-step { flex-wrap: wrap; } }
+@media (max-width: 640px) { .demo-step { flex-wrap: wrap; } .demo-step form { flex-basis: 100%; padding-left: 46px; } }
+@media (max-width: 1100px) { .cols.demo-cols { grid-template-columns: minmax(0, 1fr); } }
 .coverage td { padding: 7px 6px; font-size: .93rem; }
-.coverage td:last-child { text-align: right; white-space: nowrap; }
+.coverage td:last-child { text-align: right; width: 38%; }
+.coverage td:last-child .pill { white-space: normal; text-align: left; display: inline-block; line-height: 1.35; }
 
 /* themed dropdowns (select.js); the native select stays in the form, visually hidden */
 .dd { position: relative; width: 100%; }

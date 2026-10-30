@@ -34,7 +34,8 @@ def members(conn, ctx: Ctx):
 
 
 def invite(conn, ctx: Ctx, email: str, raw_role: str) -> str:
-    """Returns the raw invitation token once; only its hash is stored."""
+    """Returns the raw invitation token once. The invitation row keeps only its hash; the queued email carries the link until
+    it is sent, revoked or accepted, and the demo mailbox gets a copy only in demo mode."""
     _require_admin(ctx)
     role = parse(Role, raw_role)
     if role not in CLIENT_ROLES:
@@ -44,16 +45,19 @@ def invite(conn, ctx: Ctx, email: str, raw_role: str) -> str:
         raise Denied(422, "Enter a valid email address.")
     token = secrets.token_urlsafe(24)
     with tx(conn):
+        for old in conn.execute(f"SELECT id FROM invitations WHERE org_id=? AND email=? AND status='{InviteStatus.PENDING}'", (ctx.org_id, email)).fetchall():
+            outbox.redact_secrets(conn, old["id"])
         conn.execute(f"UPDATE invitations SET status='{InviteStatus.REVOKED}' WHERE org_id=? AND email=? AND status='{InviteStatus.PENDING}'", (ctx.org_id, email))
         inv_id = conn.execute(
             "INSERT INTO invitations (token_hash, org_id, email, role, invited_by, expires_at, created_link) VALUES (?,?,?,?,?,?,?)",
             (_h(token), ctx.org_id, email, role, ctx.user_id, time.time() + settings.get(conn, Setting.INVITE_DAYS) * 86400,
              Route.INVITE.url(token=token) if demo_mode() else None),
         ).lastrowid
-        conn.execute(
-            "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",
-            (email, f"Invitation to join {ctx.org['name']} on azentio.ai", Route.INVITE.url(token=token), time.time()),
-        )
+        if demo_mode():
+            conn.execute(
+                "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",
+                (email, f"Invitation to join {ctx.org['name']} on azentio.ai", Route.INVITE.url(token=token), time.time()),
+            )
         outbox.enqueue(conn, f"invite:{inv_id}", None, email, f"Invitation to join {ctx.org['name']} on azentio.ai",
                        f"You were invited to join {ctx.org['name']} as {role}. Accept within the expiry period: "
                        f"{outbox.public_url()}{Route.INVITE.url(token=token)}")
@@ -67,6 +71,7 @@ def revoke_invite(conn, ctx: Ctx, invite_id: int) -> None:
         n = conn.execute(f"UPDATE invitations SET status='{InviteStatus.REVOKED}' WHERE id=? AND org_id=? AND status='{InviteStatus.PENDING}'", (invite_id, ctx.org_id)).rowcount
         if not n:
             raise Denied(404, "Invitation not found.")
+        outbox.redact_secrets(conn, invite_id)
         audit.record(conn, ctx.user_id, "org.invite_revoked", f"invitation:{invite_id}")
 
 
@@ -126,5 +131,6 @@ def accept_invite(conn, ctx: Ctx, token: str, accepted_terms: bool) -> int:
             (ctx.user_id, inv["org_id"], inv["role"]),
         )
         conn.execute(f"UPDATE invitations SET status='{InviteStatus.ACCEPTED}' WHERE id=?", (inv["id"],))
+        outbox.redact_secrets(conn, inv["id"])
         audit.record(conn, ctx.user_id, "org.invite_accepted", f"org:{inv['org_id']}", {"invitation": inv["id"], "role": inv["role"]})
     return inv["org_id"]

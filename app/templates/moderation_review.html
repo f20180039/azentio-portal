@@ -21,11 +21,12 @@
 </div>{% endif %}
 <form method="post" action="{{ R.MODERATION_PUBLISH.url(oid=o.id) }}" class="card shared-zone">
   <h2>Shared copy</h2><p class="hint">Only these reviewed fields are published. Remove names, identifiers, exact figures and overly specific dates or places.</p>
-  <div class="field"><label for="t">Title</label><input id="t" name="title" type="text" value="{{ o.title }}" required maxlength="120"></div>
-  <div class="field"><label for="b">Text</label><textarea id="b" name="body" required maxlength="2000">{{ o.body }}</textarea></div>
+  {% if error %}<div class="flash" role="alert" style="border-color:var(--bad)">{{ error }} Your edits are kept below.</div>{% endif %}
+  <div class="field"><label for="t">Title</label><input id="t" name="title" type="text" value="{{ draft.title or o.title }}" required maxlength="120"></div>
+  <div class="field"><label for="b">Text</label><textarea id="b" name="body" required maxlength="2000">{{ draft.body or o.body }}</textarea></div>
   <div class="field"><label for="sec">Sector shown (coarse, never the organisation's own label)</label><select id="sec" name="sector">{% for s in sectors %}<option {% if s==default_sector %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
-  <div class="two"><div class="field"><label for="r">Region (coarsen if needed)</label><input id="r" name="region" type="text" value="{{ org.region }}"></div>
-  <div class="field"><label for="p">Period</label><input id="p" name="period" type="text" value="{{ o.period }}"></div></div>
+  <div class="two"><div class="field"><label for="r">Region (coarsen if needed)</label><input id="r" name="region" type="text" value="{{ draft.region or org.region }}"></div>
+  <div class="field"><label for="p">Period</label><input id="p" name="period" type="text" value="{{ draft.period or o.period }}"></div></div>
   <div class="field"><label for="eq">Evidence quality</label><select id="eq" name="evidence_quality">{% for q in qualities %}<option value="{{ q }}" {% if q == EvidenceQuality.MODERATE %}selected{% endif %}>{{ q }}</option>{% endfor %}</select>
     <p class="hint">Your assessment, shown next to the contribution. Readers can also mark it useful or needing evidence.</p></div>
   <div class="field"><label for="th">Theme</label><select id="th" name="theme_id"><option value="">No theme</option>{% for t in themes %}<option value="{{ t.id }}" {% if t.name.lower().startswith(o.topic.lower()[:6]) %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>

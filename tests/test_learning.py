@@ -311,3 +311,14 @@ def test_theme_evidence_cards_show_the_evidence_type(login, db):
     tid = db.execute("SELECT id FROM themes WHERE name='Scanned statement extraction'").fetchone()["id"]
     page = login("ravi@kestrel.example").get(f"/learning/themes/{tid}").text
     assert '<span class="pill">Customer feedback</span>' in page and '<span class="pill">Internal review</span>' in page
+
+
+def test_a_refused_publish_keeps_the_moderators_edits(login, db):
+    oid = db.execute("SELECT id FROM observations WHERE title LIKE 'Compare against%'").fetchone()["id"]
+    raw = db.execute("SELECT title, body FROM observations WHERE id=?", (oid,)).fetchone()
+    r = login("omar@azentio.com").post(f"/moderation/{oid}/publish", data=publish_form(title="Edited title kept on refusal", body=raw["body"]))
+    assert r.status_code == 422 and "Edited title kept on refusal" in r.text and "Your edits are kept below" in r.text
+
+
+def test_team_spaces_address_redirects_to_the_lab(client):
+    assert client.get("/hackathon/teams", follow_redirects=False).headers["location"] == "/lab/experiments"

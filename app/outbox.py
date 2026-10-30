@@ -33,6 +33,22 @@ def enqueue(conn, key: str, user_id: int | None, to_email: str, subject: str, bo
     return cur.rowcount == 1
 
 
+SECRET_KEYS = ("signin:", "invite:")  # bodies carrying a sign-in code or an invitation link
+REDACTED = "[Removed: this message carried a sign-in code or invitation link.]"
+
+
+def redact_secrets(conn, invite_id: int | None = None) -> None:
+    """Once sent, or once a code has expired unsent, a secret-bearing body is blanked; a used or revoked invitation's email too."""
+    secret = " OR ".join("idempotency_key LIKE ?" for _ in SECRET_KEYS)
+    like = [k + "%" for k in SECRET_KEYS]
+    conn.execute(f"UPDATE email_outbox SET body=? WHERE status=? AND ({secret}) AND body<>?", (REDACTED, EmailStatus.SENT, *like, REDACTED))
+    conn.execute("UPDATE email_outbox SET status=?, body=? WHERE status=? AND idempotency_key LIKE 'signin:%' AND created_at < ?",
+                 (EmailStatus.CANCELLED, REDACTED, EmailStatus.QUEUED, time.time() - 600))
+    if invite_id is not None:
+        conn.execute("UPDATE email_outbox SET status=CASE WHEN status=? THEN ? ELSE status END, body=? WHERE idempotency_key=?",
+                     (EmailStatus.QUEUED, EmailStatus.CANCELLED, REDACTED, f"invite:{invite_id}"))
+
+
 def cancel_referencing(conn, shared_ids: list[int]) -> None:
     """Withdrawal reaches the outbox too: queued emails quoting a withdrawn or suspended item are never sent."""
     for sid in shared_ids:
@@ -79,6 +95,8 @@ def deliver_pending(conn, ctx: Ctx, limit: int = 50) -> dict:
     if not provider_configured():
         return {"sent": 0, "failed": 0, "skipped": "no email provider configured"}
     sent = failed = 0
+    with tx(conn):
+        redact_secrets(conn)  # never send a code that has already expired
     rows = conn.execute("SELECT * FROM email_outbox WHERE status=? ORDER BY id LIMIT ?", (EmailStatus.QUEUED, limit)).fetchall()
     for row in rows:
         try:
@@ -96,6 +114,7 @@ def deliver_pending(conn, ctx: Ctx, limit: int = 50) -> dict:
                              (EmailStatus.FAILED if attempts >= MAX_ATTEMPTS else EmailStatus.QUEUED, attempts, info[:200], row["id"]))
                 failed += 1
     with tx(conn):
+        redact_secrets(conn)
         audit.record(conn, ctx.user_id, "email.dispatched", "outbox", {"sent": sent, "failed": failed})
     return {"sent": sent, "failed": failed, "skipped": None}
 

@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 
 | Rule | Where it is covered |
 |---|---|
-| 1. Working prototype | Live URL above; 226 automated tests; one-click demo guide at `/demo` |
+| 1. Working prototype | Live URL above; 232 automated tests; one-click demo guide at `/demo` |
 | 3. Built during the challenge; reuse declared | [Reused components](#reused-components-declared) |
 | 4. Repo, README, architecture, models and tools, key prompts and workflows, dependencies, run instructions | [Architecture](#architecture-overview), [Models, tools and dependencies](#models-tools-and-dependencies), [Key prompts and workflows](#key-prompts-and-workflows), [Run it](#run-it) |
 | 5. No customer or production data | All data is synthetic and generated in `app/seed.py`; organisations are fictional |
@@ -71,7 +71,7 @@ flowchart LR
 
 - **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1, PyJWT 2.10.1 (with cryptography) for Entra ID tokens.
 - **Database:** SQLite with FTS5, from the Python standard library.
-- **Tests:** pytest 8.3.4 (226 tests). The browser checks used Playwright with local Chrome during development.
+- **Tests:** pytest 8.3.4 (232 tests). The browser checks used Playwright with local Chrome during development.
 - **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then Google `gemini-2.5-flash` and `gemini-2.5-flash-lite`, then to a non-AI listing. Each provider accepts several keys.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
@@ -112,7 +112,7 @@ Built solely by **Anshuman Singh**, using Claude Code as an AI pair programmer (
 | Architecture and security | Server-side policy layer, tenant and audience model, cohort and differencing safeguards, typed routes and states (`constants.py`); commissioned two independent security reviews and had every finding fixed (15 fixes, listed in commits `bb97913` and `ed7d773`), then an independent judge review whose defects were fixed the same way |
 | Product and UX | Azentio-themed design, role-aware navigation, demo guide and "View as" switcher, two-column forms, accessible dropdowns |
 | Features | Collective learning lifecycle, moderation, themes, ideas, AIRA, Playground, live sessions, library, Lab, Configurator, outbox, Trends, Entra ID sign-in, federated-learning track |
-| Quality and delivery | 226 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
+| Quality and delivery | 232 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
 
 Anshuman can explain any part of the code. The quickest tour: `policy.py` (who can see what), `learning.py` (lifecycle, cohort rules, search), `constants.py` (routes and states), then the Technology page.
 
@@ -121,7 +121,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 | Criterion | Evidence |
 |---|---|
 | Problem understanding | The brief's own seasonality scenario runs end to end; two kinds of learning are kept apart (collective learning hub, not federated learning) |
-| Working functionality | Live site; 226 tests; every persona can be tried from the demo guide |
+| Working functionality | Live site; 232 tests; every persona can be tried from the demo guide |
 | Intelligence and reasoning | AIRA with checked citations; evidence-backed Playground results; duplicate detection; distinct-organisation theme statistics |
 | Architecture | Typed routes and states in one place; services behind one policy layer; schema checks generated from enums |
 | Security | Server-side checks on every page, API and media route; least-privilege grants; client-approved, time-boxed support access; hash-chained audit; differencing-safe filters; prompt-injection guard |
@@ -134,7 +134,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 226 tests
+uv run pytest -q             # 232 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -148,19 +148,19 @@ Settings (environment variables):
 | `PORTAL_DB` | `portal.db` | SQLite file. It is created and seeded on first start. |
 | `MIN_COHORT` | `3` | Distinct organisations a theme needs before clients see it. |
 | `SMALL_SAMPLE` | `5` | Below this, themes carry a "small sample" warning. |
-| `DEMO_MODE` | `1` | Demo shortcuts: the "View as" switcher, the demo guide, on-screen sign-in codes and invitation links for seeded personas, the demo mailbox, and demo reset. Set `0` on any deployment that is not a public sandbox; all of them then return 404. `DEMO_MAILBOX` is accepted as the older name. |
+| `DEMO_MODE` | `1` | Demo shortcuts: the "View as" switcher, the demo guide, on-screen sign-in codes and invitation links for seeded personas, the demo mailbox, and demo reset. Set `0` on any deployment that is not a public sandbox: those routes return 404, the sign-in page drops the persona list, and nothing is written to the demo mailbox. `DEMO_MAILBOX` is accepted as the older name. |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `PUBLIC_URL` | none | Optional email provider for the outbox; without them emails stay queued. `EMAIL_FROM` must be on a domain verified in Resend, otherwise Resend delivers only to the Resend account owner's address. `PUBLIC_URL` builds links in emails and the Entra redirect URI. |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_ALLOWED_DOMAIN` | none; domain `azentio.com` | Microsoft sign-in. Register a web app in Entra ID with redirect URI `<PUBLIC_URL>/auth/entra/callback` and scopes `openid email profile`. Only accounts in that tenant whose domain matches are admitted. |
+| `GROQ_API_KEYS`, `AIRA_MODELS` | none; `openai/gpt-oss-120b,openai/gpt-oss-20b` | Groq keys (comma- or newline-separated) and models, tried first. `GROQ_API_KEY` still works for a single key. |
+| `GEMINI_API_KEYS`, `GEMINI_MODELS` | none; `gemini-2.5-flash,gemini-2.5-flash-lite` | Backup provider, used when every Groq key and model fails. `GEMINI_API_KEY` works for a single key. |
 
 ### Sign-in on the live demo
 
 - **Use the demo personas.** On https://azentio-portal.onrender.com, sign in through the `/demo` guide or the **View as** switcher, or request a code for a persona's address: its code appears on screen.
-- **Email codes are fully built, but not delivered live.** Each code is also queued in the email outbox (`enqueue` in `auth.request_code`). No email provider is configured on the deployment, and queued emails are sent only when a portal administrator clicks **Send queued emails now** (`outbox.deliver_pending`). So a new address cannot receive a code on the live site today.
-- **To enable email delivery:** set `RESEND_API_KEY` and `EMAIL_FROM` (a domain verified in Resend; otherwise Resend only delivers to the account owner's address) and `PUBLIC_URL`. The next step after that is to dispatch sign-in codes immediately instead of waiting for the administrator's dispatch.
+- **Email codes are built up to delivery; delivery itself is admin-triggered.** Each code is queued in the email outbox (`enqueue` in `auth.request_code`). No email provider is configured on the deployment, and queued emails are sent only when a portal administrator clicks **Send queued emails now** (`outbox.deliver_pending`). So a new address cannot receive a code on the live site today.
+- **To enable email delivery:** set `RESEND_API_KEY` and `EMAIL_FROM` (a domain verified in Resend; otherwise Resend only delivers to the account owner's address) and `PUBLIC_URL`. Sign-in codes are still sent only when an administrator dispatches the outbox, so the next step for a real deployment is to send them immediately, plus a way to create the first administrator. Until then a deployment with `DEMO_MODE=0` has no practical sign-in path.
 - **Microsoft Entra sign-in is built and switched off live.** Enabling it needs an app registration with redirect URI `<PUBLIC_URL>/auth/entra/callback`, plus `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` and `ENTRA_ALLOWED_DOMAIN`. It admits only accounts in that tenant whose domain matches.
 - **Joining is invitation-only.** Even with delivery enabled, a new address signs in to an account with no workspace until a client administrator invites it or a portal administrator approves an employee request.
-| `GROQ_API_KEYS`, `AIRA_MODELS` | none; `openai/gpt-oss-120b,openai/gpt-oss-20b` | Groq keys (comma- or newline-separated) and models, tried first. `GROQ_API_KEY` still works for a single key. |
-| `GEMINI_API_KEYS`, `GEMINI_MODELS` | none; `gemini-2.5-flash,gemini-2.5-flash-lite` | Backup provider, used when every Groq key and model fails. `GEMINI_API_KEY` works for a single key. |
 
 ## Demo guide
 
@@ -172,6 +172,7 @@ Settings (environment variables):
 - **The live site is a shared sandbox.** Anyone can switch persona, including to the portal administrator, so other visitors may be using it at the same time. That is deliberate for judging, and it is why `DEMO_MODE` exists.
 - Reset keeps the audit log: it appends a `demo.reset` entry, rebuilds every other table, and the hash chain still verifies. Resets are limited to one a minute for the whole process.
 - The demo mailbox and on-screen sign-in codes are limited to the seeded personas. Any other address gets its code only by email, once an email provider is configured.
+- **Flash messages** (the confirmation banner after an action) carry a server signature in the URL; a crafted `?flash=` link shows nothing.
 - Request bodies are capped at 3 MB while they stream in. Cross-site posts are refused; see [CSRF](#access-model-server-side-every-request).
 
 ## Five-minute demo (the brief's seasonality scenario)
@@ -227,7 +228,8 @@ Settings (environment variables):
   - Portal admins get no implicit access.
   - Objects you may not see return **404**, so their existence is not disclosed.
 - **Client administrators** invite and revoke only within their own organisation, and grant only `member` or `admin`.
-  - Invitations are single-use, expire after 7 days, are stored hashed, and can be accepted only by the verified invited email after accepting the terms.
+  - Invitations are single-use, expire after 7 days, and can be accepted only by the verified invited email after accepting the terms. The invitation record keeps only a hash of the token.
+  - **Where a code or link exists in clear text:** the queued email that delivers it (it must, to be sent), and the demo mailbox, which is written only in demo mode. A sent sign-in or invitation email has its body blanked; a sign-in email still queued when its code expires is cancelled and blanked; an invitation email is blanked when the invitation is accepted, revoked or replaced (`outbox.redact_secrets`, tested).
   - Joining a workspace is not consent to share anything.
 
 ## Identity administration
@@ -352,7 +354,7 @@ stateDiagram-v2
 - **No drift:** `tests/test_assist.py` loads every page in the list as every demo persona and as a visitor, and fails if AIRA's verdict differs from what the server actually serves.
 - **Where the conversation lives:** in the browser tab's `sessionStorage`, under a key made of the user and workspace. The portal never stores it, and other tabs cannot see it. It is wiped on sign-out, and switching persona or workspace removes the previous identity's conversation, so one persona never sees another's answers.
 - **Safe rendering:** answers and titles are inserted as text, never as HTML, so a contribution cannot inject markup into the page.
-- **Visitors' rate limit:** 8 questions a minute per IP address.
+- **Visitors' rate limit:** 8 questions a minute per address. The address is the right-most `X-Forwarded-For` hop, the one Render's proxy appends, so a client cannot dodge the limit by sending its own header; idle entries are evicted (tested).
 - **Errors:** rate limits, a session that has ended and network failures are shown as plain messages in the panel.
 - **Accessibility:** the panel is a labelled dialog, new answers are announced (`aria-live`), focus is visible and moves to the question box when opened; it is hidden when printing and fits phone widths.
 - Tested: the panel is present for visitors and participants with a separate conversation scope, and absent on the full AIRA page (`tests/test_aira.py`). Checked in Chrome on desktop and phone width, including that the conversation survives moving between pages.
@@ -386,7 +388,7 @@ stateDiagram-v2
 | Shared copies k-anonymous on sector and region, with month-level publication dates | Built |
 | Theme evidence cards show sector, region, period, confidence and evidence type | Built |
 | Footer with Explore, Discover and Connect, placeholder Privacy, Terms and Accessibility pages, "Part of Azentio" link | Built (the policy pages are prototype placeholders) |
-| Phone layout: collapsible site menu, no sideways scrolling at 400px | Built (checked in Chrome) |
+| Phone layout: collapsible site menu, no sideways scrolling at 400px | Built (checked in Chrome on home, products, sign-in, demo guide, dashboards, feed, moderation, admin; demo guide also at 1024 and 1280px) |
 | Useful / needs-evidence votes, moderator evidence quality, duplicate check, ideas citing contributions | Built |
 | Prototype public routes: Solutions, AI Lab, Technology, Insights | Built |
 | Configurator: cohort minimum, small-sample warning, support duration, invitation expiry, AIRA switch and rate, publishing pause (validated, audited) | Built |
