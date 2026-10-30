@@ -48,6 +48,8 @@ class Route(StrEnum):
     THEMES = "/learning/themes"
     THEME = "/learning/themes/{tid}"
     THEME_ASSIGN = "/learning/themes/{tid}/assign"
+    TRENDS = "/learning/trends"
+    TRENDS_FILE = "/learning/trends/file"
     IDEAS = "/learning/ideas"
     ASK = "/learning/ask"
     SHARED_REPORT = "/learning/shared/{sid}/report"

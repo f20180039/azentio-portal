@@ -155,6 +155,15 @@ OBSERVATIONS = [
      "Jul–Sep 2026", "Internal review", "Medium", Visibility.ORG, ShareState.NONE, None),
 ]
 
+# spread publication dates so trend signals read like a real month: extraction issues build up, seasonality is new
+PUBLISHED_DAYS_AGO = {
+    "Low-resolution tax return scans lose table structure": 50,
+    "Multi-page statements break at page joins": 20,
+    "Phone-photo statements fail extraction": 12,
+    "Seasonal SME cash flow is read as decline": 10,
+    "Calendar-driven trade dips trigger manual overrides": 5,
+}
+
 THEME_SUMMARIES = {
     "Seasonality context": "Recurring seasonal or calendar-driven revenue patterns are read as decline by period-on-period analysis.",
     "Scanned statement extraction": "Extraction quality drops for low-resolution scans, page joins and phone photos of statements.",
@@ -212,7 +221,8 @@ def seed(conn) -> None:
             sid = conn.execute(
                 "INSERT INTO shared_items (observation_id, version, title, body, offering, topic, period, evidence_type, confidence, industry, region,"
                 " attribution, status, published_at, moderator_id) VALUES (?,1,?,?,?,?,?,?,?,?,?,NULL,?,?,2)",
-                (oid, shared["title"], shared["body"], off, topic, period, ev, conf, industry, shared["region"], SharedStatus.PUBLISHED, ts),
+                (oid, shared["title"], shared["body"], off, topic, period, ev, conf, industry, shared["region"], SharedStatus.PUBLISHED,
+                 ts - PUBLISHED_DAYS_AGO.get(shared["title"], 0) * 86400),
             ).lastrowid
             conn.execute("INSERT INTO shared_fts (rowid, title, body, topic) VALUES (?,?,?,?)", (sid, shared["title"], shared["body"], topic))
             conn.execute("INSERT INTO theme_items VALUES (?,?)", (themes[shared["theme"]], sid))

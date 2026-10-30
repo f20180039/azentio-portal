@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 
 | Rule | Where it is covered |
 |---|---|
-| 1. Working prototype | Live URL above; 151 automated tests; one-click demo guide at `/demo` |
+| 1. Working prototype | Live URL above; 155 automated tests; one-click demo guide at `/demo` |
 | 3. Built during the challenge; reuse declared | [Reused components](#reused-components-declared) |
 | 4. Repo, README, architecture, models and tools, key prompts and workflows, dependencies, run instructions | [Architecture](#architecture-overview), [Models, tools and dependencies](#models-tools-and-dependencies), [Key prompts and workflows](#key-prompts-and-workflows), [Run it](#run-it) |
 | 5. No customer or production data | All data is synthetic and generated in `app/seed.py`; organisations are fictional |
@@ -66,7 +66,7 @@ flowchart LR
 
 - **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1.
 - **Database:** SQLite with FTS5, from the Python standard library.
-- **Tests:** pytest 8.3.4 (151 tests). The browser checks used Playwright with local Chrome during development.
+- **Tests:** pytest 8.3.4 (155 tests). The browser checks used Playwright with local Chrome during development.
 - **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then to a non-AI listing.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
@@ -110,7 +110,7 @@ After the answer comes back, any `[S<id>]` that was not retrieved is stripped, s
 | Criterion | Evidence |
 |---|---|
 | Problem understanding | The brief's own seasonality scenario runs end to end; two kinds of learning are kept apart (collective learning hub, not federated learning) |
-| Working functionality | Live site; 151 tests; every persona can be tried from the demo guide |
+| Working functionality | Live site; 155 tests; every persona can be tried from the demo guide |
 | Intelligence and reasoning | AIRA with checked citations; evidence-backed Playground results; duplicate detection; distinct-organisation theme statistics |
 | Architecture | Typed routes and states in one place; services behind one policy layer; schema checks generated from enums |
 | Security | Server-side checks on every page, API and media route; least-privilege grants; client-approved, time-boxed support access; hash-chained audit; differencing-safe filters; prompt-injection guard |
@@ -123,7 +123,7 @@ After the answer comes back, any `[S<id>]` that was not retrieved is stripped, s
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 151 tests
+uv run pytest -q             # 155 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -317,6 +317,7 @@ stateDiagram-v2
 | Configurator: cohort minimum, small-sample warning, support duration, invitation expiry, AIRA switch and rate, publishing pause (validated, audited) | Built |
 | Product owners: moderators assign themes; owners see and cite only assigned evidence and change only their own ideas | Built |
 | Comments (de-identified, held by the restricted-data screen, reportable and moderated), bookmarks, saved searches | Built |
+| Trends: 30-day changes in distinct organisations, suggested groupings for unthemed contributions, transparent prioritisation of assigned themes | Built |
 | Email outbox (P1): persisted, idempotency-keyed, provider-gated (Resend), retries, weekly digest; never labelled delivered before the provider accepts | Built (sending needs `RESEND_API_KEY` and `EMAIL_FROM`) |
 | Federated model-learning track (P2) | **Not built** |
 

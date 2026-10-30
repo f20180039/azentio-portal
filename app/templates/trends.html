@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% from "_ui.html" import head, empty %}
+{% block title %}Trends · Shared learning{% endblock %}
+{% block band %}{{ head("Trends and priorities", "Early signals from approved contributions. Counts are distinct organisations; small samples stay small, and nothing here is evidence of prevalence or cause.", "Moderators and product owners") }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>What changed in the last 30 days</h2>
+  {% if changes %}<div class="scroll"><table><tr><th>Theme</th><th>Organisations, last 30 days</th><th>30 days before</th><th>Contributions, last 30 days</th><th>Signal</th></tr>
+  {% for c in changes %}<tr><td><a href="{{ R.THEME.url(tid=c.theme_id) }}">{{ c.name }}</a></td><td>{{ c.orgs_recent }}</td><td>{{ c.orgs_before }}</td><td>{{ c.items_recent }}</td>
+    <td><span class="pill {{ 'ok' if 'More' in c.label or 'New' in c.label else ('warn' if 'Fewer' in c.label else '') }}">{{ c.label }}</span></td></tr>{% endfor %}
+  </table></div>{% else %}{{ empty("No themes to compare yet.") }}{% endif %}
+</section>
+
+{% if priorities %}
+<section class="card">
+  <h2>Your assigned themes, ranked</h2>
+  <p class="hint">A transparent score: organisations (up to twice the minimum), moderator-rated evidence quality, reader feedback and recency. It suggests an order to look at; it is not a decision.</p>
+  <div class="stack">{% for p in priorities %}
+    <div class="stripe ok" style="padding-left:12px">
+      <div class="row"><b>{{ loop.index }}. <a href="{{ R.THEME.url(tid=p.theme.id) }}">{{ p.theme.name }}</a></b><span class="pill">score {{ p.score }}</span>{% if p.theme.small_sample %}<span class="pill warn">small sample</span>{% endif %}</div>
+      <div class="meta">{% for k, v in p.factors %}<span>{{ k }}: {{ v }}</span>{% endfor %}</div>
+    </div>{% endfor %}</div>
+</section>
+{% endif %}
+
+{% if ctx.has(Permission.MODERATE) %}
+<section class="card">
+  <h2>Suggested groupings</h2>
+  <p class="hint">Published contributions that have no theme yet, grouped by overlapping wording, with the closest existing theme. File a group into a theme or start a new one.</p>
+  {% for g in groupings %}
+  <form method="post" action="{{ R.TRENDS_FILE }}" class="stripe warn" style="padding-left:12px;margin-bottom:16px">
+    {% for it in g["items"] %}<label class="check"><input type="checkbox" name="shared_ids" value="{{ it.id }}" checked> <span class="cite">S{{ it.id }}</span> {{ it.title }}</label>{% endfor %}
+    <div class="row" style="margin-top:6px">
+      <select name="theme_id" aria-label="Theme" style="width:auto"><option value="">New theme…</option>{% for t in all_themes %}<option value="{{ t.id }}" {% if g.closest_theme and g.closest_theme.id == t.id %}selected{% endif %}>{{ t.name }}{% if g.closest_theme and g.closest_theme.id == t.id %} (closest, {{ (g.closest_score * 100)|round|int }}% overlap){% endif %}</option>{% endfor %}</select>
+      <input type="text" name="new_theme" maxlength="80" placeholder="Name for a new theme" style="max-width:240px" aria-label="New theme name">
+      <button class="btn small">File into theme</button>
+    </div>
+  </form>
+  {% else %}<p class="muted" style="margin:0">Every published contribution already has a theme.</p>{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Themes · azentio.ai{% endblock %}
-{% block band %}{{ head("Themes", "Recurring signals across organisations. Each counts distinct organisations, never repeated posts.", "Shared learning") }}{% endblock %}
+{% block band %}{% call head("Themes", "Recurring signals across organisations. Each counts distinct organisations, never repeated posts.", "Shared learning") %}{% if ctx.has(Permission.MODERATE) or ctx.has(Permission.PRODUCT_OWNER) %}<a class="btn bright" href="{{ R.TRENDS }}">Trends and priorities</a>{% endif %}{% endcall %}{% endblock %}
 {% block content %}
 <p class="muted">Statistics count distinct organisations; repeated posts from one organisation count once. A theme appears to clients only when at least {{ min_cohort }} organisations contribute, and that still is not proof of market prevalence.</p>
 <div class="stack">{% for t in themes %}

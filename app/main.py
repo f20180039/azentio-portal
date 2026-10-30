@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, attachments, audit, auth, outbox, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
+from . import aira, attachments, audit, auth, outbox, trends, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
 from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
@@ -755,6 +755,26 @@ async def theme_assign(request: Request, tid: int):
     f = await form(request)
     learning.assign_theme(request.state.conn, request.state.ctx, tid, _int(f.get("user_id")), f.get("action") == Action.ADD)
     return back(Route.THEME.url(tid=tid), "Assignment updated and audited.")
+
+
+@app.get(Route.TRENDS, response_class=HTMLResponse)
+def trends_page(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    trends.require_staff(ctx)
+    return render(request, "trends.html", {
+        "changes": trends.trend_changes(conn, ctx),
+        "groupings": trends.suggested_groupings(conn, ctx) if ctx.has(Permission.MODERATE) else [],
+        "priorities": trends.prioritise(conn, ctx) if ctx.has(Permission.PRODUCT_OWNER) else [],
+        "all_themes": conn.execute("SELECT id, name FROM themes ORDER BY name").fetchall()})
+
+
+@app.post(Route.TRENDS_FILE)
+async def trends_file(request: Request):
+    f = await form(request)
+    ids = [int(x) for x in f["_multi"].getlist("shared_ids") if str(x).isdigit()]
+    theme_id = int(f["theme_id"]) if str(f.get("theme_id") or "").isdigit() else None
+    tid = trends.file_grouping(request.state.conn, request.state.ctx, ids, theme_id, f.get("new_theme") or "")
+    return back(Route.THEME.url(tid=tid), "Contributions filed into the theme.")
 
 
 @app.get(Route.IDEAS, response_class=HTMLResponse)
