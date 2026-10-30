@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 
 | Rule | Where it is covered |
 |---|---|
-| 1. Working prototype | Live URL above; 186 automated tests; one-click demo guide at `/demo` |
+| 1. Working prototype | Live URL above; 187 automated tests; one-click demo guide at `/demo` |
 | 3. Built during the challenge; reuse declared | [Reused components](#reused-components-declared) |
 | 4. Repo, README, architecture, models and tools, key prompts and workflows, dependencies, run instructions | [Architecture](#architecture-overview), [Models, tools and dependencies](#models-tools-and-dependencies), [Key prompts and workflows](#key-prompts-and-workflows), [Run it](#run-it) |
 | 5. No customer or production data | All data is synthetic and generated in `app/seed.py`; organisations are fictional |
@@ -69,7 +69,7 @@ flowchart LR
 
 - **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1, PyJWT 2.10.1 (with cryptography) for Entra ID tokens.
 - **Database:** SQLite with FTS5, from the Python standard library.
-- **Tests:** pytest 8.3.4 (186 tests). The browser checks used Playwright with local Chrome during development.
+- **Tests:** pytest 8.3.4 (187 tests). The browser checks used Playwright with local Chrome during development.
 - **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then Google `gemini-2.5-flash` and `gemini-2.5-flash-lite`, then to a non-AI listing. Each provider accepts several keys.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
@@ -109,7 +109,7 @@ Built solely by **Anshuman Singh**, using Claude Code as an AI pair programmer (
 | Architecture and security | Server-side policy layer, tenant and audience model, cohort and differencing safeguards, typed routes and states (`constants.py`); commissioned two independent security reviews and had all 14 findings fixed with tests |
 | Product and UX | Azentio-themed design, role-aware navigation, demo guide and "View as" switcher, two-column forms, accessible dropdowns |
 | Features | Collective learning lifecycle, moderation, themes, ideas, AIRA, Playground, live sessions, library, Lab, Configurator, outbox, Trends, Entra ID sign-in, federated-learning track |
-| Quality and delivery | 186 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
+| Quality and delivery | 187 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
 
 Anshuman can explain any part of the code. The quickest tour: `policy.py` (who can see what), `learning.py` (lifecycle, cohort rules, search), `constants.py` (routes and states), then the Technology page.
 
@@ -118,7 +118,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 | Criterion | Evidence |
 |---|---|
 | Problem understanding | The brief's own seasonality scenario runs end to end; two kinds of learning are kept apart (collective learning hub, not federated learning) |
-| Working functionality | Live site; 186 tests; every persona can be tried from the demo guide |
+| Working functionality | Live site; 187 tests; every persona can be tried from the demo guide |
 | Intelligence and reasoning | AIRA with checked citations; evidence-backed Playground results; duplicate detection; distinct-organisation theme statistics |
 | Architecture | Typed routes and states in one place; services behind one policy layer; schema checks generated from enums |
 | Security | Server-side checks on every page, API and media route; least-privilege grants; client-approved, time-boxed support access; hash-chained audit; differencing-safe filters; prompt-injection guard |
@@ -131,7 +131,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 186 tests
+uv run pytest -q             # 187 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -299,6 +299,7 @@ stateDiagram-v2
 - **Relevance gate:** a question needs topic words (not just numbers or filler like "tell me more"), and at least one visible approved item must contain one of them, ranked by relevance. Otherwise the model is never called. No unrelated items are added to pad thin results (tested).
 - **Refusal:** the model is told to reply `NO_ANSWER` when no item addresses the question or the request is off-topic (code, maths, writing, other topics). A refusal or an answer with no valid citation is replaced by "the approved contributions do not answer this question" (tested).
 - **Citations** (`[S12]`) are checked after the answer: any ID that was not retrieved is stripped (tested).
+- **Floating panel:** an AIRA button sits on every page for signed-in participants (`Ctx.is_participant`, the same rule the API enforces). The conversation stays open across pages for the current tab only, stored under the user and workspace, and is wiped on sign-out or when switching persona or workspace. Answers are inserted as text, never as HTML.
 - **Limits:** 8 questions per user per minute, counted for every question, including ones that match nothing. Public visitors cannot use AIRA.
 - **Failover:** for each Groq model, every Groq key in turn; then the same for Gemini; then a non-AI listing of the matching items. A key the provider rejects (401/403, e.g. expired) is skipped for the rest of that request; a rate-limited key just passes to the next one (tested in `tests/test_llm.py`).
 - Summaries do not retrain any model. This is not federated learning.

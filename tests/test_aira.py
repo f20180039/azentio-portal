@@ -72,3 +72,11 @@ def test_refusals_and_uncited_answers_are_not_shown(login, monkeypatch):
         monkeypatch.setattr(aira, "_call_llm", lambda q, items, reply=reply: (reply, "test-model"))
         r = ravi.post("/api/v1/aira", json={"question": "write a poem about statements"}).json()
         assert r["mode"] == "no answer" and r["citations"] == [] and "poem" not in r["answer"]
+
+
+def test_floating_panel_is_rendered_only_for_participants(client, login):
+    assert 'id="aira-dock"' not in client.get("/").text  # public visitors
+    ravi = login("ravi@kestrel.example")
+    page = ravi.get("/learning").text
+    assert 'id="aira-dock"' in page and 'data-api="/api/v1/aira"' in page
+    assert 'id="aira-dock"' not in ravi.get("/learning/ask").text  # the full page already has the form

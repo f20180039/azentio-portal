@@ -38,7 +38,7 @@ def require_client(ctx: Ctx) -> None:
 def require_participant(ctx: Ctx) -> None:
     """Shared learning is for employees and client members, never the public."""
     require_workspace(ctx)
-    if not (ctx.is_employee or ctx.is_client):
+    if not ctx.is_participant:
         raise Denied(403, "Shared learning is for signed-in participants.")
 
 

@@ -146,6 +146,11 @@ class Ctx:
         return self.org is not None and self.org["kind"] == OrgKind.CLIENT and self.role in CLIENT_ROLES
 
     @property
+    def is_participant(self) -> bool:
+        """Shared learning and AIRA: Azentio employees and client members, never the public."""
+        return self.is_employee or self.is_client
+
+    @property
     def is_client_admin(self) -> bool:
         return self.is_client and self.role == Role.ADMIN
 

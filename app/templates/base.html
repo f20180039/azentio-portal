@@ -85,5 +85,19 @@
   <span>azentio.ai hackathon build. Synthetic data only; every organisation shown is fictional.</span>
   <span class="row"><a href="{{ R.ABOUT }}">How shared learning works</a><a href="{{ R.API_DOCS }}">API reference</a></span>
 </div></footer>
+{% if ctx.is_participant and path != R.ASK %}
+<div class="aira-dock" id="aira-dock" data-api="{{ R.API_AIRA }}" data-page="{{ R.ASK }}" data-scope="{{ ctx.user_id }}:{{ ctx.org.id }}" hidden>
+  <section class="aira-panel" id="aira-panel" role="dialog" aria-labelledby="aira-title" hidden>
+    <header><b id="aira-title">Ask AIRA</b><span class="hint">Approved shared contributions only, every claim cited</span>
+      <button type="button" class="aira-x" id="aira-clear" title="Clear this conversation">Clear</button>
+      <button type="button" class="aira-x" id="aira-close" aria-label="Close AIRA">&times;</button></header>
+    <div class="aira-log" id="aira-log" aria-live="polite"></div>
+    <form id="aira-form" class="aira-form"><input id="aira-q" type="text" required minlength="3" maxlength="300" autocomplete="off"
+      placeholder="e.g. What goes wrong with statement extraction?" aria-label="Question for AIRA"><button class="btn small">Ask</button></form>
+  </section>
+  <button type="button" class="aira-fab" id="aira-fab" aria-expanded="false" aria-controls="aira-panel"><span aria-hidden="true">✦</span> AIRA</button>
+</div>
+{% endif %}
+<script src="/static/aira.js?v={{ asset_version }}" defer></script>
 </body>
 </html>
