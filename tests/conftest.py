@@ -7,7 +7,8 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def app(tmp_path, monkeypatch):
     monkeypatch.setenv("PORTAL_DB", str(tmp_path / "test.db"))
-    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    for name in ("GROQ_API_KEY", "GROQ_API_KEYS", "GEMINI_API_KEY", "GEMINI_API_KEYS"):
+        monkeypatch.delenv(name, raising=False)
     from app import main
 
     return main.app

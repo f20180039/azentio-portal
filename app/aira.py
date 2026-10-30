@@ -1,19 +1,14 @@
 """AIRA: answers from approved shared contributions only, with citations checked against what was retrieved."""
-import os
 import re
 import time
 from collections import defaultdict, deque
 
-import httpx
-
-from . import settings
+from . import llm, settings
 from .auth import Ctx
 from .constants import Setting
 from .learning import FeedFilters, search_shared
 from .policy import Denied
 
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODELS = [m.strip() for m in os.environ.get("AIRA_MODELS", "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",") if m.strip()]
 _recent: dict[int, deque] = defaultdict(deque)
 
 SYSTEM = (
@@ -43,25 +38,9 @@ def _evidence_block(items: list[dict]) -> str:
     return "<evidence>\n" + "\n".join(lines) + "\n</evidence>"
 
 
-def _call_groq(question: str, items: list[dict]) -> tuple[str, str] | None:
-    key = os.environ.get("GROQ_API_KEY")
-    if not key:
-        return None
-    for model in MODELS:
-        try:
-            resp = httpx.post(
-                GROQ_URL,
-                headers={"Authorization": f"Bearer {key}"},
-                json={"model": model, "temperature": 0.2, "reasoning_effort": "low",
-                      "messages": [{"role": "system", "content": SYSTEM},
-                                   {"role": "user", "content": f"{_evidence_block(items)}\n\nQuestion: {question}"}]},
-                timeout=20,
-            )
-            if resp.status_code == 200:
-                return resp.json()["choices"][0]["message"]["content"].strip(), model
-        except httpx.HTTPError:
-            continue
-    return None
+def _call_llm(question: str, items: list[dict]) -> tuple[str, str] | None:
+    return llm.complete([{"role": "system", "content": SYSTEM},
+                         {"role": "user", "content": f"{_evidence_block(items)}\n\nQuestion: {question}"}])
 
 
 def ask(conn, ctx: Ctx, question: str) -> dict:
@@ -77,7 +56,7 @@ def ask(conn, ctx: Ctx, question: str) -> dict:
         return {"answer": "There are no approved shared contributions yet, so AIRA has nothing to summarise.", "citations": [], "model": None, "mode": "empty"}
     _rate_limit(conn, ctx.user_id)
     enabled = settings.get(conn, Setting.AIRA_ENABLED)
-    result = _call_groq(question, items) if enabled else None
+    result = _call_llm(question, items) if enabled else None
     by_id = {i["id"]: i for i in items}
     if result:
         answer, model = result

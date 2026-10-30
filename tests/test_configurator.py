@@ -51,7 +51,7 @@ def test_aira_switch_and_rate_limit(login, monkeypatch):
     from collections import defaultdict, deque
 
     from app import aira
-    monkeypatch.setattr(aira, "_call_groq", lambda q, items: ("should not be called", "x"))
+    monkeypatch.setattr(aira, "_call_llm", lambda q, items: ("should not be called", "x"))
     monkeypatch.setattr(aira, "_recent", defaultdict(deque))  # rate-limit history is per process; start clean
     admin = login("admin@azentio.com")
     save(admin, aira_enabled="", aira_per_minute="2")

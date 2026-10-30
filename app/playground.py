@@ -348,27 +348,19 @@ def feedback_summary(conn, ctx: Ctx):
 def explain(conn, ctx: Ctx, run_id: int) -> dict:
     """Optional AI-assisted explanation of one run, using only that run's synthetic inputs and computed evidence."""
     r = get_run(conn, ctx, run_id)
-    from .aira import _rate_limit, MODELS, GROQ_URL
-    import os
-
-    import httpx
+    from . import llm
+    from .aira import _rate_limit
 
     _rate_limit(conn, ctx.user_id)
-    key = os.environ.get("GROQ_API_KEY") if settings.get(conn, Setting.AIRA_ENABLED) else None
     fallback = {"text": "AI explanation is unavailable. The evidence table shows each check, its value and the policy it was compared with.", "model": None}
-    if not key:
+    if not settings.get(conn, Setting.AIRA_ENABLED):
         return fallback
     prompt = (f"Synthetic sandbox run for {r['offering']}. Inputs: {json.dumps(r['inputs'])}. Computed result: {json.dumps(r['result'])}. "
               "Each evidence item has: check, value, policy (what the value was compared with, including any threshold), and result "
               "(pass, warn = flagged only on the quarter-on-quarter view, fail = flagged on the decisive comparison). "
               "Explain in at most 90 words, for a relationship manager, which checks drove the headline and what would change it. "
               "Say it is a simulation, not a decision. Do not invent numbers that are not in the result.")
-    for model in MODELS:
-        try:
-            resp = httpx.post(GROQ_URL, headers={"Authorization": f"Bearer {key}"}, timeout=20,
-                              json={"model": model, "temperature": 0.2, "reasoning_effort": "low", "messages": [{"role": "user", "content": prompt}]})
-            if resp.status_code == 200:
-                return {"text": resp.json()["choices"][0]["message"]["content"].strip(), "model": model}
-        except httpx.HTTPError:
-            continue
+    result = llm.complete([{"role": "user", "content": prompt}])
+    if result:
+        return {"text": result[0], "model": result[1]}
     return fallback

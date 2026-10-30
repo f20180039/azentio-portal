@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 
 | Rule | Where it is covered |
 |---|---|
-| 1. Working prototype | Live URL above; 177 automated tests; one-click demo guide at `/demo` |
+| 1. Working prototype | Live URL above; 182 automated tests; one-click demo guide at `/demo` |
 | 3. Built during the challenge; reuse declared | [Reused components](#reused-components-declared) |
 | 4. Repo, README, architecture, models and tools, key prompts and workflows, dependencies, run instructions | [Architecture](#architecture-overview), [Models, tools and dependencies](#models-tools-and-dependencies), [Key prompts and workflows](#key-prompts-and-workflows), [Run it](#run-it) |
 | 5. No customer or production data | All data is synthetic and generated in `app/seed.py`; organisations are fictional |
@@ -38,7 +38,7 @@ flowchart LR
   I --> DB
   X --> DB
   S --> A[audit.py<br/>hash-chained log]
-  L --> AI[aira.py] -->|approved shared copies only| G[Groq gpt-oss-120b / 20b]
+  L --> AI[aira.py] -->|approved shared copies only| G[Groq gpt-oss-120b / 20b, then Gemini 2.5 Flash]
 ```
 
 - **Server-rendered pages:** Jinja templates over the same services as the JSON API (`/api/v1/*`), so the page and API paths enforce identical rules.
@@ -59,7 +59,8 @@ flowchart LR
 | `iam.py`, `orgadmin.py`, `settings.py` | Employee provisioning, grants, entitlements, support access, client roles, Configurator |
 | `playground.py` | Deterministic sandboxes on synthetic data, AIRA explanations, anonymous feedback |
 | `live.py`, `library.py`, `innovation.py` | Sessions and recordings, knowledge library, experiments, team spaces, release notes |
-| `aira.py` | Retrieval over approved items, prompt, citation check, model failover, rate limit |
+| `aira.py` | Retrieval over approved items, prompt, citation check, rate limit |
+| `llm.py` | Provider chain: Groq then Gemini, several keys each, skipping rejected keys |
 | `audit.py` | Hash-chained audit log and verification |
 | `federated.py` | Optional federated-learning track: client environments, validation, FedAvg, evaluation, model registry |
 | `trends.py`, `discussion.py`, `attachments.py`, `outbox.py`, `entra.py` | Trends and prioritisation, comments and bookmarks, attachments, email outbox, Microsoft sign-in |
@@ -68,8 +69,8 @@ flowchart LR
 
 - **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1, PyJWT 2.10.1 (with cryptography) for Entra ID tokens.
 - **Database:** SQLite with FTS5, from the Python standard library.
-- **Tests:** pytest 8.3.4 (177 tests). The browser checks used Playwright with local Chrome during development.
-- **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then to a non-AI listing.
+- **Tests:** pytest 8.3.4 (182 tests). The browser checks used Playwright with local Chrome during development.
+- **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then Google `gemini-2.5-flash` and `gemini-2.5-flash-lite`, then to a non-AI listing. Each provider accepts several keys.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
 - **Front end:** no framework. A small `select.js` for accessible dropdowns, hand-written CSS, and Google Fonts (Sora, Source Sans 3, JetBrains Mono).
@@ -108,7 +109,7 @@ Built solely by **Anshuman Singh**, using Claude Code as an AI pair programmer (
 | Architecture and security | Server-side policy layer, tenant and audience model, cohort and differencing safeguards, typed routes and states (`constants.py`); commissioned two independent security reviews and had all 14 findings fixed with tests |
 | Product and UX | Azentio-themed design, role-aware navigation, demo guide and "View as" switcher, two-column forms, accessible dropdowns |
 | Features | Collective learning lifecycle, moderation, themes, ideas, AIRA, Playground, live sessions, library, Lab, Configurator, outbox, Trends, Entra ID sign-in, federated-learning track |
-| Quality and delivery | 177 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
+| Quality and delivery | 182 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
 
 Anshuman can explain any part of the code. The quickest tour: `policy.py` (who can see what), `learning.py` (lifecycle, cohort rules, search), `constants.py` (routes and states), then the Technology page.
 
@@ -117,7 +118,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 | Criterion | Evidence |
 |---|---|
 | Problem understanding | The brief's own seasonality scenario runs end to end; two kinds of learning are kept apart (collective learning hub, not federated learning) |
-| Working functionality | Live site; 177 tests; every persona can be tried from the demo guide |
+| Working functionality | Live site; 182 tests; every persona can be tried from the demo guide |
 | Intelligence and reasoning | AIRA with checked citations; evidence-backed Playground results; duplicate detection; distinct-organisation theme statistics |
 | Architecture | Typed routes and states in one place; services behind one policy layer; schema checks generated from enums |
 | Security | Server-side checks on every page, API and media route; least-privilege grants; client-approved, time-boxed support access; hash-chained audit; differencing-safe filters; prompt-injection guard |
@@ -130,12 +131,12 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 177 tests
+uv run pytest -q             # 182 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
 - Sign-in uses a one-time email code. No email provider is configured, so the code appears on screen in a clearly labelled **demo mailbox**.
-- Optional: set `GROQ_API_KEY` for AIRA. Without it, AIRA shows the matching approved contributions with citations and no summary.
+- Optional: set `GROQ_API_KEYS` and/or `GEMINI_API_KEYS` for AIRA. Without any key, AIRA shows the matching approved contributions with citations and no summary.
 
 Settings (environment variables):
 
@@ -147,7 +148,8 @@ Settings (environment variables):
 | `DEMO_MAILBOX` | `1` | Show codes and invitations on screen instead of emailing them. |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `PUBLIC_URL` | none | Optional email provider for the outbox; without them emails stay queued. `PUBLIC_URL` builds links in emails. |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_ALLOWED_DOMAIN` | none; domain `azentio.com` | Microsoft sign-in. Register a web app in Entra ID with redirect URI `<PUBLIC_URL>/auth/entra/callback` and scopes `openid email profile`. |
-| `GROQ_API_KEY`, `AIRA_MODELS` | none; `openai/gpt-oss-120b,openai/gpt-oss-20b` | AIRA provider and the order in which models are tried. |
+| `GROQ_API_KEYS`, `AIRA_MODELS` | none; `openai/gpt-oss-120b,openai/gpt-oss-20b` | Groq keys (comma- or newline-separated) and models, tried first. `GROQ_API_KEY` still works for a single key. |
+| `GEMINI_API_KEYS`, `GEMINI_MODELS` | none; `gemini-2.5-flash,gemini-2.5-flash-lite` | Backup provider, used when every Groq key and model fails. `GEMINI_API_KEY` works for a single key. |
 
 ## Demo guide
 
@@ -296,7 +298,7 @@ stateDiagram-v2
 - **Prompt-injection guard:** the evidence goes inside delimiters, and the model is told that evidence text is data, not instructions.
 - **Citations** (`[S12]`) are checked after the answer: any ID that was not retrieved is stripped (tested).
 - **Limits:** 8 questions per user per minute. Public visitors cannot use AIRA.
-- **Failover:** Groq `openai/gpt-oss-120b`, then `openai/gpt-oss-20b`, then a non-AI listing of the matching items.
+- **Failover:** for each Groq model, every Groq key in turn; then the same for Gemini; then a non-AI listing of the matching items. A key the provider rejects (401/403, e.g. expired) is skipped for the rest of that request; a rate-limited key just passes to the next one (tested in `tests/test_llm.py`).
 - Summaries do not retrain any model. This is not federated learning.
 
 ## Requirement coverage
@@ -342,5 +344,5 @@ stateDiagram-v2
 - **Building:** developed with Claude Code (Anthropic's AI coding assistant) under the team's direction.
   - It was used for code generation, refactoring, tests, browser checks and an independent security review. The six findings from that review were fixed, with tests.
   - Every feature was specified, reviewed and accepted by the team.
-- **At runtime:** AIRA and the Playground explanations call Groq-hosted open-weight models (`gpt-oss`), with a non-AI fallback.
+- **At runtime:** AIRA and the Playground explanations call Groq-hosted open-weight models (`gpt-oss`), with Google Gemini as backup and a non-AI fallback.
 - No Azentio confidential data, HealthPlix code or real customer data is used.

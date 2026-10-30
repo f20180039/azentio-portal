@@ -28,7 +28,7 @@
   <h2>What this build runs on</h2>
   <ul class="ticks"><li>Python and FastAPI, server-rendered pages; no access decision is made in the browser.</li>
     <li>SQLite with full-text search for shared copies; withdrawal removes an item from search in the same transaction.</li>
-    <li>Open-weight models on Groq for AIRA, with a non-AI fallback; no private record is ever sent to the model.</li>
+    <li>Open-weight models on Groq for AIRA, Google Gemini as backup, and a non-AI fallback; no private record is ever sent to the model.</li>
     <li>Synthetic data only. Production would add single sign-on, managed email and a networked database.</li></ul>
 </section>
 {% endblock %}
