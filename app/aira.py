@@ -7,7 +7,7 @@ from collections import defaultdict, deque
 import httpx
 
 from .auth import Ctx
-from .learning import search_shared
+from .learning import FeedFilters, search_shared
 from .policy import Denied
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -67,11 +67,11 @@ def ask(conn, ctx: Ctx, question: str) -> dict:
     question = question.strip()
     if not 3 <= len(question) <= 300:
         raise Denied(422, "Ask a question of 3–300 characters.")
-    items = search_shared(conn, ctx, q=question, limit=8)
+    items = search_shared(conn, ctx, FeedFilters(q=question), limit=8).items
     if len(items) < 3:
         # widen to recent approved items when the keyword match is thin
         seen = {i["id"] for i in items}
-        items += [i for i in search_shared(conn, ctx, limit=8) if i["id"] not in seen][: 8 - len(items)]
+        items += [i for i in search_shared(conn, ctx, limit=8).items if i["id"] not in seen][: 8 - len(items)]
     if not items:
         return {"answer": "There are no approved shared contributions yet, so AIRA has nothing to summarise.", "citations": [], "model": None, "mode": "empty"}
     _rate_limit(ctx.user_id)

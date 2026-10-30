@@ -11,7 +11,8 @@
   </div>
   <button class="btn small">Apply</button> <a href="{{ R.LEARNING }}">Clear</a>
 </form>
-<p class="muted">{{ items|length }} result(s)</p>
+{% if suppressed %}<div class="demo-note"><b>Results hidden to protect contributors.</b> These filters narrow the results to fewer than {{ min_cohort }} organisations, which could identify who contributed. Broaden the filters to see results.</div>
+{% else %}<div class="row between"><p class="muted" style="margin:0">{{ items|length }} result(s)</p>{% if items %}<a class="btn small ghost" href="{{ R.LEARNING_EXPORT }}{% if export_query %}?{{ export_query }}{% endif %}">Export CSV</a>{% endif %}</div>{% endif %}
 <div class="stack">{% for it in items %}
 <article class="card shared-zone">
   <div class="row"><span class="cite">S{{ it.id }}</span><span class="pill">{{ offering_names[it.offering] }}</span><span class="pill">{{ it.topic }}</span></div>

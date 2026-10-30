@@ -410,7 +410,7 @@ def observation_view(request: Request, oid: int):
     versions = conn.execute("SELECT id, version, status, published_at, title, body, region, attribution FROM shared_items"
                             " WHERE observation_id=? ORDER BY version DESC", (oid,)).fetchall()
     return render(request, "observation.html", _obs_form_data(conn) | {
-        "o": obs, "versions": versions, "can_edit": policy.can_edit_observation(ctx, obs)})
+        "o": obs, "versions": versions, "can_edit": policy.can_edit_observation(ctx, obs), "consents": learning.consent_history(conn, oid)})
 
 
 @app.post(Route.OBSERVATION_EDIT)
@@ -551,12 +551,24 @@ async def playground_execute(request: Request, slug: str):
 
 # ---- shared learning ------------------------------------------------------------------------------------------
 
+def _filters(q: str, offering: str, industry: str, region: str, topic: str, period: str) -> learning.FeedFilters:
+    return learning.FeedFilters(q=q, offering=offering, industry=industry, region=region, topic=topic, period=period)
+
+
 @app.get(Route.LEARNING, response_class=HTMLResponse)
 def learning_feed(request: Request, q: str = "", offering: str = "", industry: str = "", region: str = "", topic: str = "", period: str = ""):
     conn, ctx = request.state.conn, request.state.ctx
-    items = learning.search_shared(conn, ctx, q, offering, industry, region, topic, period)
-    return render(request, "learning.html", {"items": items, "facets": learning.facet_values(conn, ctx),
-                                             "f": {"q": q, "offering": offering, "industry": industry, "region": region, "topic": topic, "period": period}})
+    filters = _filters(q, offering, industry, region, topic, period)
+    result = learning.search_shared(conn, ctx, filters)
+    return render(request, "learning.html", {"items": result.items, "suppressed": result.suppressed, "facets": learning.facet_values(conn, ctx),
+                                             "f": filters.__dict__, "export_query": str(request.url.query)})
+
+
+@app.get(Route.LEARNING_EXPORT)
+def learning_export(request: Request, q: str = "", offering: str = "", industry: str = "", region: str = "", topic: str = "", period: str = ""):
+    body = learning.export_csv(request.state.conn, request.state.ctx, _filters(q, offering, industry, region, topic, period))
+    return Response(body, media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="shared-learning.csv"',
+                                                          "Cache-Control": "private, no-store"})
 
 
 @app.get(Route.THEMES, response_class=HTMLResponse)
@@ -828,7 +840,8 @@ def api_observation(request: Request, oid: int):
 
 @app.get(Route.API_SHARED)
 def api_shared(request: Request, q: str = "", offering: str = "", industry: str = "", region: str = "", topic: str = "", period: str = ""):
-    return learning.search_shared(request.state.conn, request.state.ctx, q, offering, industry, region, topic, period)
+    result = learning.search_shared(request.state.conn, request.state.ctx, _filters(q, offering, industry, region, topic, period))
+    return JSONResponse(result.items, headers={"X-Results-Suppressed": "true"} if result.suppressed else {})
 
 
 @app.get(Route.API_THEMES)

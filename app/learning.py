@@ -1,10 +1,13 @@
 """Collective learning: private observations, moderated shared copies, themes, search and withdrawal."""
+import csv
+import io
 import os
 import re
 import time
+from dataclasses import dataclass, field
 
 from . import audit
-from .constants import (Route, Category, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
+from .constants import (Route, Category, ConsentEvent, Confidence, EvidenceType, MembershipStatus, OrgKind, Permission, ReportStatus, Sector,
                         ShareState, SharedStatus, Visibility)
 from .auth import Ctx
 from .db import tx
@@ -108,6 +111,7 @@ def create_observation(conn, ctx: Ctx, fields: dict) -> int:
              clean["period"], clean["evidence_type"], clean["confidence"], clean["visibility"],
              ", ".join(scan_sensitive(clean["title"], clean["body"])), now, now),
         ).lastrowid
+        _consent(conn, obs_id, ctx.user_id, ConsentEvent.STORED, False, False, False)
         audit.record(conn, ctx.user_id, "observation.created", f"observation:{obs_id}", {"visibility": clean["visibility"]})
     return obs_id
 
@@ -144,6 +148,7 @@ def propose_share(conn, ctx: Ctx, obs_id: int, consent_publish: bool, consent_at
             " updated_at=? WHERE id=?",
             (int(consent_attribution), int(consent_training), time.time(), obs_id),
         )
+        _consent(conn, obs_id, ctx.user_id, ConsentEvent.PROPOSED, True, consent_attribution, consent_training)
         audit.record(conn, ctx.user_id, "observation.share_proposed", f"observation:{obs_id}",
                      {"attribution": consent_attribution, "training": consent_training})
         notify_moderators(conn, "A contribution was proposed for shared learning.", Route.MODERATION_REVIEW.url(oid=obs_id))
@@ -165,6 +170,7 @@ def withdraw(conn, ctx: Ctx, obs_id: int) -> int:
         conn.execute(f"UPDATE shared_items SET status='{SharedStatus.WITHDRAWN}' WHERE observation_id=? AND status IN ('{SharedStatus.PUBLISHED}','{SharedStatus.SUSPENDED}')", (obs_id,))
         _unindex(conn, live)
         conn.execute(f"UPDATE observations SET share_state='{ShareState.WITHDRAWN}', consent_publish=0, updated_at=? WHERE id=?", (time.time(), obs_id))
+        _consent(conn, obs_id, ctx.user_id, ConsentEvent.WITHDRAWN, False, False, False)
         audit.record(conn, ctx.user_id, "observation.withdrawn", f"observation:{obs_id}", {"shared_items": live})
     return len(live)
 
@@ -342,35 +348,89 @@ def below_cohort_item_ids(conn) -> set[int]:
     return {i for t, ids in items.items() if len(orgs[t]) < min_cohort() for i in ids}
 
 
-def search_shared(conn, ctx: Ctx, q: str = "", offering: str = "", industry: str = "", region: str = "", topic: str = "", period: str = "", limit: int = 50):
+@dataclass(frozen=True)
+class FeedFilters:
+    q: str = ""
+    offering: str = ""
+    industry: str = ""
+    region: str = ""
+    topic: str = ""
+    period: str = ""
+
+    @property
+    def structured(self) -> bool:
+        """Attribute filters can be combined to single out one organisation; free-text search is not counted."""
+        return any((self.offering, self.industry, self.region, self.topic, self.period))
+
+
+@dataclass
+class FeedResult:
+    items: list[dict] = field(default_factory=list)
+    suppressed: bool = False  # filters narrowed the results to fewer organisations than the cohort minimum
+
+
+def search_shared(conn, ctx: Ctx, filters: FeedFilters = FeedFilters(), limit: int = 50) -> FeedResult:
     require_participant(ctx)
-    sql = f"SELECT {SHARED_FIELDS} FROM shared_items s"
+    sql = f"SELECT {SHARED_FIELDS}, o.org_id FROM shared_items s JOIN observations o ON o.id = s.observation_id"
     args: list = []
     where = [f"s.status='{SharedStatus.PUBLISHED}'"]
-    if not is_staff(ctx):
+    staff = is_staff(ctx)
+    if not staff:
         hidden = below_cohort_item_ids(conn)
         if hidden:
             where.append(f"s.id NOT IN ({','.join('?' * len(hidden))})")
             args.extend(sorted(hidden))
-    if q.strip():
+    if filters.q.strip():
         sql += " JOIN shared_fts f ON f.rowid = s.id"
         where.insert(0, "shared_fts MATCH ?")
-        args.insert(0, " ".join(f'"{t}"' for t in re.findall(r"\w+", q)) or '""')
-    for col, val in (("offering", offering), ("industry", industry), ("region", region), ("topic", topic)):
-        if val:
+        args.insert(0, " ".join(f'"{t}"' for t in re.findall(r"\w+", filters.q)) or '""')
+    for col in ("offering", "industry", "region", "topic"):
+        if value := getattr(filters, col):
             where.append(f"s.{col} = ?")
-            args.append(val)
-    if period:
+            args.append(value)
+    if filters.period:
         where.append("s.period LIKE ?")
-        args.append(f"%{period}%")
+        args.append(f"%{filters.period}%")
     sql += " WHERE " + " AND ".join(where) + " ORDER BY s.published_at DESC LIMIT ?"
     args.append(limit)
-    return [dict(r) for r in conn.execute(sql, args).fetchall()]
+    rows = conn.execute(sql, args).fetchall()
+    # differencing guard: a filter combination drawn from too few organisations could single one out
+    if not staff and filters.structured and rows and len({r["org_id"] for r in rows}) < min_cohort():
+        return FeedResult(suppressed=True)
+    return FeedResult(items=[{k: r[k] for k in r.keys() if k != "org_id"} for r in rows])
 
 
 def facet_values(conn, ctx: Ctx):
-    items = search_shared(conn, ctx, limit=10_000)
+    items = search_shared(conn, ctx, limit=10_000).items
     return {col: sorted({i[col] for i in items}) for col in ("offering", "industry", "region", "topic")}
+
+
+EXPORT_COLUMNS = ["id", "version", "title", "body", "offering", "topic", "period", "evidence_type", "confidence", "industry", "region",
+                  "attribution", "published_at"]
+
+
+def export_csv(conn, ctx: Ctx, filters: FeedFilters) -> str:
+    """Same visibility and cohort rules as the feed; the export is audited."""
+    result = search_shared(conn, ctx, filters, limit=1000)
+    if result.suppressed:
+        raise Denied(409, "Too few organisations match these filters to export safely. Broaden your filters.")
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=EXPORT_COLUMNS, extrasaction="ignore")
+    writer.writeheader()
+    for item in result.items:
+        writer.writerow(item | {"published_at": time.strftime("%Y-%m-%d", time.gmtime(item["published_at"]))})
+    with tx(conn):
+        audit.record(conn, ctx.user_id, "shared.exported", "shared_feed", {"rows": len(result.items), "filters": filters.__dict__})
+    return buf.getvalue()
+
+
+def consent_history(conn, obs_id: int):
+    return conn.execute("SELECT c.*, u.name FROM consent_events c JOIN users u ON u.id=c.actor_id WHERE observation_id=? ORDER BY c.id", (obs_id,)).fetchall()
+
+
+def _consent(conn, obs_id: int, actor_id: int, event: ConsentEvent, publish: bool, attribution: bool, training: bool) -> None:
+    conn.execute("INSERT INTO consent_events (observation_id, actor_id, event, consent_publish, consent_attribution, consent_training, at)"
+                 " VALUES (?,?,?,?,?,?,?)", (obs_id, actor_id, event, int(publish), int(attribution), int(training), time.time()))
 
 
 def themes(conn, ctx: Ctx):

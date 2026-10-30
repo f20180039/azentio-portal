@@ -138,9 +138,42 @@ def test_idea_status_changes_are_audited(login, db):
 
 def test_search_filters_apply_visibility(login):
     c = login("ravi@kestrel.example")
-    gulf = c.get("/api/v1/shared", params={"region": "Gulf"}).json()
-    assert gulf and all(i["region"] == "Gulf" for i in gulf)
+    fai = c.get("/api/v1/shared", params={"offering": "financial-analysis-intelligence"}).json()
+    assert fai and all(i["offering"] == "financial-analysis-intelligence" for i in fai)
     assert c.get("/api/v1/shared", params={"q": "competitor"}).json() == []  # private draft never indexed
+
+
+def test_filters_that_single_out_an_organisation_are_suppressed(login):
+    ravi = login("ravi@kestrel.example")
+    r = ravi.get("/api/v1/shared", params={"region": "Gulf"})  # only one visible Gulf organisation
+    assert r.json() == [] and r.headers["x-results-suppressed"] == "true"
+    assert "Results hidden to protect contributors" in ravi.get("/learning", params={"region": "Gulf"}).text
+    assert ravi.get("/api/v1/shared", params={"q": "page"}).json()  # free-text search is not a differencing filter
+    assert ravi.get("/learning/export.csv", params={"region": "Gulf"}).status_code == 409
+    assert login("omar@azentio.com").get("/api/v1/shared", params={"region": "Gulf"}).json()  # staff see it
+
+
+def test_csv_export_follows_feed_rules_and_is_audited(client, login, db):
+    assert client.get("/learning/export.csv", follow_redirects=False).status_code == 303
+    r = login("asha@kestrel.example").get("/learning/export.csv", params={"offering": "financial-analysis-intelligence"})
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    header, *rows = r.text.strip().splitlines()
+    assert header.split(",")[:3] == ["id", "version", "title"] and len(rows) == 3
+    assert not {"org_id", "author_id", "observation_id"} & set(header.split(","))
+    assert "Kestrel" not in r.text and "competitor" not in r.text
+    assert db.execute("SELECT COUNT(*) FROM audit WHERE action='shared.exported'").fetchone()[0] == 1
+
+
+def test_consent_history_is_kept_not_overwritten(login, db):
+    ravi = login("ravi@kestrel.example")
+    ravi.post("/observations", data=OBS)
+    oid = db.execute("SELECT id FROM observations WHERE title=?", (OBS["title"],)).fetchone()["id"]
+    ravi.post(f"/observations/{oid}/share", data={"consent_publish": "on", "consent_training": "on"})
+    ravi.post(f"/observations/{oid}/withdraw")
+    events = [r["event"] for r in db.execute("SELECT event FROM consent_events WHERE observation_id=? ORDER BY id", (oid,))]
+    assert events == ["stored", "proposed", "withdrawn"]
+    page = ravi.get(f"/observations/{oid}").text
+    assert "Proposed for shared learning" in page and "Sharing withdrawn" in page
 
 
 def test_items_of_below_cohort_themes_stay_out_of_client_search_and_facets(login):

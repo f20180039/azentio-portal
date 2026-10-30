@@ -92,6 +92,7 @@ class Route(StrEnum):
     ADMIN_SUPPORT = "/admin/support"
     ADMIN_SUPPORT_RECORDS = "/admin/support/{gid}"
 
+    LEARNING_EXPORT = "/learning/export.csv"
     API_DOCS = "/api/docs"
     API_ME = "/api/v1/me"
     API_OBSERVATIONS = "/api/v1/observations"
@@ -234,6 +235,18 @@ class Accuracy(StrEnum):
     AS_EXPECTED = "As expected"
     PARTLY = "Partly as expected"
     NOT_EXPECTED = "Not as expected"
+
+
+class ConsentEvent(StrEnum):
+    """Consent history of one contribution (brief §09): each change is kept, never overwritten."""
+
+    STORED = "stored"
+    PROPOSED = "proposed"
+    WITHDRAWN = "withdrawn"
+
+    @property
+    def label(self) -> str:
+        return {"stored": "Saved privately", "proposed": "Proposed for shared learning", "withdrawn": "Sharing withdrawn"}[self.value]
 
 
 class Action(StrEnum):

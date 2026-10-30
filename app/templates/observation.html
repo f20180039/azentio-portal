@@ -38,6 +38,13 @@
   </form>
   {% endif %}
 {% endif %}
+  <div class="card"><h3>Consent history</h3>
+    {% for c in consents %}<div class="stripe {{ 'bad' if c.event == ConsentEvent.WITHDRAWN else 'ok' }}" style="padding-left:10px;margin-bottom:8px">
+      <b>{{ ConsentEvent(c.event).label }}</b> <span class="muted">{{ c.at|ago }} by {{ c.name }}</span>
+      <div class="meta"><span>publish {{ 'yes' if c.consent_publish else 'no' }}</span><span>attribution {{ 'yes' if c.consent_attribution else 'no' }}</span><span>training {{ 'yes' if c.consent_training else 'no' }}</span></div>
+    </div>{% else %}<p class="muted" style="margin:0">No consent changes recorded.</p>{% endfor %}
+    <p class="hint">Kept as a history; nothing here is overwritten. Withdrawal stops future use but cannot recall copies already read.</p>
+  </div>
   <div class="card"><h3>Who can see what</h3>
   <p class="muted" style="margin:0">Source record: {{ 'only the author' if o.visibility == Visibility.PRIVATE else 'members of the organisation' }}. Moderators see it only after it is submitted for review. Shared copy: authorised participants, without author details.</p></div>
 </aside>

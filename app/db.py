@@ -2,7 +2,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-from .constants import (Audience, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
+from .constants import (Audience, ConsentEvent, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
                         IdeaStatus, ReportStatus, RequestStatus, Role, SessionStatus, ShareState, SharedStatus, Visibility,
                         EnquiryKind, sql_in)
 
@@ -152,6 +152,11 @@ CREATE TABLE IF NOT EXISTS library_feedback (
   item_id INTEGER NOT NULL REFERENCES library_items(id), user_id INTEGER NOT NULL REFERENCES users(id),
   verdict TEXT NOT NULL CHECK (verdict IN ({sql_in(LibraryVerdict)})), comment TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL,
   PRIMARY KEY (item_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS consent_events (
+  id INTEGER PRIMARY KEY, observation_id INTEGER NOT NULL REFERENCES observations(id), actor_id INTEGER NOT NULL REFERENCES users(id),
+  event TEXT NOT NULL CHECK (event IN ({sql_in(ConsentEvent)})),
+  consent_publish INTEGER NOT NULL, consent_attribution INTEGER NOT NULL, consent_training INTEGER NOT NULL, at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS enquiries (
   id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ({sql_in(EnquiryKind)})), name TEXT NOT NULL,
