@@ -97,6 +97,7 @@ After the answer comes back, any `[S<id>]` that was not retrieved is stripped, s
 
 - No application code was reused. The portal was written from scratch during the challenge, on 30 Oct 2026.
 - The only third-party components are the open-source libraries and fonts listed above.
+- **Azentio brand assets:** the favicon (`app/static/favicon-*.png`, `apple-touch-icon.png`) is Azentio's own, copied from azentio.com, and the greens follow azentio.com (`#55ffbe`, `#2ed88e`) a shade darker. Used only because this is a prototype for Azentio's own brief.
 - The team's separate assigned-problem build (Renewal Desk) shares no code with this repo.
 
 ## Who built what

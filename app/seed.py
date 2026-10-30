@@ -198,7 +198,7 @@ def seed(conn) -> None:
             conn.execute("INSERT INTO grants VALUES (?,?)", (uid, g))
     conn.executemany("INSERT INTO entitlements VALUES (?,?)", ENTITLEMENTS)
     for i, (title, kind, body, atype, aref, media) in enumerate(RESOURCES):
-        accent = ["#3ecf8e", "#5aa9e6", "#f2b84b"][i % 3]
+        accent = ["#4ff0b0", "#5aa9e6", "#f2b84b"][i % 3]
         conn.execute(
             "INSERT INTO resources (title, kind, body, audience_type, audience_ref, media_name, media_type, media_bytes) VALUES (?,?,?,?,?,?,?,?)",
             (title, kind, body, atype, aref, f"resource-{i + 1}.svg" if media else None, "image/svg+xml" if media else None,
