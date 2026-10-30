@@ -329,7 +329,7 @@ stateDiagram-v2
 | Comments (de-identified, held by the restricted-data screen, reportable and moderated), bookmarks, saved searches | Built |
 | Trends: 30-day changes in distinct organisations, suggested groupings for unthemed contributions, transparent prioritisation of assigned themes | Built |
 | Email outbox (P1): persisted, idempotency-keyed, provider-gated (Resend), retries, weekly digest; never labelled delivered before the provider accepts | Built (sending needs `RESEND_API_KEY` and `EMAIL_FROM`) |
-| Federated learning track (P2): separate client-admin consent, isolated synthetic client datasets, local training, update validation and clipping, poisoning and dropout scenarios, sample-weighted FedAvg, separate holdout vs base rate and local-only models, candidate registry with human deployment and rollback, threat model. Plain averaging only: no secure aggregation or formal DP. | Built |
+| Federated learning track (P2): separate client-admin consent, isolated synthetic client datasets, local training, update validation and clipping, poisoning and dropout scenarios, sample-weighted FedAvg, separate holdout vs base rate and local-only models, candidate registry where a person approves the current version (the next round's starting point; no product uses the model), rollback, threat model. Plain averaging only: no secure aggregation or formal DP. | Built |
 
 ## Known limits
 

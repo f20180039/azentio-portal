@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% from "_ui.html" import head, empty %}
 {% block title %}Federated learning · azentio.ai{% endblock %}
-{% block band %}{{ head("Federated learning programme", "An optional, separately consented track. Each client trains on its own synthetic records; only model updates are shared, then a person decides whether a candidate model is deployed.", "Advanced track · synthetic data") }}{% endblock %}
+{% block band %}{{ head("Federated learning programme", "An optional, separately consented track. Each client trains on its own synthetic records; only model updates are shared, then a person decides whether a candidate becomes the current version.", "Advanced track · synthetic data") }}{% endblock %}
 {% block content %}
 <div class="demo-note"><b>What this is not:</b> this demonstration uses plain sample-weighted averaging. It does <b>not</b> implement secure aggregation or formal differential privacy, and model updates can still leak information. It is separate from the collective learning hub: shared observations are never used to train models.</div>
 
@@ -10,7 +10,7 @@
   <p>Status: {% if mine and not mine.withdrawn_at %}<span class="pill ok">Taking part</span> since {{ mine.consented_at|date }}{% elif mine %}<span class="pill bad">Withdrawn</span> on {{ mine.withdrawn_at|date }}{% else %}<span class="pill">Not taking part</span>{% endif %}</p>
   <ul class="ticks"><li>Your records stay in your environment; only weight updates and a record count are sent.</li>
     <li>This consent is separate from your workspace membership and from sharing observations.</li>
-    <li>Withdrawing stops your organisation's future participation. Models already aggregated keep their history; any use of them follows the deployment decision recorded below, and nothing promises automatic "untraining".</li></ul>
+    <li>Withdrawing stops your organisation's future participation. Models already aggregated keep their history; which version is current follows the decisions recorded below, and nothing promises automatic "untraining".</li></ul>
   {% if eligible %}<form method="post" action="{{ R.FEDERATED_CONSENT }}">
     {% if mine and not mine.withdrawn_at %}<button class="btn danger" name="action" value="{{ Action.OPT_OUT }}">Withdraw consent</button>
     {% else %}<button class="btn" name="action" value="{{ Action.OPT_IN }}">Join the programme</button>{% endif %}</form>
@@ -33,20 +33,20 @@
 {% if ctx.has(Permission.PORTAL_ADMIN) %}
 <form method="post" action="{{ R.FEDERATED_ROUND }}" class="card">
   <h2>Run a round</h2>
-  <p class="hint">Enrolled organisations train locally from the deployed model (or from zero). Simulate failures:</p>
+  <p class="hint">Enrolled organisations train locally from the current version (or from zero). Simulate failures:</p>
   {% for e in fl.enrolled %}<label class="check"><input type="checkbox" name="dropout" value="{{ e.name }}"> {{ e.name }} drops out</label>{% endfor %}
   <div class="field"><label for="poisoned">Malicious participant</label><select id="poisoned" name="poisoned"><option value="">None</option>{% for e in fl.enrolled %}<option value="{{ e.name }}">{{ e.name }} sends a poisoned update</option>{% endfor %}</select></div>
   <button class="btn">Run round</button>
   <p class="hint">Needs at least {{ fl.min_participants }} valid participants. Updates are clipped to L2 ≤ {{ fl.clip }}; updates pointing away from the others or far larger are rejected.</p>
 </form>
-{% else %}<div class="card"><p class="muted" style="margin:0">Portal administrators run rounds and decide on deployments.</p></div>{% endif %}
+{% else %}<div class="card"><p class="muted" style="margin:0">Portal administrators run rounds and decide which version is current.</p></div>{% endif %}
 </aside>
 </div>
 
 <section class="card">
   <h2>Model registry</h2>
   {% for m in fl.models %}<div class="stripe {{ 'ok' if m.status == ModelStatus.DEPLOYED else ('warn' if m.status == ModelStatus.CANDIDATE else '') }}" style="padding-left:12px;margin-bottom:14px">
-    <div class="row"><b>Model v{{ m.version }}</b><span class="pill {{ 'ok' if m.status == ModelStatus.DEPLOYED else ('warn' if m.status == ModelStatus.CANDIDATE else 'bad' if m.status == ModelStatus.REJECTED else '') }}">{{ m.status }}</span>
+    <div class="row"><b>Model v{{ m.version }}</b><span class="pill {{ 'ok' if m.status == ModelStatus.DEPLOYED else ('warn' if m.status == ModelStatus.CANDIDATE else 'bad' if m.status == ModelStatus.REJECTED else '') }}">{{ 'current version' if m.status == ModelStatus.DEPLOYED else m.status }}</span>
       <span class="muted">from round {{ m.round_id }}, {{ m.created_at|ago }}</span></div>
     <div class="meta"><span>holdout AUC {{ m.metrics.global.auc }}</span><span>accuracy {{ m.metrics.global.accuracy }}</span><span>base-rate accuracy {{ m.metrics.base_rate.accuracy }}</span>
       {% if m.metrics.previous %}<span>previous model AUC {{ m.metrics.previous.auc }}</span>{% endif %}</div>
@@ -54,10 +54,10 @@
     {% if ctx.has(Permission.PORTAL_ADMIN) and m.status in (ModelStatus.CANDIDATE, ModelStatus.DEPLOYED) %}
     <form method="post" action="{{ R.FEDERATED_MODEL.url(mid=m.id) }}" class="row" style="margin-top:8px">
       <input type="text" name="note" required minlength="5" maxlength="200" placeholder="Reason for the decision" style="flex:1;min-width:200px" aria-label="Decision reason">
-      {% if m.status == ModelStatus.CANDIDATE %}<button class="btn small" name="action" value="{{ Action.DEPLOY }}">Approve and deploy to sandbox</button><button class="btn small ghost" name="action" value="{{ Action.REJECT }}">Reject</button>
-      {% else %}<button class="btn small danger" name="action" value="{{ Action.ROLLBACK }}">Roll back to previous</button>{% endif %}</form>{% endif %}
+      {% if m.status == ModelStatus.CANDIDATE %}<button class="btn small" name="action" value="{{ Action.DEPLOY }}">Approve as current version</button><button class="btn small ghost" name="action" value="{{ Action.REJECT }}">Reject</button>
+      {% else %}<button class="btn small danger" name="action" value="{{ Action.ROLLBACK }}">Roll back to previous version</button>{% endif %}</form>{% endif %}
   </div>{% else %}{{ empty("No models yet. Run a round to register the first candidate.") }}{% endfor %}
-  <p class="hint">Deployment here means the Playground sandbox only. Every decision is audited; rollback restores the previously deployed version.</p>
+  <p class="hint">Approving makes a version current: the next round starts from it. No product, sandbox or client uses federated models in this demonstration; a real deployment would need its own change approval. Every decision is audited; rollback restores the previous version.</p>
 </section>
 
 <section class="card">
@@ -82,7 +82,7 @@
     <tr><td>Malicious client poisons the model</td><td>Direction and norm checks reject outliers; clipping bounds influence</td><td>Robust aggregation (trimmed mean or median), authenticated participants with signed updates, anomaly review</td></tr>
     <tr><td>Too few participants</td><td>Rounds abort below {{ fl.min_participants }} valid participants</td><td>Approved minimum cohort per programme</td></tr>
     <tr><td>Skewed client populations</td><td>Local-only and global holdout results shown side by side</td><td>Per-segment evaluation and fairness review before deployment</td></tr>
-    <tr><td>Unreviewed model reaches users</td><td>Candidate status; a person approves with a recorded reason; rollback</td><td>Change board, staged rollout, monitoring</td></tr>
+    <tr><td>Unreviewed model reaches users</td><td>No model reaches users here; candidates need a person's recorded approval to become current; rollback</td><td>Change board, staged rollout, monitoring</td></tr>
     <tr><td>Withdrawal</td><td>Withdrawn organisations are excluded from later rounds</td><td>Lineage per model version; retraining policy for affected models; no promise of automatic untraining</td></tr>
   </table></div>
 </section>

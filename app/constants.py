@@ -353,7 +353,8 @@ class EmailStatus(StrEnum):
 
 
 class ModelStatus(StrEnum):
-    """Federated model registry: every aggregate starts as a candidate and needs a human decision."""
+    """Federated model registry: every aggregate starts as a candidate and needs a human decision. DEPLOYED marks the
+    current version, which seeds the next round; no product serves predictions from it."""
 
     CANDIDATE = "candidate"
     REJECTED = "rejected"

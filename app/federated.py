@@ -3,7 +3,8 @@
 Each enrolled client organisation has its own isolated environment holding synthetic SME loan records; only weight
 updates and a sample count leave it. The coordinator validates and clips updates, rejects suspected poisoning, needs a
 minimum number of participants, aggregates with sample-weighted averaging (FedAvg), evaluates on a separate holdout
-and registers a candidate that a person must approve before it is deployed. This is plain averaging: there is no secure
+and registers a candidate that a person must approve before it becomes the current version (the starting point for the next
+round; nothing in the portal serves predictions from it). This is plain averaging: there is no secure
 aggregation and no formal differential privacy, and the UI says so."""
 import json
 import math
@@ -202,7 +203,7 @@ def run_round(conn, ctx: Ctx, dropouts: set[str], poisoned: str | None = None) -
 
 
 def decide(conn, ctx: Ctx, mid: int, action: str, note: str) -> None:
-    """Human decision on a candidate (deploy or reject) or rollback of the deployed model to the previous one."""
+    """Human decision: approve a candidate as the current version, reject it, or roll the current version back to the previous one."""
     require_grant(ctx, Permission.PORTAL_ADMIN)
     m = conn.execute("SELECT * FROM fl_models WHERE id=?", (mid,)).fetchone()
     if not m:
