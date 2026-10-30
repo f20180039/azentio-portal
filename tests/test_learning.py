@@ -305,3 +305,9 @@ def test_product_owners_work_only_with_assigned_themes(login, db):
     mod.post(f"/learning/themes/{seasonality}/assign", data={"user_id": dev_id, "action": "remove"})
     assert "Seasonality context" not in {t["name"] for t in dev.get("/api/v1/themes").json()}
     assert db.execute("SELECT COUNT(*) FROM audit WHERE action='theme.assigned'").fetchone()[0] == 2
+
+
+def test_theme_evidence_cards_show_the_evidence_type(login, db):
+    tid = db.execute("SELECT id FROM themes WHERE name='Scanned statement extraction'").fetchone()["id"]
+    page = login("ravi@kestrel.example").get(f"/learning/themes/{tid}").text
+    assert '<span class="pill">Customer feedback</span>' in page and '<span class="pill">Internal review</span>' in page

@@ -9,7 +9,7 @@
 {% if t.small_sample %}<div class="demo-note">Small sample ({{ t.organisations }} organisations). Confidence is limited; this is an early signal, not evidence of how common the issue is or what causes it.</div>{% endif %}
 <div class="cols" style="margin-top:18px">
 <section class="stack"><h2>Supporting contributions</h2>
-{% for it in t["items"] %}<article class="card shared-zone"><span class="cite">S{{ it.id }}</span><h3>{{ it.title }}</h3><p>{{ it.body }}</p>
+{% for it in t["items"] %}<article class="card shared-zone"><div class="row"><span class="cite">S{{ it.id }}</span><span class="pill">{{ it.evidence_type }}</span></div><h3>{{ it.title }}</h3><p>{{ it.body }}</p>
 <div class="meta"><span>{{ it.industry }}</span><span>{{ it.region }}</span><span>{{ it.period }}</span><span>confidence {{ it.confidence }}</span></div>
 {{ vote_bar(it, votes, request.url.path) }}</article>{% endfor %}
 </section>
