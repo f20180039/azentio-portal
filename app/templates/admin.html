@@ -14,13 +14,25 @@
 
 <section class="card">
   <div class="section-title"><h2>Platform permissions</h2><span class="hint">Least privilege: each is a separate grant.</span></div>
-  <div class="scroll"><table class="grants"><tr><th>Employee</th>{% for p in permissions %}<th>{{ labels[p] }}</th>{% endfor %}</tr>
+  <div class="scroll"><table class="grants"><tr><th>Employee</th>{% for p in permissions %}<th>{{ labels[p] }}</th>{% endfor %}<th>Offboard</th></tr>
   {% for s in staff %}<tr><td><b>{{ s.name }}</b><br><span class="muted">{{ s.email }}</span></td>
     {% for p in permissions %}<td><form method="post" action="{{ R.ADMIN_GRANTS }}"><input type="hidden" name="user_id" value="{{ s.id }}"><input type="hidden" name="permission" value="{{ p }}">
       {% if p in s.grants %}<button class="toggle on" name="action" value="{{ Action.REMOVE }}" aria-label="Remove {{ labels[p] }} from {{ s.name }}" {% if p == 'portal_admin' and s.id == ctx.user_id %}disabled title="You cannot remove your own admin permission"{% endif %}>Granted</button>
       {% else %}<button class="toggle" name="action" value="{{ Action.ADD }}" aria-label="Grant {{ labels[p] }} to {{ s.name }}">Grant</button>{% endif %}
-    </form></td>{% endfor %}</tr>{% endfor %}
+    </form></td>{% endfor %}
+    <td>{% if s.id != ctx.user_id %}<form method="post" action="{{ R.ADMIN_STAFF_REMOVE.url(uid=s.id) }}"><button class="toggle" aria-label="Remove {{ s.name }} as an employee">Remove</button></form>{% endif %}</td></tr>{% endfor %}
   </table></div>
+  <p class="hint">Remove revokes the Azentio membership, clears every permission (a later re-approval starts with none) and ends their sessions.</p>
+</section>
+
+<section class="card">
+  <div class="section-title"><h2>Accounts</h2><span class="hint">Deactivation blocks sign-in by email code and Microsoft, and ends open sessions.</span></div>
+  <div class="scroll"><table class="grants"><tr><th>Person</th><th>Active memberships</th><th>Account</th></tr>
+  {% for a in accounts %}<tr><td><b>{{ a.name }}</b><br><span class="muted">{{ a.email }}</span></td><td>{{ a.memberships or "None" }}</td>
+    <td>{% if a.id == ctx.user_id %}<span class="pill">You</span>{% else %}<form method="post" action="{{ R.ADMIN_ACCOUNT_STATUS.url(uid=a.id) }}">{% if a.status == UserStatus.ACTIVE %}<button class="toggle on" name="status" value="{{ UserStatus.DEACTIVATED }}" aria-label="Deactivate {{ a.name }}">Active</button>
+      {% else %}<button class="toggle" name="status" value="{{ UserStatus.ACTIVE }}" aria-label="Reactivate {{ a.name }}">Deactivated</button>{% endif %}</form>{% endif %}</td></tr>{% endfor %}
+  </table></div>
+  <p class="hint">Memberships are kept while an account is deactivated, so reactivating restores what the person had. To remove access to one organisation only, use that organisation's member list or Remove above.</p>
 </section>
 
 <section class="card">

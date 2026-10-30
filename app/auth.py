@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from . import audit
 from .db import tx
-from .constants import CLIENT_ROLES, MembershipStatus, OrgKind, OrgStatus, Permission, RequestStatus, Role
+from .constants import CLIENT_ROLES, MembershipStatus, OrgKind, OrgStatus, Permission, RequestStatus, Role, UserStatus
 
 CODE_TTL = 600
 MAX_ATTEMPTS = 5
@@ -84,11 +84,20 @@ def verify_code(conn, email: str, code: str) -> int | None:
             user_id = conn.execute(
                 "INSERT INTO users (email, name) VALUES (?,?)", (email, email.split("@")[0].title())
             ).lastrowid
+        require_active(conn, user_id)
         audit.record(conn, user_id, "auth.signed_in", f"user:{user_id}")
     return user_id
 
 
+def require_active(conn, user_id: int) -> None:
+    from .policy import Denied
+
+    if conn.execute("SELECT status FROM users WHERE id=?", (user_id,)).fetchone()["status"] != UserStatus.ACTIVE:
+        raise Denied(403, "This account has been deactivated. Contact a portal administrator.")
+
+
 def create_session(conn, user_id: int) -> str:
+    require_active(conn, user_id)
     token = secrets.token_urlsafe(32)
     memberships = active_memberships(conn, user_id)
     active = memberships[0]["org_id"] if len(memberships) == 1 else None
@@ -177,6 +186,8 @@ def load_ctx(conn, token: str | None) -> Ctx:
     if not session:
         return Ctx()
     user = conn.execute("SELECT * FROM users WHERE id=?", (session["user_id"],)).fetchone()
+    if user["status"] != UserStatus.ACTIVE:
+        return Ctx()
     memberships = active_memberships(conn, user["id"])
     ctx = Ctx(user=user, memberships=memberships)
     membership = next((m for m in memberships if m["org_id"] == session["active_org_id"]), None)

@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 
 | Rule | Where it is covered |
 |---|---|
-| 1. Working prototype | Live URL above; 223 automated tests; one-click demo guide at `/demo` |
+| 1. Working prototype | Live URL above; 226 automated tests; one-click demo guide at `/demo` |
 | 3. Built during the challenge; reuse declared | [Reused components](#reused-components-declared) |
 | 4. Repo, README, architecture, models and tools, key prompts and workflows, dependencies, run instructions | [Architecture](#architecture-overview), [Models, tools and dependencies](#models-tools-and-dependencies), [Key prompts and workflows](#key-prompts-and-workflows), [Run it](#run-it) |
 | 5. No customer or production data | All data is synthetic and generated in `app/seed.py`; organisations are fictional |
@@ -71,7 +71,7 @@ flowchart LR
 
 - **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1, PyJWT 2.10.1 (with cryptography) for Entra ID tokens.
 - **Database:** SQLite with FTS5, from the Python standard library.
-- **Tests:** pytest 8.3.4 (223 tests). The browser checks used Playwright with local Chrome during development.
+- **Tests:** pytest 8.3.4 (226 tests). The browser checks used Playwright with local Chrome during development.
 - **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then Google `gemini-2.5-flash` and `gemini-2.5-flash-lite`, then to a non-AI listing. Each provider accepts several keys.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
@@ -112,7 +112,7 @@ Built solely by **Anshuman Singh**, using Claude Code as an AI pair programmer (
 | Architecture and security | Server-side policy layer, tenant and audience model, cohort and differencing safeguards, typed routes and states (`constants.py`); commissioned two independent security reviews and had every finding fixed (15 fixes, listed in commits `bb97913` and `ed7d773`), then an independent judge review whose defects were fixed the same way |
 | Product and UX | Azentio-themed design, role-aware navigation, demo guide and "View as" switcher, two-column forms, accessible dropdowns |
 | Features | Collective learning lifecycle, moderation, themes, ideas, AIRA, Playground, live sessions, library, Lab, Configurator, outbox, Trends, Entra ID sign-in, federated-learning track |
-| Quality and delivery | 223 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
+| Quality and delivery | 226 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
 
 Anshuman can explain any part of the code. The quickest tour: `policy.py` (who can see what), `learning.py` (lifecycle, cohort rules, search), `constants.py` (routes and states), then the Technology page.
 
@@ -121,7 +121,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 | Criterion | Evidence |
 |---|---|
 | Problem understanding | The brief's own seasonality scenario runs end to end; two kinds of learning are kept apart (collective learning hub, not federated learning) |
-| Working functionality | Live site; 223 tests; every persona can be tried from the demo guide |
+| Working functionality | Live site; 226 tests; every persona can be tried from the demo guide |
 | Intelligence and reasoning | AIRA with checked citations; evidence-backed Playground results; duplicate detection; distinct-organisation theme statistics |
 | Architecture | Typed routes and states in one place; services behind one policy layer; schema checks generated from enums |
 | Security | Server-side checks on every page, API and media route; least-privilege grants; client-approved, time-boxed support access; hash-chained audit; differencing-safe filters; prompt-injection guard |
@@ -134,7 +134,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 223 tests
+uv run pytest -q             # 226 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -249,6 +249,24 @@ Settings (environment variables):
 - **Resource audiences.** Content publishers set who may open each resource, including video: public, employees, clients entitled to an offering, or one organisation.
 - **My access** (`/access`) shows each capability for the current account, whether it is allowed, and why.
 
+### Revoking access
+
+Context is rebuilt from the database on every request, so every revocation below applies at the person's next request. Each is audited.
+
+| To remove | Who | How | What happens |
+|---|---|---|---|
+| A client member from one organisation | That organisation's admin | Members page → Remove | Membership revoked; their session leaves the workspace. An admin cannot remove themselves or the last admin. |
+| A client admin's admin rights | Client admin | Members page → role | Becomes a member at the next request. |
+| A pending invitation | Client admin | Members page → Cancel | The link stops working (links are also single-use and expire). |
+| An employee (offboarding) | Portal admin | Admin console → Platform permissions → Remove (`iam.remove_employee`) | Azentio membership revoked, **every grant deleted** so a later re-approval starts from none, all sessions ended. |
+| One staff permission | Portal admin | Admin console → toggle | Gone at the next request. Admins cannot remove their own admin grant. |
+| A whole client organisation | Portal admin | Admin console → Suspend | Every member loses that workspace; reactivation restores it. |
+| A product entitlement | Portal admin | Admin console → toggle | That organisation's sandbox and media answer 404. |
+| Support access | Client admin or the requesting admin | End early, or it expires after 30 minutes | Records close at once. |
+| **A person entirely** | Portal admin | Admin console → Accounts → Deactivate (`iam.set_user_status`) | Sign-in is refused by email code, Microsoft and demo switching (one `auth.require_active` check in every path, plus `create_session`); live sessions and pending codes are deleted; a deactivated user's old session loads as anonymous. Memberships are kept, so Reactivate restores them. Admins cannot deactivate themselves. |
+
+Tested in `tests/test_iam.py`: removal clears grants and sessions, deactivation blocks every sign-in path, and reactivation restores access.
+
 ## Playground
 
 - **Four deterministic sandboxes on synthetic data:**
@@ -345,7 +363,7 @@ stateDiagram-v2
 |---|---|
 | Public site: catalogue, products, media, insights, demo request, hackathon registration | Built |
 | IAM-01/02: RBAC, tenant membership, audience, entitlements, active workspace, least privilege | Built and tested through the API and media routes |
-| Portal admin: create, suspend and reactivate client organisations; grants, employee provisioning, client-approved support access with an optional ticket reference | Built (ticket references are recorded, not sent to a ticketing system) |
+| Portal admin: create, suspend and reactivate client organisations; offboard employees; deactivate and reactivate accounts; grants, employee provisioning, client-approved support access with an optional ticket reference | Built (ticket references are recorded, not sent to a ticketing system) |
 | Client admin role changes; content publisher resource audiences | Built |
 | Sign-in | Email one-time code (expiry, attempt lock, rate limit), plus Microsoft Entra ID OpenID Connect with PKCE: signature, issuer, audience, nonce, tenant and @azentio.com domain checked; membership rules still apply. Built; on the live demo only the seeded personas can sign in (no email provider, Entra off). See [Sign-in on the live demo](#sign-in-on-the-live-demo). |
 | Client invitation journey and terms | Built |

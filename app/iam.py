@@ -4,7 +4,7 @@ import re
 import time
 
 from . import audit, settings
-from .constants import parse, Route, Setting, Audience, Industry, MembershipStatus, OrgKind, OrgStatus, Permission, RequestStatus, Role, Visibility
+from .constants import parse, Route, Setting, Audience, Industry, MembershipStatus, OrgKind, OrgStatus, Permission, RequestStatus, Role, UserStatus, Visibility
 from .auth import Ctx
 from .db import tx
 from .learning import notify
@@ -97,6 +97,47 @@ def set_grant(conn, ctx: Ctx, user_id: int, raw_permission: str, on: bool) -> No
         else:
             conn.execute("DELETE FROM grants WHERE user_id=? AND permission=?", (user_id, permission))
         audit.record(conn, ctx.user_id, "iam.grant_" + ("added" if on else "removed"), f"user:{user_id}", {"permission": permission})
+
+
+def remove_employee(conn, ctx: Ctx, user_id: int) -> None:
+    """Offboarding: ends the Azentio membership, drops every grant so a later re-approval starts from none, and ends sessions."""
+    require_grant(ctx, Permission.PORTAL_ADMIN)
+    if user_id == ctx.user_id:
+        raise Denied(409, "You cannot remove yourself. Ask another administrator.")
+    with tx(conn):
+        n = conn.execute(f"UPDATE memberships SET status='{MembershipStatus.REVOKED}' WHERE user_id=? AND status='{MembershipStatus.ACTIVE}'"
+                         f" AND org_id IN (SELECT id FROM orgs WHERE kind='{OrgKind.AZENTIO}')", (user_id,)).rowcount
+        if not n:
+            raise Denied(404, "Employee not found.")
+        dropped = sorted(r["permission"] for r in conn.execute("SELECT permission FROM grants WHERE user_id=?", (user_id,)))
+        conn.execute("DELETE FROM grants WHERE user_id=?", (user_id,))
+        conn.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+        audit.record(conn, ctx.user_id, "iam.employee_removed", f"user:{user_id}", {"grants_removed": dropped})
+
+
+def accounts(conn, ctx: Ctx):
+    require_grant(ctx, Permission.PORTAL_ADMIN)
+    rows = conn.execute("SELECT u.id, u.email, u.name, u.status, GROUP_CONCAT(o.name || ' (' || m.role || ')', ', ') AS memberships"
+                        f" FROM users u LEFT JOIN memberships m ON m.user_id=u.id AND m.status='{MembershipStatus.ACTIVE}'"
+                        " LEFT JOIN orgs o ON o.id=m.org_id GROUP BY u.id ORDER BY u.status DESC, u.name").fetchall()
+    return rows
+
+
+def set_user_status(conn, ctx: Ctx, user_id: int, raw_status: str) -> None:
+    """Deactivation blocks every sign-in method and ends live sessions; memberships are kept so reactivation restores them."""
+    require_grant(ctx, Permission.PORTAL_ADMIN)
+    status = parse(UserStatus, raw_status)
+    if status is None:
+        raise Denied(422, "Unknown account status.")
+    if user_id == ctx.user_id:
+        raise Denied(409, "You cannot deactivate your own account.")
+    with tx(conn):
+        if not conn.execute("UPDATE users SET status=? WHERE id=?", (status, user_id)).rowcount:
+            raise Denied(404, "Account not found.")
+        if status == UserStatus.DEACTIVATED:
+            conn.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            conn.execute("DELETE FROM otp_codes WHERE email=(SELECT email FROM users WHERE id=?)", (user_id,))
+        audit.record(conn, ctx.user_id, f"iam.account_{status}", f"user:{user_id}")
 
 
 # ---- organisations and entitlements -------------------------------------------------------------------------

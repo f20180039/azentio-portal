@@ -277,3 +277,51 @@ def test_support_requests_carry_an_optional_validated_ticket_reference(login, db
     detail = db.execute("SELECT detail FROM audit WHERE action='support.requested' ORDER BY id LIMIT 1").fetchone()["detail"]
     assert '"ticket_ref": "SUP-4821"' in detail
     assert "SUP-4821" in login("asha@kestrel.example").get("/org/members").text
+
+
+def uid(db, email):
+    return db.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()["id"]
+
+
+def test_removing_an_employee_revokes_membership_grants_and_sessions(login, db):
+    omar = login("omar@azentio.com")
+    assert omar.get("/moderation").status_code == 200
+    assert login("dev@azentio.com").post(f"/admin/staff/{uid(db, 'omar@azentio.com')}/remove").status_code == 403
+    admin = login("admin@azentio.com")
+    assert admin.post(f"/admin/staff/{uid(db, 'admin@azentio.com')}/remove").status_code == 409
+    assert admin.post(f"/admin/staff/{uid(db, 'omar@azentio.com')}/remove", follow_redirects=False).status_code == 303
+    assert omar.get("/moderation", follow_redirects=False).status_code in (303, 401)  # session ended
+    assert db.execute("SELECT COUNT(*) FROM grants WHERE user_id=?", (uid(db, "omar@azentio.com"),)).fetchone()[0] == 0
+    assert login("omar@azentio.com").get("/moderation").status_code == 403  # can sign in, but has no workspace
+    row = db.execute("SELECT detail FROM audit WHERE action='iam.employee_removed'").fetchone()
+    assert "moderate" in row["detail"]
+
+
+def test_deactivated_accounts_cannot_sign_in_and_reactivation_restores_access(login, db, client):
+    ravi = login("ravi@kestrel.example")
+    rid = uid(db, "ravi@kestrel.example")
+    assert login("asha@kestrel.example").post(f"/admin/accounts/{rid}/status", data={"status": "deactivated"}).status_code == 403
+    admin = login("admin@azentio.com")
+    assert admin.post(f"/admin/accounts/{uid(db, 'admin@azentio.com')}/status", data={"status": "deactivated"}).status_code == 409
+    assert admin.post(f"/admin/accounts/{rid}/status", data={"status": "deactivated"}, follow_redirects=False).status_code == 303
+    assert ravi.get("/dashboard", follow_redirects=False).status_code == 303  # live session ended
+    import re
+    page = client.post("/signin", data={"email": "ravi@kestrel.example"}).text
+    code = re.search(r"Your code is (\d{6})", page).group(1)
+    assert client.post("/signin/verify", data={"email": "ravi@kestrel.example", "code": code}, follow_redirects=False).status_code == 403
+    assert db.execute("SELECT COUNT(*) FROM sessions WHERE user_id=?", (rid,)).fetchone()[0] == 0
+    admin.post(f"/admin/accounts/{rid}/status", data={"status": "active"})
+    assert login("ravi@kestrel.example").get("/dashboard").status_code == 200  # memberships kept
+    actions = {r[0] for r in db.execute("SELECT action FROM audit WHERE action LIKE 'iam.account_%'")}
+    assert actions == {"iam.account_deactivated", "iam.account_active"}
+
+
+def test_deactivation_also_blocks_microsoft_and_demo_switching(login, db):
+    import pytest
+    from app import auth, entra
+    from app.policy import Denied
+    login("admin@azentio.com").post(f"/admin/accounts/{uid(db, 'dev@azentio.com')}/status", data={"status": "deactivated"})
+    with pytest.raises(Denied):
+        entra.sign_in(db, {"email": "dev@azentio.com", "subject": "tid:oid-dev"})
+    with pytest.raises(Denied):
+        auth.switch_to(db, None, "dev@azentio.com")

@@ -2,7 +2,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-from .constants import (Audience, CommentStatus, ModelStatus, EmailStatus, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, OrgStatus, Permission, Priority,
+from .constants import (Audience, CommentStatus, ModelStatus, EmailStatus, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, OrgStatus, Permission, Priority, UserStatus,
                         IdeaStatus, ReportStatus, RequestStatus, Role, SessionStatus, ShareState, SharedStatus, Visibility,
                         EnquiryKind, sql_in)
 
@@ -10,7 +10,8 @@ CLIENT_ROLE_LIST = ",".join(f"'{r.value}'" for r in (Role.MEMBER, Role.ADMIN))
 
 SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT NOT NULL
+  id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT '{UserStatus.ACTIVE}' CHECK (status IN ({sql_in(UserStatus)}))
 );
 CREATE TABLE IF NOT EXISTS orgs (
   id INTEGER PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL CHECK (kind IN ({sql_in(OrgKind)})),
@@ -302,5 +303,7 @@ def init(conn: sqlite3.Connection) -> None:
     # databases created before these columns existed
     if "status" not in {r["name"] for r in conn.execute("PRAGMA table_info(orgs)")}:
         conn.execute(f"ALTER TABLE orgs ADD COLUMN status TEXT NOT NULL DEFAULT '{OrgStatus.ACTIVE}' CHECK (status IN ({sql_in(OrgStatus)}))")
+    if "status" not in {r["name"] for r in conn.execute("PRAGMA table_info(users)")}:
+        conn.execute(f"ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT '{UserStatus.ACTIVE}' CHECK (status IN ({sql_in(UserStatus)}))")
     if "ticket_ref" not in {r["name"] for r in conn.execute("PRAGMA table_info(support_grants)")}:
         conn.execute("ALTER TABLE support_grants ADD COLUMN ticket_ref TEXT")

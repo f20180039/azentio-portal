@@ -10,6 +10,7 @@ import httpx
 import jwt
 
 from . import audit
+from .auth import require_active
 from .db import tx
 from .policy import Denied
 
@@ -109,5 +110,6 @@ def sign_in(conn, identity: dict) -> int:
             user_id = row["id"] if row else conn.execute("INSERT INTO users (email, name) VALUES (?,?)",
                                                          (email, email.split("@")[0].replace(".", " ").title())).lastrowid
             conn.execute("INSERT INTO entra_identities VALUES (?,?,?)", (subject, user_id, time.time()))
+        require_active(conn, user_id)
         audit.record(conn, user_id, "auth.signed_in", f"user:{user_id}", {"method": "entra_id"})
     return user_id

@@ -108,6 +108,8 @@ class Route(StrEnum):
     ADMIN_DIGEST = "/admin/outbox/digest"
     ADMIN_SUPPORT_RECORDS = "/admin/support/{gid}"
     ADMIN_ORGS = "/admin/orgs"
+    ADMIN_STAFF_REMOVE = "/admin/staff/{uid}/remove"
+    ADMIN_ACCOUNT_STATUS = "/admin/accounts/{uid}/status"
     ADMIN_ORG_STATUS = "/admin/orgs/{oid}/status"
 
     LEARNING_EXPORT = "/learning/export.csv"
@@ -155,6 +157,13 @@ class Route(StrEnum):
 class OrgKind(StrEnum):
     AZENTIO = "azentio"
     CLIENT = "client"
+
+
+class UserStatus(StrEnum):
+    """A deactivated account cannot sign in by any method and has no live sessions."""
+
+    ACTIVE = "active"
+    DEACTIVATED = "deactivated"
 
 
 class OrgStatus(StrEnum):

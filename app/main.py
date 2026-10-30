@@ -1145,7 +1145,7 @@ def admin_console(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     return render(request, "admin.html", {
         "requests": iam.access_requests(conn, ctx), "staff": iam.staff(conn, ctx), "permissions": iam.PERMISSIONS,
-        "labels": iam.PERMISSION_LABELS, "orgs": iam.organisations(conn, ctx), "support": iam.support_grants_for_admin(conn, ctx),
+        "labels": iam.PERMISSION_LABELS, "orgs": iam.organisations(conn, ctx), "accounts": iam.accounts(conn, ctx), "support": iam.support_grants_for_admin(conn, ctx),
         "offerings": conn.execute("SELECT slug, name FROM offerings").fetchall(), "now": time.time(), "mail": outbox.summary(conn, ctx)})
 
 
@@ -1187,6 +1187,18 @@ async def admin_entitlement(request: Request):
     f = await form(request)
     iam.set_entitlement(request.state.conn, request.state.ctx, _int(f.get("org_id")), f.get("offering") or "", f.get("action") == Action.GRANT)
     return back(Route.ADMIN, "Entitlement updated and audited.")
+
+
+@app.post(Route.ADMIN_STAFF_REMOVE)
+def admin_remove_employee(request: Request, uid: int):
+    iam.remove_employee(request.state.conn, request.state.ctx, uid)
+    return back(Route.ADMIN, "Employee removed: membership revoked, permissions cleared, sessions ended. Audited.")
+
+
+@app.post(Route.ADMIN_ACCOUNT_STATUS)
+async def admin_account_status(request: Request, uid: int):
+    iam.set_user_status(request.state.conn, request.state.ctx, uid, (await form(request)).get("status") or "")
+    return back(Route.ADMIN, "Account status updated and audited.")
 
 
 @app.post(Route.ADMIN_ORGS)
