@@ -52,7 +52,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 h1, h2, h3 { font-family: var(--display); line-height: 1.2; text-wrap: balance; margin: 0 0 .4em; letter-spacing: -.01em; }
 h1 { font-size: clamp(1.9rem, 3.4vw, 2.5rem); } h2 { font-size: 1.45rem; } h3 { font-size: 1.15rem; }
 p { margin: 0 0 .8em; max-width: 68ch; }
-.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .muted { color: var(--ink-soft); }
 .mono { font-family: var(--mono); font-size: .85em; }
 .eyebrow { font-size: .9rem; font-weight: 700; color: var(--accent-ink); margin: 0 0 4px; }
@@ -342,3 +342,20 @@ table.grants td, table.grants th { text-align: center; } table.grants td:first-c
 .legend.this { background: var(--accent); } .legend.last { background: color-mix(in srgb, var(--ink-soft) 45%, transparent); }
 input[type=number] { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font: inherit; background: var(--card); color: var(--ink); }
 .inputs td { padding: 5px 4px; font-size: .9rem; } .inputs td:last-child { text-align: right; font-variant-numeric: tabular-nums; word-break: break-word; }
+
+/* header fits on one line from 1024px up; below that the nav becomes a scrolling second row */
+.top .wrap { flex-wrap: nowrap; }
+.nav { flex-wrap: nowrap; min-width: 0; }
+.nav a { white-space: nowrap; }
+.who { flex-wrap: nowrap; flex: none; }
+.viewas .dd { width: 200px; }
+.workbar .wrap { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.workbar .wrap::-webkit-scrollbar { display: none; }
+.workbar a, .workbar .org { white-space: nowrap; }
+@media (max-width: 1279px) { .top .btn.bright { display: none; } }
+@media (max-width: 1150px) { .viewas label { display: none; } .viewas { padding-left: 4px; } .viewas .dd { width: 170px; } .nav { gap: 14px; } }
+@media (max-width: 1023px) {
+  .top .wrap { flex-wrap: wrap; }
+  .nav { order: 3; flex-basis: 100%; overflow-x: auto; gap: 18px; scrollbar-width: none; }
+  .who { margin-left: auto; }
+}
