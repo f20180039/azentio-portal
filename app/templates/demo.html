@@ -1,0 +1,75 @@
+{% extends "base.html" %}{% from "_ui.html" import head %}
+{% block title %}Demo guide · azentio.ai{% endblock %}
+{% block band %}{% call head("Demo guide", "Each step signs you in as the right persona on the server and opens the page to show. Their real permissions apply.", "For judges and presenters") %}
+<form method="post" action="/demo/reset"><button class="btn ghost">Reset demo data</button></form>{% endcall %}{% endblock %}
+
+{% macro step(email, path, persona, title, show) -%}
+<li class="card demo-step">
+  <div class="demo-step-body"><span class="persona">{{ persona }}</span><h3>{{ title }}</h3><p class="muted">{{ show }}</p></div>
+  <form method="post" action="/demo/view-as"><input type="hidden" name="email" value="{{ email }}"><input type="hidden" name="next" value="{{ path }}"><button class="btn small">Open as {{ persona.split(' ·')[0] }}</button></form>
+</li>
+{%- endmacro %}
+
+{% block content %}
+<div class="cols">
+<div class="stack">
+<section>
+  <div class="section-title"><h2>1. The brief's scenario: seasonality, end to end</h2><span class="hint">About 5 minutes</span></div>
+  <ol class="demo-steps">
+    {{ step("", "/api/v1/shared", "Public visitor", "Private data is closed to the public", "The shared-learning API answers 401 to a visitor. Employee media and client data are not reachable either.") }}
+    {{ step("asha@kestrel.example", "/dashboard", "Asha · Kestrel Bank admin", "A theme stays hidden below three organisations", "Seasonality context has only 2 contributing organisations, so it is not on Asha's dashboard. Its items are not in her search or AIRA either.") }}
+    {{ step("omar@azentio.com", "/moderation/" ~ ids.meridian, "Omar · Moderator", "Moderator redacts and publishes", "Click Publish as is: refused because of the account number. Delete it from the text, keep the theme Seasonality context, publish.") }}
+    {{ step("asha@kestrel.example", "/learning/themes", "Asha · Kestrel Bank admin", "The theme appears, with a small-sample warning", "Now 3 of 3 organisations. Evidence is de-identified: coarse sector and region, no names.") }}
+    {{ step("priya@azentio.com", "/ideas/new?theme=" ~ seasonality, "Priya · Product owner", "Turn the theme into an improvement idea", "Title it 'Seasonality-aware comparison explanation', status Under review. Contributors are notified.") }}
+    {{ step("asha@kestrel.example", "/learning/ideas", "Asha · Kestrel Bank admin", "Clients see status, not internal detail", "Status and the public note are visible; the internal problem statement is not. Check Updates for the notification.") }}
+    {{ step("sam@northwind.example", "/observations/" ~ ids.ramadan, "Sam · Northwind admin", "Withdraw a shared contribution", "Withdraw: it leaves search, theme counts and AIRA in the same transaction.") }}
+    {{ step("ravi@kestrel.example", "/learning/ask", "Ravi · Kestrel Bank member", "Ask AIRA", "Ask about seasonal revenue or statement extraction. Every claim cites approved items; withdrawn ones are gone.") }}
+  </ol>
+</section>
+<section>
+  <div class="section-title"><h2>2. Identity and access tour</h2><span class="hint">About 4 minutes</span></div>
+  <ol class="demo-steps">
+    {{ step("dev@azentio.com", "/access", "Dev · Employee", "Employee status implies nothing extra", "Moderation, publishing and administration all say No: each is a separate grant.") }}
+    {{ step("newhire@azentio.com", "/access", "Nisha · New joiner", "A work email alone grants nothing", "No workspace until an administrator approves her request.") }}
+    {{ step("admin@azentio.com", "/admin", "Arjun · Portal admin", "Approve, grant, entitle, ask for support access", "Approve Nisha (employee only). Toggle a grant or an entitlement. Request support access to Kestrel Bank with a reason.") }}
+    {{ step("asha@kestrel.example", "/org/members", "Asha · Kestrel Bank admin", "The client approves support access", "Approve for 30 minutes. Also change Ravi's role; the last admin cannot be removed.") }}
+    {{ step("admin@azentio.com", "/admin", "Arjun · Portal admin", "Time-boxed, audited support view", "Open records: only records shared inside Kestrel, never private drafts. Then open the Audit log: every read and change is chained.") }}
+    {{ step("lena@azentio.com", "/content", "Lena · Content publisher", "Publisher controls media audiences", "Change who can open a video. Pages, API and media files all follow it immediately.") }}
+    {{ step("jay@consult.example", "/workspace", "Jay · Two organisations", "Explicit active workspace", "Pick Northwind or Meridian; everything is scoped to the one chosen.") }}
+  </ol>
+</section>
+</div>
+<aside class="stack">
+  <div class="card">
+    <h2>Try to break it</h2>
+    <p class="muted">Open these while viewing as Asha (Kestrel Bank). Each should be refused.</p>
+    <ul class="ticks">
+      <li><a href="/api/v1/resources/3" target="_blank" rel="noopener">Employee-only note</a> → 404</li>
+      <li><a href="/media/4" target="_blank" rel="noopener">Employee recording</a> → 404</li>
+      <li><a href="/api/v1/resources/7" target="_blank" rel="noopener">RIVA demo (not entitled)</a> → 404</li>
+      <li><a href="/api/v1/moderation/queue" target="_blank" rel="noopener">Moderation queue</a> → 403</li>
+      <li><a href="/admin" target="_blank" rel="noopener">Admin console</a> → 403</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>What the brief asks, and what is here</h2>
+    <table class="coverage">
+      <tr><td>Public site, catalogue, media, demo and hackathon forms</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Server-side access: role, tenant, audience, entitlement</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Least privilege, separate grants, audited admin</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Client-approved, time-boxed support access</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Invitations, roles, workspace switcher</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Observations, consent, moderation, versions, reports</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Cohort-gated themes, ideas, withdrawal</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>AIRA with checked citations</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Microsoft Entra ID sign-in</td><td><span class="pill warn">Email code instead</span></td></tr>
+      <tr><td>Email delivery (P1)</td><td><span class="pill warn">In-app only</span></td></tr>
+      <tr><td>Employee Playground, live broadcasts</td><td><span class="pill bad">Not built</span></td></tr>
+      <tr><td>Attachments, comments, bookmarks, saved searches</td><td><span class="pill bad">Not built</span></td></tr>
+      <tr><td>Federated model learning (P2)</td><td><span class="pill bad">Not built</span></td></tr>
+    </table>
+  </div>
+  <p class="hint">Reset puts every organisation, person and record back to the starting state and signs everyone out. The free server also resets itself after 15 idle minutes.</p>
+</aside>
+</div>
+{% endblock %}

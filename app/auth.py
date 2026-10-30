@@ -122,6 +122,7 @@ class Ctx:
     org: object = None  # active workspace org row
     role: str | None = None  # role in the active workspace
     grants: set = field(default_factory=set)
+    support_orgs: set = field(default_factory=set)  # orgs with an approved, unexpired support grant
 
     @property
     def signed_in(self) -> bool:
@@ -172,4 +173,23 @@ def load_ctx(conn, token: str | None) -> Ctx:
         ctx.org = conn.execute("SELECT * FROM orgs WHERE id=?", (membership["org_id"],)).fetchone()
         ctx.role = membership["role"]
     ctx.grants = {r["permission"] for r in conn.execute("SELECT permission FROM grants WHERE user_id=?", (user["id"],))}
+    ctx.support_orgs = {r["org_id"] for r in conn.execute(
+        "SELECT org_id FROM support_grants WHERE admin_id=? AND status='approved' AND expires_at > ?", (user["id"], time.time()))}
     return ctx
+
+
+def switch_to(conn, old_token: str | None, email: str) -> str:
+    """Demo 'view as': a real server-side sign-in as a seeded persona; authority still comes from that user's memberships."""
+    from .policy import Denied
+    from .seed import DEMO_PERSONAS
+
+    if not demo_mailbox_enabled():
+        raise Denied(404, "Not found.")
+    if email not in {p[0] for p in DEMO_PERSONAS}:
+        raise Denied(403, "Only the seeded demo personas can be viewed.")
+    user = conn.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
+    with tx(conn):
+        if old_token:
+            conn.execute("DELETE FROM sessions WHERE token_hash=?", (_h(old_token),))
+        audit.record(conn, user["id"], "auth.demo_view_as", f"user:{user['id']}")
+    return create_session(conn, user["id"])

@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% from "_ui.html" import head, empty %}
+{% block title %}Support access · {{ g.org_name }}{% endblock %}
+{% block band %}{{ head("Support access: " ~ g.org_name, "Approved by the client. Expires in " ~ (((g.expires_at - now) / 60)|round|int) ~ " minutes. Every view is audited.", "Time-boxed access") }}{% endblock %}
+{% block content %}
+<div class="demo-note">Reason given to the client: {{ g.reason }}. Records an author kept private are not included.</div>
+<div class="card">{% if rows %}<div class="scroll"><table><tr><th>Record</th><th>Category</th><th>Sharing</th><th>Updated</th></tr>
+{% for r in rows %}<tr><td><a href="/observations/{{ r.id }}">{{ r.title }}</a></td><td>{{ r.category }}</td><td><span class="pill {{ r.share_state }}">{{ 'not shared' if r.share_state=='none' else r.share_state }}</span></td><td>{{ r.updated_at|ago }}</td></tr>{% endfor %}
+</table></div>{% else %}{{ empty("This organisation has no records shared inside it.") }}{% endif %}</div>
+{% endblock %}

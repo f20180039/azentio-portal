@@ -7,7 +7,7 @@ from . import audit
 from .auth import Ctx
 from .db import tx
 from .policy import (Denied, can_edit_observation, can_view_observation, require_client, require_grant, require_participant,
-                     require_signed_in)
+                     require_signed_in, via_support, MODERATOR_VISIBLE)
 
 CATEGORIES = ["Market observation", "Emerging trend", "Product gap", "Operational challenge", "Successful practice", "Improvement suggestion"]
 EVIDENCE_TYPES = ["Portfolio data (aggregated)", "Customer feedback", "Internal review", "Regulatory change", "Market report"]
@@ -76,6 +76,9 @@ def get_observation(conn, ctx: Ctx, obs_id: int):
     obs = conn.execute("SELECT * FROM observations WHERE id=?", (obs_id,)).fetchone()
     if not obs or not can_view_observation(ctx, obs):
         raise Denied(404, "Observation not found.")
+    if via_support(ctx, obs) and not (ctx.has("moderate") and obs["share_state"] in MODERATOR_VISIBLE):
+        with tx(conn):
+            audit.record(conn, ctx.user_id, "support.read", f"observation:{obs_id}", {"org": obs["org_id"]})
     return obs
 
 

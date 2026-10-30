@@ -2,7 +2,9 @@
 {% block content %}
 <h1>Choose your active workspace</h1>
 {% if not ctx.memberships %}
-<div class="card"><p>Your account has no approved memberships yet. Ask your organisation's administrator for an invitation.</p></div>
+<div class="card"><p>Your account has no approved memberships yet.</p>
+{% if ctx.user.email.endswith('@azentio.com') %}<p class="muted">A work email alone grants nothing. Request employee access and a portal administrator will review it.</p><a class="btn" href="/access">Request employee access</a>
+{% else %}<p class="muted">Clients join by invitation from their organisation's administrator.</p>{% endif %}</div>
 {% else %}
 <p class="muted">You belong to more than one organisation. Everything you see and write applies to the workspace you pick.</p>
 <div class="grid">{% for m in ctx.memberships %}

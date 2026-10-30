@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 71 tests
+uv run pytest -q             # 90 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -30,6 +30,14 @@ Settings (environment variables):
 | `SMALL_SAMPLE` | `5` | Below this, themes carry a "small sample" warning. |
 | `DEMO_MAILBOX` | `1` | Show codes and invitations on screen instead of emailing them. |
 | `GROQ_API_KEY`, `AIRA_MODELS` | none; `openai/gpt-oss-120b,openai/gpt-oss-20b` | AIRA provider and the order in which models are tried. |
+
+## Demo guide
+
+- Open **`/demo`** on the running site.
+- Each step has one button that signs in as the right persona and opens the right page. It runs on the server, so that persona's real permissions apply.
+- **Reset demo data** puts everything back to the starting state.
+- The **View as** menu in the header switches persona from any page.
+- Both the menu and the reset are demo-only: they exist while `DEMO_MAILBOX=1`, accept only the seeded personas, and are audited. Turn the flag off and they return 404.
 
 ## Five-minute demo (the brief's seasonality scenario)
 
@@ -76,6 +84,24 @@ Settings (environment variables):
 - **Client administrators** invite and revoke only within their own organisation, and grant only `member` or `admin`.
   - Invitations are single-use, expire after 7 days, are stored hashed, and can be accepted only by the verified invited email after accepting the terms.
   - Joining a workspace is not consent to share anything.
+
+## Identity administration
+
+- **Employee provisioning.** An `@azentio.com` sign-in without a membership gets nothing.
+  - The person requests access, and a portal administrator approves or declines.
+  - Approval creates an employee membership only; it implies no platform permission.
+- **Platform grants.** Moderator, publisher, product owner and portal administrator are toggled separately.
+  - They can be granted only to approved employees.
+  - An administrator cannot remove their own admin grant. Every change is audited.
+- **Entitlements.** Administrators grant or remove offerings per client organisation. Entitled demos and media follow immediately.
+- **Support access** (brief §03: "explicit support authorisation, not merely a broad UI role"):
+  1. An administrator requests access to one client organisation and gives a reason.
+  2. That client's administrator approves or declines it.
+  3. Approved access lasts 30 minutes and covers records shared inside the organisation, never private drafts.
+  4. Every listing and read is audited. Either side can end it early.
+- **Client roles.** Client administrators switch members between member and admin, but cannot remove the last admin.
+- **Resource audiences.** Content publishers set who may open each resource, including video: public, employees, clients entitled to an offering, or one organisation.
+- **My access** (`/access`) shows each capability for the current account, whether it is allowed, and why.
 
 ## Learning lifecycle
 
@@ -137,6 +163,8 @@ stateDiagram-v2
 |---|---|
 | Public site: catalogue, products, media, insights, demo request, hackathon registration | Built |
 | IAM-01/02: RBAC, tenant membership, audience, entitlements, active workspace, least privilege | Built and tested through the API and media routes |
+| Portal admin: organisations, grants, employee provisioning, client-approved support access | Built |
+| Client admin role changes; content publisher resource audiences | Built |
 | Sign-in | Email one-time code with expiry and a 5-attempt lock; codes shown in the demo mailbox. **Entra ID OIDC is not integrated.** |
 | Client invitation journey and terms | Built |
 | Client dashboard, entitled demos, My and organisation observations, shared feed with filters | Built |

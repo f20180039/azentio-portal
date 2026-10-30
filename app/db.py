@@ -108,6 +108,18 @@ CREATE TABLE IF NOT EXISTS audit (
   id INTEGER PRIMARY KEY, at REAL NOT NULL, actor_id INTEGER, action TEXT NOT NULL, target TEXT NOT NULL,
   detail TEXT NOT NULL, prev_hash TEXT NOT NULL, hash TEXT NOT NULL
 );
+-- employees who signed in with a work address but have no approved membership yet (brief §04)
+CREATE TABLE IF NOT EXISTS access_requests (
+  id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), reason TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','denied')),
+  decided_by INTEGER REFERENCES users(id), created_at REAL NOT NULL
+);
+-- a portal admin's time-boxed, client-approved access to one organisation's records (brief §03)
+CREATE TABLE IF NOT EXISTS support_grants (
+  id INTEGER PRIMARY KEY, admin_id INTEGER NOT NULL REFERENCES users(id), org_id INTEGER NOT NULL REFERENCES orgs(id),
+  reason TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','denied','revoked')),
+  approved_by INTEGER REFERENCES users(id), expires_at REAL, created_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS enquiries (
   id INTEGER PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('demo','hackathon')), name TEXT NOT NULL,
   email TEXT NOT NULL, company TEXT NOT NULL, interest TEXT NOT NULL, message TEXT NOT NULL, created_at REAL NOT NULL

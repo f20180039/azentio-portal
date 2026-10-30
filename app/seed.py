@@ -38,6 +38,22 @@ USERS = [
     (9, "noor@meridian.example", "Noor Qureshi", [(4, "admin")], []),
     (10, "jay@consult.example", "Jay Kapoor", [(3, "member"), (4, "member")], []),
     (11, "wanjiru@harbour.example", "Wanjiru Otieno", [(5, "admin")], []),
+    (12, "newhire@azentio.com", "Nisha Verma", [], []),
+]
+
+# (email, label, what this persona demonstrates) — the only accounts the demo "view as" switcher may use
+DEMO_PERSONAS = [
+    ("asha@kestrel.example", "Asha · Kestrel Bank", "Client administrator"),
+    ("ravi@kestrel.example", "Ravi · Kestrel Bank", "Client member"),
+    ("noor@meridian.example", "Noor · Meridian Cooperative", "Client administrator"),
+    ("sam@northwind.example", "Sam · Northwind Finance", "Client administrator"),
+    ("jay@consult.example", "Jay · two organisations", "Workspace switcher"),
+    ("omar@azentio.com", "Omar · Azentio", "Learning moderator"),
+    ("priya@azentio.com", "Priya · Azentio", "Product owner"),
+    ("lena@azentio.com", "Lena · Azentio", "Content publisher"),
+    ("admin@azentio.com", "Arjun · Azentio", "Portal administrator"),
+    ("dev@azentio.com", "Dev · Azentio", "Employee, no extra grants"),
+    ("newhire@azentio.com", "Nisha · new joiner", "Work email, not yet approved"),
 ]
 
 ENTITLEMENTS = [
@@ -142,6 +158,16 @@ THEME_SUMMARIES = {
 }
 
 
+def reset(conn) -> None:
+    """Demo only: drop everything and seed again, so each walkthrough starts from the same state."""
+    conn.execute("PRAGMA foreign_keys = OFF")
+    conn.execute("DROP TABLE IF EXISTS shared_fts")
+    for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall():
+        conn.execute(f'DROP TABLE IF EXISTS "{name}"')
+    conn.execute("PRAGMA foreign_keys = ON")
+    seed(conn)
+
+
 def seed(conn) -> None:
     init(conn)
     if conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
@@ -196,5 +222,7 @@ def seed(conn) -> None:
          "Document Intelligence squad", "Planned for a future release; no date committed.", now - 7200),
     ).lastrowid
     conn.execute("INSERT INTO idea_themes VALUES (?,?)", (idea, themes["Scanned statement extraction"]))
+    conn.execute("INSERT INTO access_requests (user_id, reason, created_at) VALUES (12, ?, ?)",
+                 ("Joined the Financial Analysis squad this week; need the employee workspace.", now - 1800))
     audit.record(conn, None, "system.seeded", "portal", {"note": "synthetic demo data"})
     conn.execute("COMMIT")

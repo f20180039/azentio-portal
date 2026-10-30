@@ -64,14 +64,14 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .brand { display: inline-flex; align-items: center; gap: 8px; font-family: var(--display); font-weight: 700; font-size: 1.4rem; text-decoration: none; color: #fff; letter-spacing: -.02em; }
 .brand .g { color: var(--accent-bright); }
 .brand svg { width: 26px; height: 26px; }
-.nav { display: flex; gap: 18px; flex-wrap: wrap; flex: 1; }
+.nav { display: flex; gap: 16px; flex-wrap: wrap; flex: 1; }
 .nav a { text-decoration: none; color: var(--on-navy-soft); font-weight: 600; padding-block: 4px; border-bottom: 2px solid transparent; }
 .nav a:hover, .nav a[aria-current="page"] { color: #fff; border-bottom-color: var(--accent-bright); }
 .who { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: .9rem; color: var(--on-navy-soft); }
 .who a { color: var(--on-navy); }
 .top .btn.ghost { color: #fff; border-color: rgba(255,255,255,.4); }
 .workbar { background: var(--card); border-bottom: 1px solid var(--line); }
-.workbar .wrap { display: flex; gap: 6px 18px; align-items: center; flex-wrap: wrap; min-height: 48px; padding-block: 6px; }
+.workbar .wrap { display: flex; gap: 6px 8px; align-items: center; flex-wrap: wrap; min-height: 48px; padding-block: 6px; }
 .workbar .org { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; margin-right: 6px; }
 .workbar .org i { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); display: inline-block; }
 .workbar a { text-decoration: none; color: var(--ink-soft); font-weight: 600; font-size: 1rem; padding: 4px 10px; border-radius: 8px; }
@@ -266,3 +266,31 @@ details summary { cursor: pointer; font-weight: 600; }
 .product-card p { flex: 1; }
 .product-card .more { font-weight: 700; text-decoration: none; margin-top: 8px; }
 .product-card .more:hover { text-decoration: underline; }
+
+/* demo "view as" switcher */
+.viewas { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.18); border-radius: 9px; padding: 3px 4px 3px 10px; }
+.viewas label { margin: 0; font-size: .82rem; font-weight: 700; color: var(--accent-bright); }
+.viewas select { width: auto; max-width: 230px; padding: 5px 8px; font-size: .9rem; border: 0; border-radius: 7px; background: var(--navy-2); color: #fff; }
+@media (max-width: 760px) { .viewas select { max-width: 170px; } }
+
+/* on/off toggles in admin matrices */
+.toggle { font: inherit; font-size: .84rem; font-weight: 700; padding: 4px 10px; border-radius: 99px; cursor: pointer; border: 1px dashed var(--line); background: transparent; color: var(--ink-soft); }
+.toggle:hover { border-color: var(--accent); color: var(--accent-ink); }
+.toggle.on { border: 1px solid var(--accent); background: var(--accent-wash); color: var(--accent-ink); }
+.toggle:disabled { opacity: .6; cursor: not-allowed; }
+table.grants td, table.grants th { text-align: center; } table.grants td:first-child, table.grants th:first-child { text-align: left; }
+.caps td:nth-child(2) { white-space: nowrap; }
+
+/* demo guide */
+.demo-link { color: var(--accent-bright) !important; }
+.demo-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; counter-reset: dstep; }
+.demo-step { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 14px 18px; position: relative; }
+.demo-step::before { counter-increment: dstep; content: counter(dstep); flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-wash); color: var(--accent-ink); font-weight: 700; font-family: var(--display); }
+.demo-step-body { flex: 1; min-width: 0; }
+.demo-step h3 { margin: 2px 0; }
+.demo-step p { margin: 0; font-size: .95rem; }
+.demo-step .persona { font-size: .82rem; font-weight: 700; color: var(--accent-ink); }
+.demo-step form { flex: none; }
+@media (max-width: 640px) { .demo-step { flex-wrap: wrap; } }
+.coverage td { padding: 7px 6px; font-size: .93rem; }
+.coverage td:last-child { text-align: right; white-space: nowrap; }

@@ -1,6 +1,13 @@
 {% extends "base.html" %}{% block title %}Site content · azentio.ai{% endblock %}
 {% block content %}
-<div style="max-width:700px"><h1>Site content</h1>
+<div style="max-width:900px"><h1>Site content</h1>
 <form method="post" class="card"><div class="field"><label for="banner">Homepage banner</label><input id="banner" name="banner" type="text" value="{{ banner }}" required minlength="5" maxlength="200"></div><button class="btn">Publish banner</button></form>
+<h2 style="margin-top:28px">Media and resource audiences</h2>
+<p class="muted">Who may open each item. Pages, the API and media files all check this audience on every request.</p>
+<div class="card scroll"><table><tr><th>Resource</th><th>Audience</th></tr>
+{% for r in resources %}{% set current = r.audience_type ~ (':' ~ r.audience_ref if r.audience_ref else '') %}
+<tr><td><b>{{ r.title }}</b><br><span class="pill">{{ r.kind|capitalize }}</span></td>
+<td><form method="post" action="/content/resources/{{ r.id }}" class="row"><select name="audience" aria-label="Audience for {{ r.title }}" style="max-width:300px">{% for v, label in choices %}<option value="{{ v }}" {% if v==current %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="btn small ghost">Save</button></form></td></tr>{% endfor %}
+</table></div>
 <p class="hint">The publishing grant covers website content only. It gives no access to identities or private learning records.</p></div>
 {% endblock %}

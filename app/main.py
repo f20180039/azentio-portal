@@ -8,10 +8,10 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, audit, auth, ideas, learning, orgadmin, policy
+from . import aira, audit, auth, iam, ideas, learning, orgadmin, policy
 from .db import connect, tx
 from .policy import Denied
-from .seed import seed
+from .seed import DEMO_PERSONAS, seed
 
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=BASE / "templates")
@@ -81,7 +81,7 @@ def render(request: Request, name: str, data: dict | None = None, status: int = 
         unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND read=0", (ctx.user_id,)).fetchone()[0]
     base = {"request": request, "ctx": ctx, "unread": unread, "demo_mailbox": auth.demo_mailbox_enabled(),
             "offering_names": {r["slug"]: r["name"] for r in conn.execute("SELECT slug, name FROM offerings")},
-            "min_cohort": learning.min_cohort()}
+            "min_cohort": learning.min_cohort(), "personas": DEMO_PERSONAS}
     return templates.TemplateResponse(request, name, base | (data or {}), status_code=status)
 
 
@@ -218,7 +218,66 @@ def signout(request: Request):
 @app.get("/workspace", response_class=HTMLResponse)
 def workspace_page(request: Request, next: str = "/dashboard"):
     policy.require_signed_in(request.state.ctx)
-    return render(request, "workspace.html", {"next": next})
+    return render(request, "workspace.html", {"next": next, "access_request": iam.access_request_state(request.state.conn, request.state.ctx)})
+
+
+def _safe_next(nxt: str | None, default: str) -> str:
+    return nxt if nxt and nxt.startswith("/") and not nxt.startswith("//") and "\\" not in nxt else default
+
+
+@app.post("/demo/view-as")
+async def demo_view_as(request: Request):
+    f = await form(request)
+    email = f.get("email") or ""
+    conn = request.state.conn
+    if not email:
+        auth.end_session(conn, request.cookies.get(auth.COOKIE))
+        resp = RedirectResponse(_safe_next(f.get("next"), "/"), status_code=303)
+        resp.delete_cookie(auth.COOKIE)
+        return resp
+    token = auth.switch_to(conn, request.cookies.get(auth.COOKIE), email)
+    resp = RedirectResponse(_safe_next(f.get("next"), "/access"), status_code=303)
+    resp.set_cookie(auth.COOKIE, token, httponly=True, samesite="lax",
+                    secure=request.url.scheme == "https" or os.environ.get("SECURE_COOKIES") == "1", max_age=auth.SESSION_TTL)
+    return resp
+
+
+@app.get("/demo", response_class=HTMLResponse)
+def demo_guide(request: Request):
+    if not auth.demo_mailbox_enabled():
+        raise Denied(404, "Not found.")
+    conn = request.state.conn
+    ids = {k: (conn.execute("SELECT id FROM observations WHERE title LIKE ?", (v + "%",)).fetchone() or {"id": 0})["id"]
+           for k, v in (("meridian", "Compare against the same season"), ("ramadan", "Ramadan-period"))}
+    seasonality = (conn.execute("SELECT id FROM themes WHERE name='Seasonality context'").fetchone() or {"id": 0})["id"]
+    return render(request, "demo.html", {"ids": ids, "seasonality": seasonality})
+
+
+@app.post("/demo/reset")
+def demo_reset(request: Request):
+    if not auth.demo_mailbox_enabled():
+        raise Denied(404, "Not found.")
+    from .seed import reset
+
+    reset(request.state.conn)
+    resp = RedirectResponse("/demo?flash=Demo data reset to its starting state. Everyone was signed out.", status_code=303)
+    resp.delete_cookie(auth.COOKIE)
+    return resp
+
+
+@app.get("/access", response_class=HTMLResponse)
+def my_access(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    policy.require_signed_in(ctx)
+    ents = conn.execute("SELECT o.name FROM entitlements e JOIN offerings o ON o.slug=e.offering WHERE e.org_id=?", (ctx.org_id,)).fetchall() if ctx.is_client else []
+    return render(request, "access.html", {"entitlements": [e["name"] for e in ents], "labels": iam.PERMISSION_LABELS,
+                                           "access_request": iam.access_request_state(conn, ctx)})
+
+
+@app.post("/access/request")
+async def access_request(request: Request):
+    iam.request_employee_access(request.state.conn, request.state.ctx, (await form(request)).get("reason") or "")
+    return back("/access", "Request sent. A portal administrator will review it; until then you have no workspace.")
 
 
 @app.post("/workspace")
@@ -493,7 +552,8 @@ async def idea_status(request: Request, iid: int):
 def content_page(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_grant(ctx, "publish_content")
-    return render(request, "content.html", {"banner": conn.execute("SELECT value FROM site_content WHERE key='banner'").fetchone()["value"]})
+    return render(request, "content.html", {"banner": conn.execute("SELECT value FROM site_content WHERE key='banner'").fetchone()["value"],
+                                            "resources": iam.resources_for_publisher(conn, ctx), "choices": iam.audience_choices(conn)})
 
 
 @app.post("/content")
@@ -512,7 +572,8 @@ async def content_save(request: Request):
 @app.get("/org/members", response_class=HTMLResponse)
 def org_members(request: Request):
     people, invites = orgadmin.members(request.state.conn, request.state.ctx)
-    return render(request, "members.html", {"people": people, "invites": invites, "now": time.time()})
+    return render(request, "members.html", {"people": people, "invites": invites, "now": time.time(),
+                                            "support": iam.support_requests_for_client(request.state.conn, request.state.ctx)})
 
 
 @app.post("/org/invite")
@@ -532,6 +593,78 @@ def org_invite_revoke(request: Request, iid: int):
 def org_member_revoke(request: Request, uid: int):
     orgadmin.revoke_member(request.state.conn, request.state.ctx, uid)
     return back("/org/members", "Membership revoked.")
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_console(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    return render(request, "admin.html", {
+        "requests": iam.access_requests(conn, ctx), "staff": iam.staff(conn, ctx), "permissions": iam.PERMISSIONS,
+        "labels": iam.PERMISSION_LABELS, "orgs": iam.organisations(conn, ctx), "support": iam.support_grants_for_admin(conn, ctx),
+        "offerings": conn.execute("SELECT slug, name FROM offerings").fetchall(), "now": time.time()})
+
+
+def _int(value) -> int:
+    if not str(value or "").isdigit():
+        raise Denied(422, "Invalid identifier.")
+    return int(value)
+
+
+@app.post("/admin/requests/{rid}")
+async def admin_decide_request(request: Request, rid: int):
+    iam.decide_access_request(request.state.conn, request.state.ctx, rid, (await form(request)).get("action") == "approve")
+    return back("/admin", "Decision recorded and the person notified.")
+
+
+@app.post("/admin/grants")
+async def admin_grant(request: Request):
+    f = await form(request)
+    iam.set_grant(request.state.conn, request.state.ctx, _int(f.get("user_id")), f.get("permission") or "", f.get("action") == "add")
+    return back("/admin", "Permission updated and audited.")
+
+
+@app.post("/admin/entitlements")
+async def admin_entitlement(request: Request):
+    f = await form(request)
+    iam.set_entitlement(request.state.conn, request.state.ctx, _int(f.get("org_id")), f.get("offering") or "", f.get("action") == "grant")
+    return back("/admin", "Entitlement updated and audited.")
+
+
+@app.post("/admin/support")
+async def admin_support_request(request: Request):
+    f = await form(request)
+    iam.request_support(request.state.conn, request.state.ctx, _int(f.get("org_id")), f.get("reason") or "")
+    return back("/admin", "Support access requested. The client's administrators must approve it.")
+
+
+@app.get("/admin/support/{gid}", response_class=HTMLResponse)
+def admin_support_records(request: Request, gid: int):
+    g, rows = iam.support_records(request.state.conn, request.state.ctx, gid)
+    return render(request, "support.html", {"g": g, "rows": rows, "now": time.time()})
+
+
+@app.post("/support/{gid}/revoke")
+def support_revoke(request: Request, gid: int):
+    iam.revoke_support(request.state.conn, request.state.ctx, gid)
+    return back("/org/members" if request.state.ctx.is_client else "/admin", "Support access ended.")
+
+
+@app.post("/org/support/{gid}")
+async def org_support_decide(request: Request, gid: int):
+    iam.decide_support(request.state.conn, request.state.ctx, gid, (await form(request)).get("action") == "approve")
+    return back("/org/members", "Decision recorded.")
+
+
+@app.post("/org/members/{uid}/role")
+async def org_member_role(request: Request, uid: int):
+    orgadmin.set_member_role(request.state.conn, request.state.ctx, uid, (await form(request)).get("role") or "")
+    return back("/org/members", "Role updated.")
+
+
+@app.post("/content/resources/{rid}")
+async def content_audience(request: Request, rid: int):
+    iam.set_audience(request.state.conn, request.state.ctx, rid, (await form(request)).get("audience") or "")
+    return back("/content", "Audience updated. Access checks use it on the next request.")
 
 
 @app.get("/admin/audit", response_class=HTMLResponse)

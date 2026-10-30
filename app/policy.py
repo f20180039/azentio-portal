@@ -80,7 +80,15 @@ def can_view_observation(ctx: Ctx, obs) -> bool:
     # moderators see only what was explicitly submitted for shared review, never private drafts
     if ctx.has("moderate") and obs["share_state"] in MODERATOR_VISIBLE:
         return True
+    if via_support(ctx, obs):
+        return True
     return False
+
+
+def via_support(ctx: Ctx, obs) -> bool:
+    """Support access needs the portal-admin grant AND a client-approved, unexpired grant for that organisation.
+    It covers records shared inside the organisation, never an author's private drafts."""
+    return ctx.has("portal_admin") and obs["org_id"] in ctx.support_orgs and obs["visibility"] == "org"
 
 
 def can_edit_observation(ctx: Ctx, obs) -> bool:

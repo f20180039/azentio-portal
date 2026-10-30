@@ -66,6 +66,24 @@ def revoke_invite(conn, ctx: Ctx, invite_id: int) -> None:
         audit.record(conn, ctx.user_id, "org.invite_revoked", f"invitation:{invite_id}")
 
 
+def _admin_count(conn, org_id: int) -> int:
+    return conn.execute("SELECT COUNT(*) FROM memberships WHERE org_id=? AND role='admin' AND status='active'", (org_id,)).fetchone()[0]
+
+
+def set_member_role(conn, ctx: Ctx, user_id: int, role: str) -> None:
+    _require_admin(ctx)
+    if role not in CLIENT_ROLES:
+        raise Denied(403, "Client administrators can grant only member or admin roles in their own organisation.")
+    m = conn.execute("SELECT role FROM memberships WHERE user_id=? AND org_id=? AND status='active'", (user_id, ctx.org_id)).fetchone()
+    if not m:
+        raise Denied(404, "Member not found in your organisation.")
+    if m["role"] == "admin" and role == "member" and _admin_count(conn, ctx.org_id) <= 1:
+        raise Denied(409, "Your organisation needs at least one administrator.")
+    with tx(conn):
+        conn.execute("UPDATE memberships SET role=? WHERE user_id=? AND org_id=?", (role, user_id, ctx.org_id))
+        audit.record(conn, ctx.user_id, "org.role_changed", f"org:{ctx.org_id}", {"user": user_id, "from": m["role"], "to": role})
+
+
 def revoke_member(conn, ctx: Ctx, user_id: int) -> None:
     _require_admin(ctx)
     if user_id == ctx.user_id:

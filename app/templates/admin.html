@@ -1,0 +1,55 @@
+{% extends "base.html" %}{% from "_ui.html" import head, empty %}
+{% block title %}Admin console · azentio.ai{% endblock %}
+{% block band %}{% call head("Admin console", "Organisations, employee access, permissions and support access. Every change is audited.", "Portal administrator") %}<a class="btn ghost" href="/admin/audit">Audit log</a>{% endcall %}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-title"><h2>Employee access requests</h2><span class="hint">An @azentio.com address alone grants nothing.</span></div>
+  {% if requests %}<div class="scroll"><table><tr><th>Person</th><th>Reason</th><th>Requested</th><th>Status</th><th></th></tr>
+  {% for r in requests %}<tr><td><b>{{ r.name }}</b><br><span class="muted">{{ r.email }}</span></td><td>{{ r.reason }}</td><td>{{ r.created_at|ago }}</td>
+  <td><span class="pill {{ {'pending':'warn','approved':'ok','denied':'bad'}[r.status] }}">{{ r.status }}</span></td>
+  <td>{% if r.status == 'pending' %}<form method="post" action="/admin/requests/{{ r.id }}" class="row"><button class="btn small" name="action" value="approve">Approve as employee</button><button class="btn small ghost" name="action" value="deny">Decline</button></form>{% endif %}</td></tr>{% endfor %}
+  </table></div><p class="hint">Approval gives an employee membership only. Moderation, publishing and admin rights are separate grants below.</p>
+  {% else %}{{ empty("No access requests.") }}{% endif %}
+</section>
+
+<section class="card">
+  <div class="section-title"><h2>Platform permissions</h2><span class="hint">Least privilege: each is a separate grant.</span></div>
+  <div class="scroll"><table class="grants"><tr><th>Employee</th>{% for p in permissions %}<th>{{ labels[p] }}</th>{% endfor %}</tr>
+  {% for s in staff %}<tr><td><b>{{ s.name }}</b><br><span class="muted">{{ s.email }}</span></td>
+    {% for p in permissions %}<td><form method="post" action="/admin/grants"><input type="hidden" name="user_id" value="{{ s.id }}"><input type="hidden" name="permission" value="{{ p }}">
+      {% if p in s.grants %}<button class="toggle on" name="action" value="remove" aria-label="Remove {{ labels[p] }} from {{ s.name }}" {% if p == 'portal_admin' and s.id == ctx.user_id %}disabled title="You cannot remove your own admin permission"{% endif %}>Granted</button>
+      {% else %}<button class="toggle" name="action" value="add" aria-label="Grant {{ labels[p] }} to {{ s.name }}">Grant</button>{% endif %}
+    </form></td>{% endfor %}</tr>{% endfor %}
+  </table></div>
+</section>
+
+<section class="card">
+  <div class="section-title"><h2>Client organisations and entitlements</h2><span class="hint">Entitlements decide which demos and sandboxes a client sees.</span></div>
+  <div class="scroll"><table class="grants"><tr><th>Organisation</th><th>Members</th>{% for o in offerings %}<th>{{ o.name }}</th>{% endfor %}</tr>
+  {% for g in orgs %}<tr><td><b>{{ g.name }}</b><br><span class="muted">{{ g.industry }}, {{ g.region }}</span></td><td>{{ g.members }}</td>
+    {% for o in offerings %}<td><form method="post" action="/admin/entitlements"><input type="hidden" name="org_id" value="{{ g.id }}"><input type="hidden" name="offering" value="{{ o.slug }}">
+      {% if o.slug in g.entitlements %}<button class="toggle on" name="action" value="remove" aria-label="Remove {{ o.name }} from {{ g.name }}">Entitled</button>
+      {% else %}<button class="toggle" name="action" value="grant" aria-label="Entitle {{ g.name }} to {{ o.name }}">Grant</button>{% endif %}
+    </form></td>{% endfor %}</tr>{% endfor %}
+  </table></div>
+</section>
+
+<section class="cols">
+  <div class="card">
+    <h2>Support access</h2>
+    <p class="muted">Administrators cannot read a client's records by role alone. Ask the client: their administrator approves, access lasts 30 minutes, covers records shared inside the organisation (never private drafts), and every read is audited.</p>
+    {% for s in support %}<div class="stripe {{ 'ok' if s.status=='approved' and s.expires_at > now else 'warn' if s.status=='pending' else 'bad' }}" style="padding-left:12px;margin-bottom:12px">
+      <div class="row"><b>{{ s.org_name }}</b><span class="pill">{{ 'expired' if s.status=='approved' and s.expires_at <= now else s.status }}</span></div>
+      <p class="muted" style="margin:2px 0">{{ s.reason }}</p>
+      {% if s.status=='approved' and s.expires_at > now %}<div class="row"><a class="btn small" href="/admin/support/{{ s.id }}">Open records</a><span class="hint">expires in {{ ((s.expires_at - now) / 60)|round|int }} min</span>
+        <form method="post" action="/support/{{ s.id }}/revoke" class="inline"><button class="btn small ghost">End now</button></form></div>{% endif %}
+    </div>{% else %}<p class="hint">No support requests yet.</p>{% endfor %}
+  </div>
+  <form method="post" action="/admin/support" class="card">
+    <h2>Request support access</h2>
+    <div class="field"><label for="org">Organisation</label><select id="org" name="org_id">{% for g in orgs %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="why">Reason the client will see</label><input id="why" name="reason" type="text" required minlength="10" maxlength="300" placeholder="e.g. Ticket 4821: observation stuck in review"></div>
+    <button class="btn">Ask the client</button>
+  </form>
+</section>
+{% endblock %}

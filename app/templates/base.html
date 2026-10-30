@@ -16,10 +16,22 @@
     <nav class="nav" aria-label="Site">
       {% for href, label in [('/products','Products'),('/media','Media & insights'),('/about','About'),('/hackathon/register','Hackathons')] %}
       <a href="{{ href }}" {% if path.startswith(href) %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+      {% if demo_mailbox %}<a href="/demo" class="demo-link" {% if path == '/demo' %}aria-current="page"{% endif %}>Demo guide</a>{% endif %}
     </nav>
     <div class="who">
+      {% if demo_mailbox %}
+      <form method="post" action="/demo/view-as" class="viewas" title="Demo only: signs you in as this persona on the server; their real permissions apply">
+        <label for="viewas">View as</label>
+        <select id="viewas" name="email" onchange="this.form.submit()">
+          <option value="" {% if not ctx.signed_in %}selected{% endif %}>Public visitor</option>
+          <optgroup label="Client organisations">{% for e, label, note in personas if not e.endswith('@azentio.com') %}<option value="{{ e }}" {% if ctx.signed_in and ctx.user.email == e %}selected{% endif %}>{{ label.split(' · ')[0] }} · {{ note }}</option>{% endfor %}</optgroup>
+          <optgroup label="Azentio">{% for e, label, note in personas if e.endswith('@azentio.com') %}<option value="{{ e }}" {% if ctx.signed_in and ctx.user.email == e %}selected{% endif %}>{{ label.split(' · ')[0] }} · {{ note }}</option>{% endfor %}</optgroup>
+        </select>
+        <noscript><button class="btn small ghost">Go</button></noscript>
+      </form>
+      {% endif %}
       {% if ctx.signed_in %}
-        <span>{{ ctx.user.email }}</span>
+        {% if not demo_mailbox %}<span>{{ ctx.user.email }}</span>{% endif %}
         <form class="inline" method="post" action="/signout"><button class="btn small ghost">Sign out</button></form>
       {% else %}
         <a class="btn ghost small" href="/signin">Sign in</a>
@@ -38,9 +50,10 @@
     {% if ctx.has('moderate') %}{% set links = links + [('/moderation','Moderation')] %}{% endif %}
     {% if ctx.is_client_admin %}{% set links = links + [('/org/members','Members')] %}{% endif %}
     {% if ctx.has('publish_content') %}{% set links = links + [('/content','Site content')] %}{% endif %}
-    {% if ctx.has('portal_admin') %}{% set links = links + [('/admin/audit','Audit log')] %}{% endif %}
+    {% if ctx.has('portal_admin') %}{% set links = links + [('/admin','Admin console')] %}{% endif %}
     {% for href, label in links %}<a href="{{ href }}" {% if path == href or (href not in ('/learning','/dashboard') and path.startswith(href)) or (href == '/learning' and path == '/learning') %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
   {% else %}<span class="muted">No active workspace</span>{% endif %}
+  <a href="/access" {% if path == '/access' %}aria-current="page"{% endif %}>My access</a>
   <span class="spacer"></span>
   {% if ctx.memberships|length > 1 %}<a href="/workspace">Switch workspace</a>{% endif %}
   <a class="bell" href="/notifications">Updates{% if unread %}<b>{{ unread }}</b>{% endif %}</a>
