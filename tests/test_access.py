@@ -152,3 +152,14 @@ def test_open_redirect_after_sign_in_is_blocked(app, db):
         code = re.search(r"Your code is (\d{6})", page).group(1)
         r = c.post("/signin/verify", data={"email": "ravi@kestrel.example", "code": code, "next": "//evil.example"}, follow_redirects=False)
         assert r.headers["location"] == "/dashboard"
+
+
+def test_code_requests_are_rate_limited_and_do_not_reset_attempts(client, db):
+    client.post("/signin", data={"email": "ravi@kestrel.example"})
+    for _ in range(3):
+        client.post("/signin/verify", data={"email": "ravi@kestrel.example", "code": "000000"})
+    client.post("/signin", data={"email": "ravi@kestrel.example"})
+    assert db.execute("SELECT attempts FROM otp_codes WHERE email='ravi@kestrel.example'").fetchone()["attempts"] == 3
+    for _ in range(3):
+        client.post("/signin", data={"email": "ravi@kestrel.example"})
+    assert client.post("/signin", data={"email": "ravi@kestrel.example"}).status_code == 429

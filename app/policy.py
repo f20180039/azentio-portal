@@ -68,7 +68,8 @@ def can_view_resource(conn, ctx: Ctx, res) -> bool:
     return False  # no audience metadata means no access
 
 
-MODERATOR_VISIBLE = ("submitted", "returned", "published", "suspended", "rejected")
+# a returned or rejected record may be edited privately again, so moderators lose sight of it until it is resubmitted
+MODERATOR_VISIBLE = ("submitted", "published", "suspended")
 
 
 def can_view_observation(ctx: Ctx, obs) -> bool:

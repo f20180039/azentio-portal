@@ -11,6 +11,8 @@ from .db import tx
 
 CODE_TTL = 600
 MAX_ATTEMPTS = 5
+MAX_CODES_PER_WINDOW = 5
+CODE_WINDOW = 900
 SESSION_TTL = 8 * 3600
 COOKIE = "azp_session"
 
@@ -29,13 +31,22 @@ def normalise_email(email: str) -> str:
 
 def request_code(conn, email: str) -> None:
     """Issue a one-time code. Delivery goes to the demo mailbox: no email provider is configured (P1)."""
+    from .policy import Denied
+
     email = normalise_email(email)
     code = f"{secrets.randbelow(1_000_000):06d}"
+    now = time.time()
     with tx(conn):
+        recent = conn.execute("SELECT COUNT(*) FROM demo_mailbox WHERE email=? AND subject LIKE '%sign-in code' AND created_at > ?",
+                              (email, now - CODE_WINDOW)).fetchone()[0]
+        if recent >= MAX_CODES_PER_WINDOW:
+            raise Denied(429, "Too many codes requested for this address. Wait 15 minutes and try again.")
+        # a fresh code does not reset failed attempts on an unexpired one, so guesses cannot be recycled
         conn.execute(
             "INSERT INTO otp_codes (email, code_hash, expires_at, attempts) VALUES (?,?,?,0) "
-            "ON CONFLICT(email) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at, attempts=0",
-            (email, _h(email + ":" + code), time.time() + CODE_TTL),
+            "ON CONFLICT(email) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at,"
+            " attempts=CASE WHEN otp_codes.expires_at < ? THEN 0 ELSE otp_codes.attempts END",
+            (email, _h(email + ":" + code), now + CODE_TTL, now),
         )
         conn.execute(
             "INSERT INTO demo_mailbox (email, subject, body, created_at) VALUES (?,?,?,?)",

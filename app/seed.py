@@ -3,6 +3,7 @@ import time
 
 from . import audit
 from .db import init
+from .learning import SECTOR_OF
 
 OFFERINGS = [
     ("credit-strategy-simulator", "Credit Strategy Simulator", "Credit Policy Intelligence", "Simulate credit policy changes before deployment."),
@@ -170,7 +171,7 @@ def seed(conn) -> None:
              "possible account or card number" if "004512339871" in body else ("confidential terms" if "contract rate" in body else ""), ts, ts),
         ).lastrowid
         if shared:
-            industry = next(o[3] for o in ORGS if o[0] == org)
+            industry = SECTOR_OF[next(o[3] for o in ORGS if o[0] == org)]
             sid = conn.execute(
                 "INSERT INTO shared_items (observation_id, version, title, body, offering, topic, period, evidence_type, confidence, industry, region,"
                 " attribution, status, published_at, moderator_id) VALUES (?,1,?,?,?,?,?,?,?,?,?,NULL,'published',?,2)",

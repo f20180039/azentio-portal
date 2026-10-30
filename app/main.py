@@ -200,7 +200,7 @@ async def signin_verify(request: Request):
     if not nxt.startswith("/") or nxt.startswith("//"):
         nxt = "/dashboard"
     resp = RedirectResponse(nxt, status_code=303)
-    resp.set_cookie(auth.COOKIE, token, httponly=True, samesite="lax", secure=request.url.scheme == "https", max_age=auth.SESSION_TTL)
+    resp.set_cookie(auth.COOKIE, token, httponly=True, samesite="lax", secure=request.url.scheme == "https" or os.environ.get("SECURE_COOKIES") == "1", max_age=auth.SESSION_TTL)
     return resp
 
 
@@ -223,7 +223,8 @@ async def workspace_set(request: Request):
     ctx = request.state.ctx
     policy.require_signed_in(ctx)
     f = await form(request)
-    if not auth.set_active_org(request.state.conn, request.cookies.get(auth.COOKIE), ctx.user_id, int(f.get("org_id") or 0)):
+    org_id = f.get("org_id") or ""
+    if not org_id.isdigit() or not auth.set_active_org(request.state.conn, request.cookies.get(auth.COOKIE), ctx.user_id, int(org_id)):
         raise Denied(403, "You are not a member of that organisation.")
     return back("/dashboard")
 
@@ -367,7 +368,7 @@ def observation_withdraw(request: Request, oid: int):
 def learning_feed(request: Request, q: str = "", offering: str = "", industry: str = "", region: str = "", topic: str = "", period: str = ""):
     conn, ctx = request.state.conn, request.state.ctx
     items = learning.search_shared(conn, ctx, q, offering, industry, region, topic, period)
-    return render(request, "learning.html", {"items": items, "facets": learning.facet_values(conn),
+    return render(request, "learning.html", {"items": items, "facets": learning.facet_values(conn, ctx),
                                              "f": {"q": q, "offering": offering, "industry": industry, "region": region, "topic": topic, "period": period}})
 
 
@@ -427,7 +428,8 @@ def moderation_review(request: Request, oid: int):
     obs = learning.get_observation(conn, ctx, oid)
     org = conn.execute("SELECT industry, region FROM orgs WHERE id=?", (obs["org_id"],)).fetchone()
     return render(request, "moderation_review.html", {"o": obs, "org": org, "themes": conn.execute("SELECT id, name FROM themes").fetchall(),
-                                                       "flags_now": learning.scan_sensitive(obs["title"], obs["body"])})
+                                                       "flags_now": learning.scan_sensitive(obs["title"], obs["body"]),
+                                                       "sectors": learning.SECTORS, "default_sector": learning.SECTOR_OF.get(org["industry"], "Financial services")})
 
 
 @app.post("/moderation/{oid}/publish")

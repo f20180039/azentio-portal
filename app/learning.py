@@ -12,6 +12,9 @@ from .policy import (Denied, can_edit_observation, can_view_observation, require
 CATEGORIES = ["Market observation", "Emerging trend", "Product gap", "Operational challenge", "Successful practice", "Improvement suggestion"]
 EVIDENCE_TYPES = ["Portfolio data (aggregated)", "Customer feedback", "Internal review", "Regulatory change", "Market report"]
 CONFIDENCE = ["Low", "Medium", "High"]
+# shared copies carry a coarse sector, never the organisation's own industry label
+SECTORS = ["Banking", "Lending", "Insurance", "Financial services"]
+SECTOR_OF = {"Retail & SME banking": "Banking", "Cooperative banking": "Banking", "Non-bank lender": "Lending", "Microfinance": "Lending"}
 LIMITS = {"title": (5, 120), "body": (20, 2000), "topic": (2, 60), "period": (4, 40)}
 
 SENSITIVE_PATTERNS = [
@@ -148,11 +151,11 @@ def _unindex(conn, shared_ids: list[int]) -> None:
 def withdraw(conn, ctx: Ctx, obs_id: int) -> int:
     """Withdraws the proposal and every shared version; search and AIRA lose them in the same transaction."""
     obs = _editable(conn, ctx, obs_id)
-    if obs["share_state"] in ("none", "withdrawn"):
-        raise Denied(409, "Nothing is shared to withdraw.")
     with tx(conn):
         live = [r["id"] for r in conn.execute(
             "SELECT id FROM shared_items WHERE observation_id=? AND status IN ('published','suspended')", (obs_id,))]
+        if not live and obs["share_state"] in ("none", "withdrawn"):
+            raise Denied(409, "Nothing is shared to withdraw.")
         conn.execute("UPDATE shared_items SET status='withdrawn' WHERE observation_id=? AND status IN ('published','suspended')", (obs_id,))
         _unindex(conn, live)
         conn.execute("UPDATE observations SET share_state='withdrawn', consent_publish=0, updated_at=? WHERE id=?", (time.time(), obs_id))
@@ -192,7 +195,10 @@ def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
         raise Denied(422, f"The shared text still looks sensitive ({', '.join(leftover)}). Redact it or confirm the override.")
     org = conn.execute("SELECT * FROM orgs WHERE id=?", (obs["org_id"],)).fetchone()
     attribution = org["name"] if (edits.get("attribute") and obs["consent_attribution"]) else None
-    region = (edits.get("region") or org["region"] or "").strip() or "Undisclosed"
+    region = (edits.get("region") or org["region"] or "").strip()[:40] or "Undisclosed"
+    sector = edits.get("sector") or SECTOR_OF.get(org["industry"], "Financial services")
+    if sector not in SECTORS:
+        raise Denied(422, "Choose a sector from the list.")
     now = time.time()
     with tx(conn):
         previous = [r["id"] for r in conn.execute(
@@ -205,7 +211,7 @@ def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
             "INSERT INTO shared_items (observation_id, version, title, body, offering, topic, period, evidence_type, confidence,"
             " industry, region, attribution, status, published_at, moderator_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'published', ?, ?)",
             (obs_id, version, title, body, obs["offering"], (edits.get("topic") or obs["topic"]).strip(), (edits.get("period") or obs["period"]).strip(),
-             obs["evidence_type"], obs["confidence"], org["industry"], region, attribution, now, ctx.user_id),
+             obs["evidence_type"], obs["confidence"], sector, region, attribution, now, ctx.user_id),
         ).lastrowid
         conn.execute("INSERT INTO shared_fts (rowid, title, body, topic) VALUES (?,?,?,?)", (sid, title, body, edits.get("topic") or obs["topic"]))
         theme_id = _theme_for(conn, edits, obs, now)
@@ -223,6 +229,8 @@ def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
 
 def _theme_for(conn, edits: dict, obs, now: float):
     if edits.get("theme_id"):
+        if not str(edits["theme_id"]).isdigit():
+            raise Denied(422, "Choose a valid theme.")
         row = conn.execute("SELECT id FROM themes WHERE id=?", (int(edits["theme_id"]),)).fetchone()
         return row["id"] if row else None
     name = (edits.get("new_theme") or "").strip()
@@ -271,7 +279,8 @@ def suspend(conn, ctx: Ctx, shared_id: int) -> None:
         if not n:
             raise Denied(409, "Only published items can be suspended.")
         _unindex(conn, [shared_id])
-        conn.execute("UPDATE observations SET share_state='suspended' WHERE id=(SELECT observation_id FROM shared_items WHERE id=?)", (shared_id,))
+        conn.execute("UPDATE observations SET share_state='suspended' WHERE share_state='published'"
+                     " AND id=(SELECT observation_id FROM shared_items WHERE id=?)", (shared_id,))
         audit.record(conn, ctx.user_id, "moderation.suspended", f"shared:{shared_id}")
 
 
@@ -284,17 +293,23 @@ def decide_report(conn, ctx: Ctx, report_id: int, uphold: bool, decision: str) -
     obs = conn.execute("SELECT * FROM observations WHERE id=?", (item["observation_id"],)).fetchone()
     with tx(conn):
         conn.execute("UPDATE reports SET status=?, decision=? WHERE id=?", ("upheld" if uphold else "dismissed", decision.strip()[:500], report_id))
-        if uphold:
+        live_item = item["status"] in ("published", "suspended")
+        if uphold and live_item:
             conn.execute("UPDATE shared_items SET status='withdrawn' WHERE id=?", (item["id"],))
             _unindex(conn, [item["id"]])
-            conn.execute("UPDATE observations SET share_state='withdrawn' WHERE id=?", (obs["id"],))
-        elif item["status"] == "suspended":
+            others = conn.execute("SELECT COUNT(*) FROM shared_items WHERE observation_id=? AND status IN ('published','suspended')",
+                                  (obs["id"],)).fetchone()[0]
+            if not others and obs["share_state"] in ("published", "suspended"):
+                conn.execute("UPDATE observations SET share_state='withdrawn' WHERE id=?", (obs["id"],))
+        elif not uphold and item["status"] == "suspended":
             conn.execute("UPDATE shared_items SET status='published' WHERE id=?", (item["id"],))
             conn.execute("INSERT INTO shared_fts (rowid, title, body, topic) VALUES (?,?,?,?)", (item["id"], item["title"], item["body"], item["topic"]))
-            conn.execute("UPDATE observations SET share_state='published' WHERE id=?", (obs["id"],))
+            conn.execute("UPDATE observations SET share_state='published' WHERE id=? AND share_state='suspended'", (obs["id"],))
         audit.record(conn, ctx.user_id, "moderation.report_decided", f"report:{report_id}", {"upheld": uphold})
         # the contributor learns the decision, never who reported it
         outcome = "was removed from shared learning" if uphold else "was reviewed and stays published"
+        if not live_item:
+            outcome = "was reviewed; that version had already been replaced or withdrawn"
         notify(conn, obs["author_id"], f"A report about “{item['title']}” {outcome}. Moderator note: {decision.strip()[:200]}", f"/observations/{obs['id']}")
 
 
@@ -303,15 +318,38 @@ def decide_report(conn, ctx: Ctx, report_id: int, uphold: bool, decision: str) -
 SHARED_FIELDS = "s.id, s.version, s.title, s.body, s.offering, s.topic, s.period, s.evidence_type, s.confidence, s.industry, s.region, s.attribution, s.published_at"
 
 
+def is_staff(ctx: Ctx) -> bool:
+    return ctx.has("moderate") or ctx.has("product_owner")
+
+
+def below_cohort_item_ids(conn) -> set[int]:
+    """Published items that belong to a theme with fewer contributing organisations than the cohort minimum."""
+    rows = conn.execute(
+        "SELECT ti.theme_id, s.id, o.org_id FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id AND s.status='published'"
+        " JOIN observations o ON o.id=s.observation_id"
+    ).fetchall()
+    orgs: dict[int, set] = {}
+    items: dict[int, set] = {}
+    for r in rows:
+        orgs.setdefault(r["theme_id"], set()).add(r["org_id"])
+        items.setdefault(r["theme_id"], set()).add(r["id"])
+    return {i for t, ids in items.items() if len(orgs[t]) < min_cohort() for i in ids}
+
+
 def search_shared(conn, ctx: Ctx, q: str = "", offering: str = "", industry: str = "", region: str = "", topic: str = "", period: str = "", limit: int = 50):
     require_participant(ctx)
     sql = f"SELECT {SHARED_FIELDS} FROM shared_items s"
     args: list = []
     where = ["s.status='published'"]
+    if not is_staff(ctx):
+        hidden = below_cohort_item_ids(conn)
+        if hidden:
+            where.append(f"s.id NOT IN ({','.join('?' * len(hidden))})")
+            args.extend(sorted(hidden))
     if q.strip():
         sql += " JOIN shared_fts f ON f.rowid = s.id"
-        where.append("shared_fts MATCH ?")
-        args.append(" ".join(f'"{t}"' for t in re.findall(r"\w+", q)) or '""')
+        where.insert(0, "shared_fts MATCH ?")
+        args.insert(0, " ".join(f'"{t}"' for t in re.findall(r"\w+", q)) or '""')
     for col, val in (("offering", offering), ("industry", industry), ("region", region), ("topic", topic)):
         if val:
             where.append(f"s.{col} = ?")
@@ -324,17 +362,15 @@ def search_shared(conn, ctx: Ctx, q: str = "", offering: str = "", industry: str
     return [dict(r) for r in conn.execute(sql, args).fetchall()]
 
 
-def facet_values(conn):
-    out = {}
-    for col in ("offering", "industry", "region", "topic"):
-        out[col] = [r[0] for r in conn.execute(f"SELECT DISTINCT {col} FROM shared_items WHERE status='published' ORDER BY 1")]
-    return out
+def facet_values(conn, ctx: Ctx):
+    items = search_shared(conn, ctx, limit=10_000)
+    return {col: sorted({i[col] for i in items}) for col in ("offering", "industry", "region", "topic")}
 
 
 def themes(conn, ctx: Ctx):
     """Theme statistics count distinct organisations; below the cohort minimum they are hidden from clients."""
     require_participant(ctx)
-    staff = ctx.has("moderate") or ctx.has("product_owner")
+    staff = is_staff(ctx)
     out = []
     for t in conn.execute("SELECT * FROM themes ORDER BY updated_at DESC").fetchall():
         rows = conn.execute(
@@ -364,8 +400,7 @@ def theme(conn, ctx: Ctx, theme_id: int):
 
 
 def suppressed_theme_count(conn, ctx: Ctx) -> int:
-    staff = ctx.has("moderate") or ctx.has("product_owner")
-    if staff:
+    if is_staff(ctx):
         return 0
     n = 0
     for t in conn.execute("SELECT id FROM themes").fetchall():

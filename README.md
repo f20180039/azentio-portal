@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 65 tests
+uv run pytest -q             # 71 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -58,6 +58,7 @@ Settings (environment variables):
 
 ## Access model (server-side, every request)
 
+- **Sign-in codes.** Each address can request at most 5 codes per 15 minutes. A new code does not reset failed attempts on an unexpired one.
 - **Identity.** A session is a random token in an `HttpOnly`, `SameSite=Lax` cookie. Only its hash is stored. The server resolves the user, their **active** memberships and their grants on every request (`auth.load_ctx`).
   - No authority comes from the menu, browser storage, the email suffix or a tenant ID supplied by the client.
   - `newhire@azentio.com` with no approved membership gets nothing.
@@ -69,7 +70,7 @@ Settings (environment variables):
 - **Observations.**
   - The author always sees their own.
   - Organisation members see those marked "My organisation".
-  - Moderators see a contribution **only after it is submitted** for shared review.
+  - Moderators see a contribution **only while it is submitted, published or suspended**. Once they return or reject it, they lose sight of it until it is resubmitted, because the author may edit it privately again.
   - Portal admins get no implicit access.
   - Objects you may not see return **404**, so their existence is not disclosed.
 - **Client administrators** invite and revoke only within their own organisation, and grant only `member` or `admin`.
@@ -95,7 +96,7 @@ stateDiagram-v2
 ```
 
 - **The private source** (`observations`) and **the shared copy** (`shared_items`) are separate tables.
-  - The shared copy holds only reviewed fields: title, text, offering, topic, period, evidence type, confidence, industry, coarsened region, and optional opt-in attribution.
+  - The shared copy holds only reviewed fields: title, text, offering, topic, period, evidence type, confidence, a coarse sector (Banking, Lending and so on, never the organisation's own industry label), a coarsened region, and optional opt-in attribution.
   - Shared payloads never contain tenant, author, observation, moderator or scan fields (tested).
 - **Consents are recorded separately:** storing (implicit in saving privately), publishing, attribution, and future training. No training programme runs, and nothing is trained.
 - **The sensitive-content scan** flags account and card numbers, emails, PAN- and IBAN-like strings, phone numbers and confidential terms.
@@ -117,7 +118,7 @@ stateDiagram-v2
 ### Aggregation safeguards
 
 - Theme statistics count **distinct organisations**. Repeated posts from one organisation count once.
-- A theme is hidden from clients until `MIN_COHORT` (3) organisations contribute. Moderators and product owners see it earlier, with a warning.
+- A theme is hidden from clients until `MIN_COHORT` (3) organisations contribute. Its items are also left out of client search, filters and AIRA until then. Moderators and product owners see it earlier, with a warning. Ideas can link only themes that meet the cohort.
 - Themes below `SMALL_SAMPLE` carry a warning that they are an early signal, not prevalence or causation.
 - A minimum cohort size alone is not a privacy guarantee. The production threshold and suppression policy need approval before launch.
 

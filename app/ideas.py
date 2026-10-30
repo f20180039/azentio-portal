@@ -18,9 +18,9 @@ def create_idea(conn, ctx: Ctx, fields: dict, theme_ids: list[int]) -> int:
         raise Denied(422, "Title (5–120), problem and proposed outcome (10+ characters) and owner team are required.")
     if f["priority"] not in PRIORITIES or f["status"] not in STATUSES:
         raise Denied(422, "Choose a priority and a status.")
-    allowed = {t["id"] for t in themes(conn, ctx)}
+    allowed = {t["id"] for t in themes(conn, ctx) if t["meets_cohort"]}
     if not theme_ids or not set(theme_ids) <= allowed:
-        raise Denied(422, "Link at least one approved theme.")
+        raise Denied(422, "Link at least one theme that meets the cohort minimum.")
     with tx(conn):
         idea_id = conn.execute(
             "INSERT INTO ideas (title, problem, offering, proposed_outcome, owner_team, owner_id, priority, status, public_note, updated_at)"

@@ -78,15 +78,16 @@ def test_seasonality_scenario_end_to_end(login, db):
 
 
 def test_withdrawal_removes_from_search_themes_and_aira_immediately(login, db):
-    sam = login("sam@northwind.example")
-    oid = db.execute("SELECT id FROM observations WHERE title LIKE 'Ramadan-period%'").fetchone()["id"]
+    wanjiru = login("wanjiru@harbour.example")
+    oid = db.execute("SELECT id FROM observations WHERE title LIKE 'Mobile-photo statements%'").fetchone()["id"]
     viewer = login("ravi@kestrel.example")
-    assert viewer.get("/api/v1/shared", params={"q": "overrides"}).json()
-    assert sam.post(f"/observations/{oid}/withdraw", follow_redirects=False).status_code == 303
-    assert viewer.get("/api/v1/shared", params={"q": "overrides"}).json() == []
-    answer = viewer.post("/api/v1/aira", json={"question": "manual overrides holiday trade dips"}).json()
-    assert all("override" not in c["body"] for c in answer["citations"])
-    assert theme_names(login("omar@azentio.com"))["Seasonality context"]["organisations"] == 1
+    assert viewer.get("/api/v1/shared", params={"q": "phone photos"}).json()
+    assert wanjiru.post(f"/observations/{oid}/withdraw", follow_redirects=False).status_code == 303
+    assert viewer.get("/api/v1/shared", params={"q": "phone photos"}).json() == []
+    answer = viewer.post("/api/v1/aira", json={"question": "phone photos of statements"}).json()
+    assert all("photo" not in c["body"] for c in answer["citations"])
+    assert theme_names(login("omar@azentio.com"))["Scanned statement extraction"]["organisations"] == 2
+    assert "Scanned statement extraction" not in theme_names(viewer)  # fell below the cohort
 
 
 def test_material_edit_to_published_needs_new_review_and_keeps_old_version_live(login, db):
@@ -97,8 +98,9 @@ def test_material_edit_to_published_needs_new_review_and_keeps_old_version_live(
         "body": obs["body"] + " It also affects dairy cooperatives.", "evidence_type": "Internal review", "confidence": "Medium", "visibility": "org"}
     assert asha.post(f"/observations/{oid}/edit", data=edit, follow_redirects=False).status_code == 303
     assert asha.get(f"/api/v1/observations/{oid}").json()["share_state"] == "submitted"
-    assert asha.get("/api/v1/shared", params={"q": "agri-input"}).json()  # version 1 still live
-    assert asha.get("/api/v1/shared", params={"q": "dairy"}).json() == []  # unreviewed text never leaks
+    mod = login("omar@azentio.com")  # the theme is below the cohort, so only staff can search it
+    assert mod.get("/api/v1/shared", params={"q": "agri-input"}).json()  # version 1 still live
+    assert mod.get("/api/v1/shared", params={"q": "dairy"}).json() == []  # unreviewed text never leaks
 
 
 def test_return_for_clarification_then_resubmit(login, db):
@@ -139,3 +141,51 @@ def test_search_filters_apply_visibility(login):
     gulf = c.get("/api/v1/shared", params={"region": "Gulf"}).json()
     assert gulf and all(i["region"] == "Gulf" for i in gulf)
     assert c.get("/api/v1/shared", params={"q": "competitor"}).json() == []  # private draft never indexed
+
+
+def test_items_of_below_cohort_themes_stay_out_of_client_search_and_facets(login):
+    kestrel = login("asha@kestrel.example")
+    assert kestrel.get("/api/v1/shared", params={"q": "manual overrides"}).json() == []  # seasonality theme has 2 orgs
+    assert login("omar@azentio.com").get("/api/v1/shared", params={"q": "manual overrides"}).json()
+    industries = {i["industry"] for i in kestrel.get("/api/v1/shared").json()}
+    assert industries <= {"Banking", "Lending", "Insurance", "Financial services"}
+
+
+def test_upholding_a_report_on_a_superseded_version_keeps_the_live_one_withdrawable(login, db):
+    viewer = login("ravi@kestrel.example")
+    sid = viewer.get("/api/v1/shared", params={"q": "page break"}).json()[0]["id"]
+    viewer.post(f"/learning/shared/{sid}/report", data={"reason": "Too specific"})
+    jay = login("jay@consult.example", workspace="Northwind Finance")
+    oid = db.execute("SELECT observation_id FROM shared_items WHERE id=?", (sid,)).fetchone()[0]
+    obs = jay.get(f"/api/v1/observations/{oid}").json()
+    edit = {k: obs[k] for k in ("title", "category", "offering", "topic", "period", "body")} | {
+        "evidence_type": "Internal review", "confidence": "Medium", "visibility": "org"}
+    jay.post(f"/observations/{oid}/edit", data=edit)
+    mod = login("omar@azentio.com")
+    assert mod.post(f"/moderation/{oid}/publish", data={"title": "Multi-page statements break at page joins (v2)",
+        "body": "Transactions continuing across a page break are sometimes duplicated or dropped during extraction.", "theme_id": "2"},
+        follow_redirects=False).status_code == 303
+    rid = db.execute("SELECT id FROM reports WHERE shared_id=?", (sid,)).fetchone()["id"]
+    mod.post(f"/moderation/reports/{rid}", data={"action": "uphold", "decision": "Old wording too specific"})
+    assert jay.get(f"/api/v1/observations/{oid}").json()["share_state"] == "published"
+    assert jay.post(f"/observations/{oid}/withdraw", follow_redirects=False).status_code == 303
+
+
+def test_moderator_loses_sight_of_returned_drafts(login, db):
+    mod = login("omar@azentio.com")
+    oid = submitted_meridian(db)
+    mod.post(f"/moderation/{oid}/return", data={"note": "Please remove the account reference."})
+    assert mod.get(f"/api/v1/observations/{oid}").status_code == 404
+
+
+def test_ideas_cannot_link_below_cohort_themes(login):
+    po = login("priya@azentio.com")
+    r = po.post("/ideas", data={"title": "Internal secret idea", "problem": "Something internal here.", "offering": "riva",
+                                "proposed_outcome": "Something internal here.", "owner_team": "Squad", "priority": "Low",
+                                "status": "Proposed", "theme_ids": ["1"]})
+    assert r.status_code == 422
+
+
+def test_bad_ids_are_rejected_not_crashing(login):
+    jay = login("jay@consult.example")
+    assert jay.post("/workspace", data={"org_id": "abc"}, follow_redirects=False).status_code == 403
