@@ -374,6 +374,7 @@ def below_cohort_item_ids(conn, except_themes: set[int] = frozenset()) -> set[in
 @dataclass(frozen=True)
 class FeedFilters:
     q: str = ""
+    any_term: bool = False  # match any word of q by prefix and rank by relevance, instead of requiring every word
     offering: str = ""
     industry: str = ""
     region: str = ""
@@ -406,7 +407,8 @@ def search_shared(conn, ctx: Ctx, filters: FeedFilters = FeedFilters(), limit: i
     if filters.q.strip():
         sql += " JOIN shared_fts f ON f.rowid = s.id"
         where.insert(0, "shared_fts MATCH ?")
-        args.insert(0, " ".join(f'"{t}"' for t in re.findall(r"\w+", filters.q)) or '""')
+        words = re.findall(r"\w+", filters.q)
+        args.insert(0, (" OR ".join(f'"{t}"*' for t in words) if filters.any_term else " ".join(f'"{t}"' for t in words)) or '""')
     for col in ("offering", "industry", "region", "topic"):
         if value := getattr(filters, col):
             where.append(f"s.{col} = ?")
@@ -414,7 +416,8 @@ def search_shared(conn, ctx: Ctx, filters: FeedFilters = FeedFilters(), limit: i
     if filters.period:
         where.append("s.period LIKE ?")
         args.append(f"%{filters.period}%")
-    sql += " WHERE " + " AND ".join(where) + " ORDER BY s.published_at DESC LIMIT ?"
+    order = "bm25(shared_fts)" if filters.any_term and filters.q.strip() else "s.published_at DESC"
+    sql += " WHERE " + " AND ".join(where) + f" ORDER BY {order} LIMIT ?"
     args.append(limit)
     rows = conn.execute(sql, args).fetchall()
     # differencing guard: a filter combination drawn from too few organisations could single one out

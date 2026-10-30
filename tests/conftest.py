@@ -9,8 +9,9 @@ def app(tmp_path, monkeypatch):
     monkeypatch.setenv("PORTAL_DB", str(tmp_path / "test.db"))
     for name in ("GROQ_API_KEY", "GROQ_API_KEYS", "GEMINI_API_KEY", "GEMINI_API_KEYS"):
         monkeypatch.delenv(name, raising=False)
-    from app import main
+    from app import aira, main
 
+    aira._recent.clear()  # per-process rate-limit history; each test starts clean
     return main.app
 
 

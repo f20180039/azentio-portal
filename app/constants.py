@@ -362,6 +362,14 @@ class ModelStatus(StrEnum):
     RETIRED = "retired"
 
 
+class AiraMode(StrEnum):
+    AI = "ai"
+    FALLBACK = "fallback"
+    DISABLED = "disabled"
+    NO_MATCH = "no match"
+    NO_ANSWER = "no answer"
+
+
 class ParticipantOutcome(StrEnum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
