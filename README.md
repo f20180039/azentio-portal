@@ -164,7 +164,7 @@ Settings (environment variables):
 - **The live site is a shared sandbox.** Anyone can switch persona, including to the portal administrator, so other visitors may be using it at the same time. That is deliberate for judging, and it is why `DEMO_MODE` exists.
 - Reset keeps the audit log: it appends a `demo.reset` entry, rebuilds every other table, and the hash chain still verifies. Resets are limited to one a minute for the whole process.
 - The demo mailbox and on-screen sign-in codes are limited to the seeded personas. Any other address gets its code only by email.
-- Form posts from other websites are refused site-wide (Origin check), and request bodies are capped at 3 MB while they stream in.
+- Request bodies are capped at 3 MB while they stream in. Cross-site posts are refused; see [CSRF](#access-model-server-side-every-request).
 
 ## Five-minute demo (the brief's seasonality scenario)
 
@@ -203,6 +203,7 @@ Settings (environment variables):
 ## Access model (server-side, every request)
 
 - **Sign-in codes.** Each address can request at most 5 codes per 15 minutes. A new code does not reset failed attempts on an unexpired one.
+- **CSRF.** Every `POST`, `PUT`, `PATCH` and `DELETE` is checked before any handler runs (`main._guards`). If it carries an `Origin` or `Referer` whose host is not this site, it is refused with 403. If it carries the session cookie, one of those headers is required and must match; a signed-in post with neither is refused. Sign-in itself (no session yet) works without them. Session cookies are also `SameSite=Lax`.
 - **Identity.** A session is a random token in an `HttpOnly`, `SameSite=Lax` cookie. Only its hash is stored. The server resolves the user, their **active** memberships and their grants on every request (`auth.load_ctx`).
   - No authority comes from the menu, browser storage, the email suffix or a tenant ID supplied by the client.
   - `newhire@azentio.com` with no approved membership gets nothing.
@@ -367,7 +368,7 @@ stateDiagram-v2
 ## Known limits
 
 - **Hosting:** the free Render instance uses an ephemeral SQLite file. Each restart reseeds the demo data, and the instance sleeps after 15 idle minutes, so the first request is slow.
-- **CSRF:** protection relies on `SameSite=Lax` cookies. A per-form token is the next step.
+- **CSRF:** there are no per-form tokens. Protection is the same-origin check described under the access model, plus `SameSite=Lax` cookies. A client that strips both `Origin` and `Referer` cannot post with a session at all.
 - **Rate limiting:** the AIRA limit is in memory, per process.
 - **Floating AIRA panel:** the conversation is kept per browser tab, so a new tab starts empty and closing the tab loses it. This is deliberate: the portal does not store questions or answers (a question is sent to the AI provider only to be answered).
 

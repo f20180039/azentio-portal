@@ -163,3 +163,15 @@ def test_code_requests_are_rate_limited_and_do_not_reset_attempts(client, db):
     for _ in range(3):
         client.post("/signin", data={"email": "ravi@kestrel.example"})
     assert client.post("/signin", data={"email": "ravi@kestrel.example"}).status_code == 429
+
+
+def test_signed_in_posts_need_a_same_origin_origin_or_referer(login, db):
+    asha = login("asha@kestrel.example")  # signing in itself works: no session cookie yet
+    del asha.headers["origin"]
+    before = db.execute("SELECT COUNT(*) FROM observations").fetchone()[0]
+    r = asha.post("/observations", data={"title": "x"}, follow_redirects=False)
+    assert r.status_code == 403 and "must come from this site" in r.text
+    assert asha.post("/api/v1/aira", json={"question": "statement extraction"}).status_code == 403
+    assert asha.post("/observations", data={"title": "x"}, headers={"Referer": "https://evil.example/x"}).status_code == 403
+    assert asha.post("/signout", headers={"Referer": "http://testserver/dashboard"}, follow_redirects=False).status_code == 303
+    assert db.execute("SELECT COUNT(*) FROM observations").fetchone()[0] == before

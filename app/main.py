@@ -62,10 +62,11 @@ UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 def _cross_site(request: Request) -> bool:
-    """A browser form post from another site carries a foreign Origin (or Referer); refuse it before any handler runs."""
+    """A post must come from this site: a foreign Origin (or Referer) is refused, and so is a missing one once a session
+    cookie is present. Without a session (signing in) a missing header is allowed."""
     source = request.headers.get("origin") or request.headers.get("referer")
     if not source:
-        return False  # non-browser clients; session cookies are SameSite=Lax as a second layer
+        return auth.COOKIE in request.cookies
     return httpx.URL(source).host != request.url.hostname
 
 
@@ -73,7 +74,10 @@ def _cross_site(request: Request) -> bool:
 async def _guards(request: Request, call_next):
     if request.method in UNSAFE:
         if _cross_site(request):
-            return JSONResponse({"error": "Cross-site form submissions are not accepted.", "status": 403}, status_code=403)
+            message = "Form submissions must come from this site. Reload the page and try again."
+            if _wants_json(request):
+                return JSONResponse({"error": message, "status": 403}, status_code=403)
+            return render(request, "error.html", {"status": 403, "message": message}, status=403)
         length = request.headers.get("content-length")
         if length and length.isdigit() and int(length) > MAX_BODY:
             return JSONResponse({"error": "The request is too large.", "status": 413}, status_code=413)

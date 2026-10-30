@@ -3,6 +3,16 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
+_init = TestClient.__init__
+
+
+def _same_origin(self, *args, headers=None, **kwargs):
+    """Browsers send Origin on form posts; the portal refuses signed-in posts without it."""
+    _init(self, *args, headers={"Origin": "http://testserver", **(headers or {})}, **kwargs)
+
+
+TestClient.__init__ = _same_origin
+
 
 @pytest.fixture
 def app(tmp_path, monkeypatch):
