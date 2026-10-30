@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}Review · Moderation{% endblock %}
+{% block content %}
+<p class="eyebrow">Review · {{ offering_names[o.offering] }} · from a {{ org.industry }} organisation, {{ org.region }}</p>
+<h1>{{ o.title }}</h1>
+<div class="cols">
+<section class="card private-zone"><p class="eyebrow">Private source (never published as is)</p>
+  <p style="white-space:pre-line">{{ o.body }}</p>
+  <div class="meta"><span>{{ o.topic }}</span><span>{{ o.period }}</span><span>{{ o.evidence_type }}</span><span>confidence {{ o.confidence }}</span></div>
+  {% if flags_now %}<div class="demo-note">Scan flags: {{ flags_now|join(', ') }}. Redact before publishing.</div>{% endif %}
+  <p class="hint">Consents: publish {{ 'yes' if o.consent_publish else 'no' }} · attribution {{ 'yes' if o.consent_attribution else 'no' }} · training {{ 'yes' if o.consent_training else 'no' }}</p>
+</section>
+<aside class="stack">
+{% if o.share_state == 'submitted' %}
+<form method="post" action="/moderation/{{ o.id }}/publish" class="card shared-zone">
+  <h2>Shared copy</h2><p class="hint">Only these reviewed fields are published. Remove names, identifiers, exact figures and overly specific dates or places.</p>
+  <div class="field"><label for="t">Title</label><input id="t" name="title" type="text" value="{{ o.title }}" required maxlength="120"></div>
+  <div class="field"><label for="b">Text</label><textarea id="b" name="body" required maxlength="2000">{{ o.body }}</textarea></div>
+  <div class="two"><div class="field"><label for="r">Region (coarsen if needed)</label><input id="r" name="region" type="text" value="{{ org.region }}"></div>
+  <div class="field"><label for="p">Period</label><input id="p" name="period" type="text" value="{{ o.period }}"></div></div>
+  <div class="field"><label for="th">Theme</label><select id="th" name="theme_id"><option value="">No theme</option>{% for t in themes %}<option value="{{ t.id }}" {% if t.name.lower().startswith(o.topic.lower()[:6]) %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="nt">…or new theme</label><input id="nt" name="new_theme" type="text" maxlength="80"></div>
+  {% if o.consent_attribution %}<label class="check"><input type="checkbox" name="attribute"> Show the organisation's name (contributor opted in)</label>{% endif %}
+  <label class="check"><input type="checkbox" name="override_flags"> Publish even if the scan still flags something (I checked it)</label>
+  <p></p><button class="btn">Publish shared copy</button>
+</form>
+<form method="post" action="/moderation/{{ o.id }}/return" class="card">
+  <h2>Return or reject</h2>
+  <div class="field"><label for="n">Reason for the contributor</label><textarea id="n" name="note" required minlength="5" maxlength="500" style="min-height:80px"></textarea></div>
+  <button class="btn ghost" name="action" value="return">Ask for clarification</button> <button class="btn danger" name="action" value="reject">Reject</button>
+</form>
+{% else %}<div class="card"><p>Current state: <span class="pill {{ o.share_state }}">{{ o.share_state }}</span></p></div>{% endif %}
+</aside></div>
+{% endblock %}

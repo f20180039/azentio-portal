@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: azentio-portal
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: PORTAL_DB
+        value: /tmp/portal.db
+      - key: MIN_COHORT
+        value: "3"
+      - key: DEMO_MAILBOX
+        value: "1"
+      - key: GROQ_API_KEY
+        sync: false

@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block title %}New observation · {{ ctx.org.name }}{% endblock %}
+{% block content %}
+<div style="max-width:760px"><h1>New observation</h1>
+<form method="post" action="/observations" class="card">{% include "_obs_fields.html" %}<button class="btn">Save privately</button></form></div>
+{% endblock %}

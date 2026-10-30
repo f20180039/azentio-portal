@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Products · azentio.ai{% endblock %}
+{% block content %}
+<h1>Products</h1><p class="muted">Sandbox demonstrations use synthetic data. A sandbox recommendation is never an approved credit or business decision.</p>
+<div class="grid">{% for o in offerings %}
+<article class="card"><p class="eyebrow">{{ o.category }}</p><h3><a href="/products/{{ o.slug }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p></article>
+{% endfor %}</div>
+{% endblock %}

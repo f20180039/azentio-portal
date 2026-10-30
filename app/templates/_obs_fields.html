@@ -1,0 +1,18 @@
+<div class="demo-note">Leave out customer names, account numbers, transaction-level data, credentials, confidential pricing or contract terms. A warning or automatic scan is not a privacy guarantee; a moderator reviews anything proposed for sharing.</div>
+<div class="two">
+  <div class="field"><label for="category">Category</label><select id="category" name="category">{% for c in categories %}<option {% if o and o.category==c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="offering">Offering</label><select id="offering" name="offering">{% for f in offerings %}<option value="{{ f.slug }}" {% if o and o.offering==f.slug %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
+</div>
+<div class="field"><label for="title">Title</label><input id="title" name="title" type="text" required minlength="5" maxlength="120" value="{{ o.title if o else '' }}"></div>
+<div class="field"><label for="body">What did you observe?</label><textarea id="body" name="body" required minlength="20" maxlength="2000">{{ o.body if o else '' }}</textarea><p class="hint">20–2000 characters.</p></div>
+<div class="two">
+  <div class="field"><label for="topic">Topic</label><input id="topic" name="topic" type="text" required minlength="2" maxlength="60" value="{{ o.topic if o else '' }}" placeholder="e.g. Seasonality"></div>
+  <div class="field"><label for="period">Observation period</label><input id="period" name="period" type="text" required minlength="4" maxlength="40" value="{{ o.period if o else '' }}" placeholder="e.g. Jul–Sep 2026"></div>
+  <div class="field"><label for="evidence_type">Evidence type</label><select id="evidence_type" name="evidence_type">{% for e in evidence_types %}<option {% if o and o.evidence_type==e %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="confidence">Confidence</label><select id="confidence" name="confidence">{% for c in confidence %}<option {% if o and o.confidence==c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+</div>
+<fieldset><legend>Who can see this record</legend>
+  <label class="check"><input type="radio" name="visibility" value="private" {% if not o or o.visibility=='private' %}checked{% endif %}> Only me</label>
+  <label class="check"><input type="radio" name="visibility" value="org" {% if o and o.visibility=='org' %}checked{% endif %}> People in {{ ctx.org.name }}</label>
+  <p class="hint">Sharing with other organisations is a separate, moderated step after saving.</p>
+</fieldset>

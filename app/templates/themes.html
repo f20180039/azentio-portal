@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Themes · azentio.ai{% endblock %}
+{% block content %}
+<h1>Themes</h1>
+<p class="muted">Statistics count distinct organisations; repeated posts from one organisation count once. A theme appears to clients only when at least {{ min_cohort }} organisations contribute, and that still is not proof of market prevalence.</p>
+<div class="stack">{% for t in themes %}
+<div class="card stripe {{ 'ok' if t.meets_cohort else 'warn' }}">
+  <h2><a href="/learning/themes/{{ t.id }}">{{ t.name }}</a></h2><p class="muted">{{ t.summary }}</p>
+  <div class="meta"><span>{{ offering_names[t.offering] }}</span><span>{{ t.organisations }} organisations</span><span>{{ t.contributions }} contributions</span><span>{{ t.periods|join(', ') }}</span><span>updated {{ t.updated_at|ago }}</span></div>
+  {% if not t.meets_cohort %}<p class="hint">Below the cohort minimum: visible to moderators and product owners only.</p>{% elif t.small_sample %}<p class="hint">Small sample: treat as an early signal.</p>{% endif %}
+</div>
+{% else %}<p class="muted">No themes meet the minimum yet.</p>{% endfor %}</div>
+{% if hidden %}<p class="hint">{{ hidden }} emerging theme(s) are hidden until enough organisations contribute.</p>{% endif %}
+{% endblock %}

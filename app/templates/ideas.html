@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}Improvement ideas · azentio.ai{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between"><h1>Improvement ideas</h1>{% if ctx.has('product_owner') %}<a class="btn" href="/ideas/new">New idea</a>{% endif %}</div>
+<p class="muted">Status shows where an idea stands. It is not a delivery commitment.</p>
+<div class="stack">{% for i in ideas %}
+<div class="card">
+  <div class="row"><span class="pill {{ i.status }}">{{ i.status }}</span><h2 style="margin:0">{{ i.title }}</h2></div>
+  <div class="meta"><span>{{ offering_names[i.offering] }}</span><span>{{ i.owner_team }}</span><span>themes: {{ i.themes|join(', ') }}</span><span>updated {{ i.updated_at|ago }}</span></div>
+  {% if i.public_note %}<p style="margin-top:8px">{{ i.public_note }}</p>{% endif %}
+  {% if ctx.is_employee %}<details><summary class="muted">Internal detail</summary><p><b>Problem:</b> {{ i.problem }}</p><p><b>Proposed outcome:</b> {{ i.proposed_outcome }}</p><p><b>Priority:</b> {{ i.priority }}</p></details>{% endif %}
+  {% if ctx.has('product_owner') %}
+  <form method="post" action="/ideas/{{ i.id }}/status" class="row" style="margin-top:10px">
+    <select name="status" aria-label="Status" style="max-width:180px">{% for s in statuses %}<option {% if s==i.status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+    <input type="text" name="public_note" value="{{ i.public_note }}" maxlength="300" placeholder="Update shown to clients" style="flex:1;min-width:200px" aria-label="Public note">
+    <button class="btn small">Update</button></form>
+  {% endif %}
+</div>
+{% else %}<p class="muted">No ideas you can see yet.</p>{% endfor %}</div>
+{% endblock %}

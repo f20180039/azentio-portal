@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}{{ o.name }} · azentio.ai{% endblock %}
+{% block content %}
+<p class="eyebrow">{{ o.category }}</p><h1>{{ o.name }}</h1><p>{{ o.summary }}</p>
+<div class="row"><a class="btn" href="/connect">Request a demo</a></div>
+<section><h2>Guided demonstrations</h2>
+{% if demos %}<div class="grid">{% for d in demos %}<article class="card"><h3><a href="/resources/{{ d.id }}">{{ d.title }}</a></h3><p class="muted">{{ d.body }}</p></article>{% endfor %}</div>
+{% elif ctx.signed_in %}<p class="muted">Your active organisation is not entitled to demos of this product.</p>
+{% else %}<p class="muted">Entitled clients can open guided sandboxes after <a href="/signin">signing in</a>.</p>{% endif %}
+</section>
+{% endblock %}

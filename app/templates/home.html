@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% block title %}azentio.ai · Build intelligence. Create shared value.{% endblock %}
+{% block banner %}<div class="banner"><div class="wrap">{{ banner }} <a href="/hackathon/register">Register</a></div></div>{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">Enterprise AI for financial services</p>
+  <h1>Build intelligence. Create shared value.</h1>
+  <p>Explainable credit, reporting and document intelligence, plus a governed portal where clients and Azentio learn from each other without exposing private data.</p>
+  <div class="row"><a class="btn" href="/products">Explore products</a><a class="btn ghost" href="/connect">Request a demo</a></div>
+</section>
+<section>
+  <h2>Featured products</h2>
+  <div class="grid">
+  {% for o in offerings %}
+    <article class="card"><p class="eyebrow">{{ o.category }}</p><h3><a href="/products/{{ o.slug }}">{{ o.name }}</a></h3><p class="muted">{{ o.summary }}</p></article>
+  {% endfor %}
+  </div>
+</section>
+<section>
+  <h2>See intelligence in action</h2>
+  <div class="grid">
+  {% for m in media %}
+    <article class="card">{% if m.media_name %}<img class="poster" src="/media/{{ m.id }}" alt="">{% endif %}
+      <p class="eyebrow">{{ m.kind }}</p><h3><a href="/resources/{{ m.id }}">{{ m.title }}</a></h3><p class="muted">{{ m.body }}</p></article>
+  {% endfor %}
+  </div>
+</section>
+<section>
+  <h2>Trust by design</h2>
+  <div class="grid">
+    <div class="card"><h3>Access checked on the server</h3><p class="muted">Every page, API call and media file checks your identity, active organisation, entitlements and the resource's audience.</p></div>
+    <div class="card"><h3>Private until you share</h3><p class="muted">Client observations start private. Sharing needs explicit consent and a moderator's review of a separate, de-identified copy.</p></div>
+    <div class="card"><h3>Audited and reversible</h3><p class="muted">Moderation and status changes go to a hash-chained audit log. Withdrawal removes content from search and AIRA at once.</p></div>
+  </div>
+</section>
+{% endblock %}

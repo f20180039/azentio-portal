@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block title %}Demo mailbox · azentio.ai{% endblock %}
+{% block content %}
+<h1>Demo mailbox</h1>
+<div class="demo-note">Email delivery is not configured in this hackathon build. Messages that would be emailed are stored and shown here. None of them was "delivered".</div>
+<form class="row" method="get"><input type="email" name="email" value="{{ email }}" placeholder="name@example.com" style="max-width:320px"><button class="btn small">Open</button></form>
+<div class="stack" style="margin-top:16px">{% for m in mails %}
+<div class="card"><b>{{ m.subject }}</b> <span class="muted">{{ m.created_at|ago }}</span><p class="mono">{% if m.body.startswith('/invite/') %}<a href="{{ m.body }}">{{ m.body }}</a>{% else %}{{ m.body }}{% endif %}</p></div>
+{% else %}{% if email %}<p class="muted">No messages for {{ email }}.</p>{% endif %}{% endfor %}</div>
+{% endblock %}

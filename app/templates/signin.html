@@ -1,0 +1,48 @@
+{% extends "base.html" %}{% block title %}Sign in · azentio.ai{% endblock %}
+{% block content %}
+<div class="cols">
+<div>
+<h1>Sign in</h1>
+{% if step == 'email' %}
+<form method="post" action="/signin" class="card">
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" value="{{ email }}" required autocomplete="email"></div>
+  <button class="btn">Email me a code</button>
+  <p class="hint">Employees need an approved Azentio membership; an @azentio.com address alone grants nothing. Clients join by invitation.</p>
+</form>
+{% else %}
+<form method="post" action="/signin/verify" class="card">
+  <input type="hidden" name="next" value="{{ next }}"><input type="hidden" name="email" value="{{ email }}">
+  {% if error %}<div class="flash" style="border-color:var(--bad)">{{ error }}</div>{% endif %}
+  <p>We sent a 6-digit code to <b>{{ email }}</b>. It expires in 10 minutes; 5 wrong tries lock it.</p>
+  <div class="field"><label for="code">Code</label><input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus autocomplete="one-time-code"></div>
+  <button class="btn">Sign in</button> <a href="/signin?email={{ email }}">Use another email</a>
+</form>
+{% if mail %}<div class="demo-note"><b>Demo mailbox.</b> Email delivery is not configured in this hackathon build, so the message appears here: <span class="mono">{{ mail.body }}</span></div>{% endif %}
+{% endif %}
+</div>
+{% if step == 'email' %}
+<aside>
+<h2>Demo personas</h2>
+<p class="muted">Each one signs in through the same email-code flow. Codes appear in the demo mailbox.</p>
+<form method="post" action="/signin"><input type="hidden" name="next" value="{{ next }}">
+<div class="personas">
+{% for email, label, note in [
+  ('asha@kestrel.example','Asha · Kestrel Bank','Client administrator'),
+  ('ravi@kestrel.example','Ravi · Kestrel Bank','Client member'),
+  ('noor@meridian.example','Noor · Meridian Cooperative','Client administrator'),
+  ('sam@northwind.example','Sam · Northwind Finance','Client administrator'),
+  ('jay@consult.example','Jay · two organisations','Workspace switcher'),
+  ('omar@azentio.com','Omar · Azentio','Learning moderator'),
+  ('priya@azentio.com','Priya · Azentio','Product owner'),
+  ('lena@azentio.com','Lena · Azentio','Content publisher'),
+  ('admin@azentio.com','Arjun · Azentio','Portal administrator'),
+  ('dev@azentio.com','Dev · Azentio','Employee, no extra grants'),
+] %}
+<button name="email" value="{{ email }}">{{ label }}<small>{{ note }}</small></button>
+{% endfor %}
+</div></form>
+</aside>
+{% endif %}
+</div>
+{% endblock %}

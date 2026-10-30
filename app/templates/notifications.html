@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Updates · azentio.ai{% endblock %}
+{% block content %}
+<h1>Updates</h1><p class="muted">In-app notifications. Email delivery is not part of this build.</p>
+<div class="stack">{% for n in rows %}
+<div class="card {% if not n.read %}stripe ok{% endif %}"><p style="margin:0">{{ n.text }}</p><div class="meta"><span>{{ n.created_at|ago }}</span>{% if n.link %}<span><a href="{{ n.link }}">Open</a></span>{% endif %}</div></div>
+{% else %}<p class="muted">No updates yet.</p>{% endfor %}</div>
+{% endblock %}

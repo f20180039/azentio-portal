@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}azentio.ai{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">azent<span>i</span>o<span>.ai</span></a>
+    <nav class="nav" aria-label="Main">
+      <a href="/products">Products</a>
+      <a href="/media">Media &amp; insights</a>
+      <a href="/about">About</a>
+      <a href="/hackathon/register">Hackathons</a>
+      {% if ctx.org %}
+        <a href="/dashboard">Dashboard</a>
+        {% if ctx.is_client %}<a href="/observations">Observations</a>{% endif %}
+        <a href="/learning">Shared learning</a>
+        {% if ctx.has('moderate') %}<a href="/moderation">Moderation</a>{% endif %}
+        {% if ctx.is_client_admin %}<a href="/org/members">Members</a>{% endif %}
+        {% if ctx.has('publish_content') %}<a href="/content">Site content</a>{% endif %}
+        {% if ctx.has('portal_admin') %}<a href="/admin/audit">Audit log</a>{% endif %}
+      {% endif %}
+    </nav>
+    <div class="who">
+      {% if ctx.signed_in %}
+        {% if ctx.org %}<span class="chip org" title="Active workspace">{{ ctx.org.name }} · {{ ctx.role }}</span>{% endif %}
+        {% if ctx.memberships|length > 1 %}<a href="/workspace">Switch</a>{% endif %}
+        <a class="bell" href="/notifications" aria-label="Notifications">Updates{% if unread %}<b>{{ unread }}</b>{% endif %}</a>
+        <span class="muted">{{ ctx.user.email }}</span>
+        <form class="inline" method="post" action="/signout"><button class="btn small ghost">Sign out</button></form>
+      {% else %}
+        <a class="btn ghost small" href="/signin">Sign in</a>
+        <a class="btn small" href="/connect">Request demo</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+{% block banner %}{% endblock %}
+<main class="wrap">
+  {% if request.query_params.get('flash') %}<div class="flash" role="status">{{ request.query_params.get('flash') }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="foot"><div class="wrap row">
+  <span>azentio.ai hackathon build · synthetic data only · all organisations are fictional</span>
+  <a href="/api/docs">API</a>
+</div></footer>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}Join {{ inv.org_name }} · azentio.ai{% endblock %}
+{% block content %}
+<div style="max-width:640px">
+<p class="eyebrow">Invitation</p>
+<h1>Join {{ inv.org_name }} as {{ inv.role }}</h1>
+<p>Issued to <b>{{ inv.email }}</b>. Single use; expires {{ inv.expires_at|date }}.</p>
+{% if not ctx.signed_in %}
+<p><a class="btn" href="/signin?next=/invite/{{ token }}&email={{ inv.email }}">Verify {{ inv.email }} to continue</a></p>
+{% else %}
+<form method="post" class="card">
+  <h2>Workspace terms</h2>
+  <p>Joining gives you access to your organisation's workspace and its entitled products. <b>Joining is not consent to share anything.</b> Observations you write start private. You choose for each one whether it stays private, is visible to your organisation, or is proposed for moderated shared learning, and you can withdraw a shared contribution at any time.</p>
+  <p class="muted">Contributions are never used to train models. Any future federated-learning programme would ask for separate consent.</p>
+  <label class="check"><input type="checkbox" name="terms" required> I accept the workspace terms</label>
+  <p></p><button class="btn">Join {{ inv.org_name }}</button>
+</form>
+{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Site content · azentio.ai{% endblock %}
+{% block content %}
+<div style="max-width:700px"><h1>Site content</h1>
+<form method="post" class="card"><div class="field"><label for="banner">Homepage banner</label><input id="banner" name="banner" type="text" value="{{ banner }}" required minlength="5" maxlength="200"></div><button class="btn">Publish banner</button></form>
+<p class="hint">The publishing grant covers website content only. It gives no access to identities or private learning records.</p></div>
+{% endblock %}

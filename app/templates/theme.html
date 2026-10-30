@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}{{ t.name }} · Themes{% endblock %}
+{% block content %}
+<p class="eyebrow">Theme · {{ offering_names[t.offering] }}</p>
+<h1>{{ t.name }}</h1><p>{{ t.summary }}</p>
+<div class="kpis">
+  <div class="card kpi"><span class="muted">Contributing organisations</span><b>{{ t.organisations }}</b></div>
+  <div class="card kpi"><span class="muted">Approved contributions</span><b>{{ t.contributions }}</b></div>
+  <div class="card kpi"><span class="muted">Latest update</span><b style="font-size:1.1rem">{{ t.updated_at|date }}</b></div>
+</div>
+{% if t.small_sample %}<div class="demo-note">Small sample ({{ t.organisations }} organisations). Confidence is limited; this is an early signal, not evidence of how common the issue is or what causes it.</div>{% endif %}
+<div class="cols" style="margin-top:18px">
+<section class="stack"><h2>Supporting contributions</h2>
+{% for it in t["items"] %}<article class="card shared-zone"><span class="cite">S{{ it.id }}</span><h3>{{ it.title }}</h3><p>{{ it.body }}</p>
+<div class="meta"><span>{{ it.industry }}</span><span>{{ it.region }}</span><span>{{ it.period }}</span><span>confidence {{ it.confidence }}</span></div></article>{% endfor %}
+</section>
+<aside class="stack"><h2>Improvement ideas</h2>
+{% for i in ideas %}<div class="card"><span class="pill {{ i.status }}">{{ i.status }}</span><h3>{{ i.title }}</h3><p class="muted">{{ i.public_note }}</p><div class="meta"><span>{{ i.owner_team }}</span><span>{{ i.updated_at|ago }}</span></div></div>
+{% else %}<p class="muted">No idea linked yet.</p>{% endfor %}
+{% if ctx.has('product_owner') and t.meets_cohort %}<a class="btn" href="/ideas/new?theme={{ t.id }}">Create improvement idea</a>{% endif %}
+<form method="post" action="/learning/ask" class="card"><input type="hidden" name="question" value="Summarise the {{ t.name }} theme"><button class="btn ghost">Summarise with AIRA</button></form>
+</aside></div>
+{% endblock %}

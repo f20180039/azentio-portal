@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}Members · {{ ctx.org.name }}{% endblock %}
+{% block content %}
+<h1>{{ ctx.org.name }} members</h1>
+<div class="cols">
+<section class="card"><h2>People</h2><div class="scroll"><table><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr>
+{% for p in people %}<tr><td>{{ p.name }}</td><td>{{ p.email }}</td><td>{{ p.role }}</td><td><span class="pill {{ 'ok' if p.status=='active' else 'bad' }}">{{ p.status }}</span></td>
+<td>{% if p.status=='active' and p.id != ctx.user_id %}<form method="post" action="/org/members/{{ p.id }}/revoke" class="inline"><button class="btn small ghost">Revoke</button></form>{% endif %}</td></tr>{% endfor %}
+</table></div>
+<h2 style="margin-top:20px">Invitations</h2><div class="scroll"><table><tr><th>Email</th><th>Role</th><th>Status</th><th>Expires</th><th></th></tr>
+{% for i in invites %}<tr><td>{{ i.email }}</td><td>{{ i.role }}</td><td><span class="pill {{ 'warn' if i.status=='pending' else ('ok' if i.status=='accepted' else 'bad') }}">{{ 'expired' if i.status=='pending' and i.expires_at < now else i.status }}</span></td><td>{{ i.expires_at|date }}</td>
+<td>{% if i.status=='pending' %}<form method="post" action="/org/invite/{{ i.id }}/revoke" class="inline"><button class="btn small ghost">Revoke</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">No invitations yet.</td></tr>{% endfor %}</table></div></section>
+<aside><form method="post" action="/org/invite" class="card"><h2>Invite someone</h2>
+<div class="field"><label for="email">Email</label><input id="email" name="email" type="email" required></div>
+<div class="field"><label for="role">Role</label><select id="role" name="role"><option value="member">Member</option><option value="admin">Administrator</option></select></div>
+<button class="btn">Send invitation</button>
+<p class="hint">Single use, expires in 7 days, valid only for that email. You can grant client roles in {{ ctx.org.name }} only.{% if demo_mailbox %} In this demo the invitation goes to the <a href="/mailbox">demo mailbox</a>.{% endif %}</p></form></aside>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% block title %}{{ o.title }}{% endblock %}
+{% block content %}
+<p class="eyebrow">{{ o.category }} · {{ offering_names[o.offering] }}</p>
+<h1>{{ o.title }}</h1>
+<div class="row"><span class="pill">{{ 'Only the author' if o.visibility=='private' else 'Visible inside the organisation' }}</span><span class="pill {{ o.share_state }}">Sharing: {{ 'not shared' if o.share_state=='none' else o.share_state }}</span></div>
+{% if o.moderator_note and o.share_state in ('returned','rejected') %}<div class="flash" style="border-color:var(--warn)"><b>Moderator:</b> {{ o.moderator_note }}</div>{% endif %}
+<div class="cols" style="margin-top:18px">
+<section class="stack">
+  <div class="card private-zone"><p class="eyebrow">Private source record</p><p style="white-space:pre-line">{{ o.body }}</p>
+  <div class="meta"><span>{{ o.topic }}</span><span>{{ o.period }}</span><span>{{ o.evidence_type }}</span><span>confidence {{ o.confidence }}</span></div>
+  {% if o.sensitive_flags and can_edit %}<p class="hint">Automatic scan flagged: {{ o.sensitive_flags }}. Remove it before sharing.</p>{% endif %}</div>
+  {% if versions %}<div class="card shared-zone"><h2>Shared versions</h2><p class="hint">What other organisations see: only the reviewed copy, without your name{% if not o.consent_attribution %} or organisation{% endif %}.</p>
+  {% for v in versions %}<div class="stripe {{ 'ok' if v.status=='published' else 'bad' }}" style="padding-left:12px;margin-bottom:12px"><div class="row"><b>v{{ v.version }}</b><span class="pill {{ v.status }}">{{ v.status }}</span><span class="muted">{{ v.published_at|date }}</span></div><b>{{ v.title }}</b><p class="muted" style="margin:0">{{ v.body }}</p><div class="meta"><span>{{ v.region }}</span><span>{{ v.attribution or 'Not attributed' }}</span></div></div>{% endfor %}</div>{% endif %}
+  {% if can_edit and o.share_state not in ('submitted','suspended') %}
+  <details class="card"><summary>Edit this record</summary>
+    <form method="post" action="/observations/{{ o.id }}/edit" style="margin-top:12px">{% include "_obs_fields.html" %}
+    {% if o.share_state=='published' %}<p class="hint">Editing a published contribution sends it for a fresh review. The current shared version stays as it is until a moderator approves the new one.</p>{% endif %}
+    <button class="btn">Save changes</button></form></details>
+  {% endif %}
+</section>
+<aside class="stack">
+{% if can_edit %}
+  {% if o.share_state in ('none','returned','withdrawn','rejected') %}
+  <form method="post" action="/observations/{{ o.id }}/share" class="card">
+    <h2>Propose for shared learning</h2>
+    <p class="muted">A moderator reviews a separate copy, removes identifying details and may ask you to clarify. Nothing is shared until it is published.</p>
+    <label class="check"><input type="checkbox" name="consent_publish"> I consent to a reviewed, de-identified version being shown to authorised participants from other organisations.</label>
+    <label class="check"><input type="checkbox" name="consent_attribution"> Show my organisation's name on it (optional; the moderator must also approve).</label>
+    <label class="check"><input type="checkbox" name="consent_training"> I agree to it being considered for a future model-training programme (separate consent; no such programme runs today).</label>
+    <p></p><button class="btn">Send to moderator</button>
+  </form>
+  {% endif %}
+  {% if o.share_state not in ('none','withdrawn') %}
+  <form method="post" action="/observations/{{ o.id }}/withdraw" class="card">
+    <h2>Withdraw sharing</h2>
+    <p class="muted">Removes every shared version from the feed, search, themes and AIRA immediately. People who already read it cannot un-read it, and copies made elsewhere cannot be recalled.</p>
+    <button class="btn danger">Withdraw</button>
+  </form>
+  {% endif %}
+{% endif %}
+  <div class="card"><h3>Who can see what</h3>
+  <p class="muted" style="margin:0">Source record: {{ 'only the author' if o.visibility=='private' else 'members of the organisation' }}. Moderators see it only after it is submitted for review. Shared copy: authorised participants, without author details.</p></div>
+</aside>
+</div>
+{% endblock %}

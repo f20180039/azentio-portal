@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}Observations · {{ ctx.org.name }}{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between"><h1>Observations</h1><a class="btn" href="/observations/new">New observation</a></div>
+<section class="card private-zone"><h2>Mine</h2>
+{% if mine %}<div class="scroll"><table><tr><th>Title</th><th>Category</th><th>Visible to</th><th>Sharing</th><th>Updated</th></tr>
+{% for o in mine %}<tr><td><a href="/observations/{{ o.id }}">{{ o.title }}</a></td><td>{{ o.category }}</td><td>{{ 'Only me' if o.visibility=='private' else 'My organisation' }}</td><td><span class="pill {{ o.share_state }}">{{ 'not shared' if o.share_state=='none' else o.share_state }}</span></td><td>{{ o.updated_at|ago }}</td></tr>{% endfor %}
+</table></div>{% else %}<p class="muted">None yet.</p>{% endif %}</section>
+<section class="card private-zone"><h2>Our organisation's</h2><p class="hint">Notes colleagues chose to make visible inside {{ ctx.org.name }}. Not shared outside it.</p>
+{% if org %}<div class="scroll"><table><tr><th>Title</th><th>Author</th><th>Sharing</th><th>Updated</th></tr>
+{% for o in org %}<tr><td><a href="/observations/{{ o.id }}">{{ o.title }}</a></td><td>{{ o.author }}</td><td><span class="pill {{ o.share_state }}">{{ 'not shared' if o.share_state=='none' else o.share_state }}</span></td><td>{{ o.updated_at|ago }}</td></tr>{% endfor %}
+</table></div>{% else %}<p class="muted">Nothing shared inside the organisation yet.</p>{% endif %}</section>
+{% endblock %}

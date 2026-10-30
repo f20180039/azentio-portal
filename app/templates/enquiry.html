@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}{{ 'Request a demo' if kind=='demo' else 'Hackathon registration' }} · azentio.ai{% endblock %}
+{% block content %}
+<div style="max-width:620px">
+<h1>{{ 'Request a demo' if kind=='demo' else 'Register for the Build Lab' }}</h1>
+<form method="post" class="card">
+  <div class="two"><div class="field"><label for="name">Name</label><input id="name" name="name" type="text" required minlength="2" maxlength="80"></div>
+  <div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" required></div></div>
+  <div class="field"><label for="company">{{ 'Company' if kind=='demo' else 'Team or organisation' }}</label><input id="company" name="company" type="text" required maxlength="120"></div>
+  {% if offerings %}<div class="field"><label for="interest">Product of interest</label><select id="interest" name="interest">{% for o in offerings %}<option value="{{ o.slug }}">{{ o.name }}</option>{% endfor %}</select></div>
+  {% else %}<div class="field"><label for="interest">Team size</label><select id="interest" name="interest"><option>1</option><option>2</option><option>3</option></select></div>{% endif %}
+  <div class="field"><label for="message">Message</label><textarea id="message" name="message" maxlength="1000"></textarea></div>
+  <button class="btn">{{ 'Send request' if kind=='demo' else 'Register' }}</button>
+  <p class="hint">Stored for follow-up. No email is sent from this demo.</p>
+</form></div>
+{% endblock %}
