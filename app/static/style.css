@@ -246,7 +246,8 @@ details summary { cursor: pointer; font-weight: 600; }
 
 /* breathing room between a badge row and the heading under it */
 .card > :is(.row, .pill, .cite) + :is(h2, h3) { margin-top: 12px; }
-.grid { align-items: start; }
+/* media cards differ by design (poster or not), so they keep their own height */
+.grid.media-grid { align-items: start; }
 
 .enquiry { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
 @media (max-width: 860px) { .enquiry { grid-template-columns: 1fr; } }
@@ -261,3 +262,7 @@ details summary { cursor: pointer; font-weight: 600; }
 .flow-v b { display: block; margin-bottom: 2px; }
 .flow-v br { display: none; }
 .flow-v span { color: var(--ink-soft); font-size: .95rem; }
+/* sibling cards in a row share one height, with any trailing link pinned to the bottom */
+.product-card p { flex: 1; }
+.product-card .more { font-weight: 700; text-decoration: none; margin-top: 8px; }
+.product-card .more:hover { text-decoration: underline; }
