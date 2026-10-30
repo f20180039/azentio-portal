@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, attachments, audit, auth, entra, outbox, trends, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
+from . import aira, attachments, audit, auth, entra, federated, outbox, trends, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
 from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
@@ -634,6 +634,42 @@ async def team_member(request: Request, tid: int):
 async def team_post(request: Request, tid: int):
     innovation.post(request.state.conn, request.state.ctx, tid, (await form(request)).get("body") or "")
     return back(Route.TEAM.url(tid=tid))
+
+
+@app.get(Route.FEDERATED, response_class=HTMLResponse)
+def federated_page(request: Request):
+    conn, ctx = request.state.conn, request.state.ctx
+    policy.require_workspace(ctx)
+    if not (ctx.is_employee or ctx.is_client_admin):
+        raise Denied(403, "The federated programme page is for Azentio employees and client administrators.")
+    my_enrollment = None
+    if ctx.is_client_admin:
+        my_enrollment = conn.execute("SELECT * FROM fl_enrollments WHERE org_id=?", (ctx.org_id,)).fetchone()
+    return render(request, "federated.html", {"fl": federated.overview(conn) if ctx.is_employee else None, "mine": my_enrollment,
+                                              "eligible": ctx.org["name"] in federated.CLIENT_PROFILES})
+
+
+@app.post(Route.FEDERATED_ROUND)
+async def federated_round(request: Request):
+    f = await form(request)
+    dropouts = set(f["_multi"].getlist("dropout"))
+    mid = federated.run_round(request.state.conn, request.state.ctx, dropouts, f.get("poisoned") or None)
+    return back(Route.FEDERATED, f"Round complete. Candidate model #{mid} registered; it needs a human decision before deployment.")
+
+
+@app.post(Route.FEDERATED_MODEL)
+async def federated_model(request: Request, mid: int):
+    f = await form(request)
+    federated.decide(request.state.conn, request.state.ctx, mid, f.get("action") or "", f.get("note") or "")
+    return back(Route.FEDERATED, "Decision recorded and audited.")
+
+
+@app.post(Route.FEDERATED_CONSENT)
+async def federated_consent(request: Request):
+    opt_in = (await form(request)).get("action") == Action.OPT_IN
+    federated.set_consent(request.state.conn, request.state.ctx, opt_in)
+    return back(Route.FEDERATED, "Your organisation joined the programme." if opt_in else
+                "Consent withdrawn. Your organisation is excluded from future rounds.")
 
 
 @app.get(Route.RELEASES, response_class=HTMLResponse)

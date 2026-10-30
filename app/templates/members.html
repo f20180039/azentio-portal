@@ -11,6 +11,7 @@
 <td>{% if i.status == InviteStatus.PENDING %}<form method="post" action="{{ R.ORG_INVITE_REVOKE.url(iid=i.id) }}" class="inline"><button class="btn small ghost">Revoke</button></form>{% endif %}</td></tr>
 {% else %}<tr><td colspan="5" class="muted">No invitations yet.</td></tr>{% endfor %}</table></div></section>
 <aside class="stack">
+<div class="card"><h2>Federated learning programme</h2><p class="hint">A separate, optional programme. Joining your workspace or sharing observations is not consent to train models.</p><a class="btn small ghost" href="{{ R.FEDERATED }}">Review programme consent</a></div>
 <div class="card"><h2>Support access requests</h2>
 <p class="hint">Azentio administrators cannot open your records without your approval. Approval lasts 30 minutes, excludes private drafts, and every view is audited.</p>
 {% for s in support %}<div class="stripe {{ 'warn' if s.status == RequestStatus.PENDING else 'ok' if s.status == RequestStatus.APPROVED and s.expires_at > now else 'bad' }}" style="padding-left:12px;margin-bottom:12px">

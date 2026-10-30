@@ -292,5 +292,8 @@ def seed(conn) -> None:
     for off, ver, t, body, atype, aref in releases:
         conn.execute("INSERT INTO release_notes (offering, version, title, body, audience_type, audience_ref, published_by, published_at) VALUES (?,?,?,?,?,?,3,?)",
                      (off, ver, t, body, atype, aref, now - 4 * day))
+    # Kestrel, Northwind and Meridian administrators opted in to the federated programme; Harbour did not
+    conn.executemany("INSERT INTO fl_enrollments (org_id, consented_by, consented_at) VALUES (?,?,?)",
+                     [(2, 6, now - 3 * day), (3, 8, now - 3 * day), (4, 9, now - 2 * day)])
     audit.record(conn, None, "system.seeded", "portal", {"note": "synthetic demo data"})
     conn.execute("COMMIT")

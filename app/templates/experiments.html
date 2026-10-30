@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% from "_ui.html" import head, empty, glyph %}
 {% block title %}Lab · azentio.ai{% endblock %}
-{% block band %}{% call head("Lab", "Internal experiments, hackathon team spaces and the knowledge library. Employee-only; never shown to clients or AIRA.", "Employees only") %}<a class="btn ghost" href="{{ R.LIBRARY }}">Knowledge library</a>{% endcall %}{% endblock %}
+{% block band %}{% call head("Lab", "Internal experiments, hackathon team spaces and the knowledge library. Employee-only; never shown to clients or AIRA.", "Employees only") %}<div class="row"><a class="btn ghost" href="{{ R.LIBRARY }}">Knowledge library</a><a class="btn ghost" href="{{ R.FEDERATED }}">Federated learning</a></div>{% endcall %}{% endblock %}
 {% block content %}
 <div class="cols">
 <section class="stack">

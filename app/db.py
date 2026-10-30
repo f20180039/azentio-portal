@@ -2,7 +2,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-from .constants import (Audience, CommentStatus, EmailStatus, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
+from .constants import (Audience, CommentStatus, ModelStatus, EmailStatus, ConsentEvent, ExperimentStage, Setting, TeamRole, EvidenceQuality, EvidenceVote, InviteStatus, LibraryVerdict, MembershipStatus, OrgKind, Permission, Priority,
                         IdeaStatus, ReportStatus, RequestStatus, Role, SessionStatus, ShareState, SharedStatus, Visibility,
                         EnquiryKind, sql_in)
 
@@ -228,6 +228,20 @@ CREATE TABLE IF NOT EXISTS email_outbox (
 -- short-lived OIDC login attempts: state, nonce and PKCE verifier, single use
 CREATE TABLE IF NOT EXISTS oidc_attempts (
   state TEXT PRIMARY KEY, nonce TEXT NOT NULL, verifier TEXT NOT NULL, next TEXT NOT NULL, expires_at REAL NOT NULL
+);
+-- federated learning programme (optional P2 track): separate consent, round log without training examples, model registry
+CREATE TABLE IF NOT EXISTS fl_enrollments (
+  org_id INTEGER PRIMARY KEY REFERENCES orgs(id), consented_by INTEGER NOT NULL REFERENCES users(id), consented_at REAL NOT NULL,
+  withdrawn_at REAL
+);
+CREATE TABLE IF NOT EXISTS fl_rounds (
+  id INTEGER PRIMARY KEY, started_by INTEGER NOT NULL REFERENCES users(id), base_model_id INTEGER, participants TEXT NOT NULL,
+  method TEXT NOT NULL, metrics TEXT NOT NULL, created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fl_models (
+  id INTEGER PRIMARY KEY, version INTEGER NOT NULL, round_id INTEGER REFERENCES fl_rounds(id), weights TEXT NOT NULL, metrics TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ({sql_in(ModelStatus)})), decided_by INTEGER REFERENCES users(id), decision_note TEXT,
+  created_at REAL NOT NULL, decided_at REAL
 );
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY CHECK (key IN ({sql_in(Setting)})), value TEXT NOT NULL,

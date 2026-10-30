@@ -125,6 +125,10 @@ class Route(StrEnum):
     TEAM_MEMBER = "/hackathon/teams/{tid}/members"
     TEAM_POST = "/hackathon/teams/{tid}/posts"
     RELEASES = "/releases"
+    FEDERATED = "/federated"
+    FEDERATED_ROUND = "/federated/rounds"
+    FEDERATED_MODEL = "/federated/models/{mid}"
+    FEDERATED_CONSENT = "/federated/consent"
     LAB = "/lab"
     TECHNOLOGY = "/technology"
     INSIGHTS = "/insights"
@@ -346,6 +350,21 @@ class EmailStatus(StrEnum):
         return {"queued": "Email queued, not sent yet", "sent": "Email accepted by the provider", "failed": "Email could not be sent"}[self.value]
 
 
+class ModelStatus(StrEnum):
+    """Federated model registry: every aggregate starts as a candidate and needs a human decision."""
+
+    CANDIDATE = "candidate"
+    REJECTED = "rejected"
+    DEPLOYED = "deployed"
+    RETIRED = "retired"
+
+
+class ParticipantOutcome(StrEnum):
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    DROPPED_OUT = "dropped out"
+
+
 class ConsentEvent(StrEnum):
     """Consent history of one contribution (brief §09): each change is kept, never overwritten."""
 
@@ -374,6 +393,10 @@ class Action(StrEnum):
     HIDE = "hide"
     RESTORE = "restore"
     SAVE = "save"
+    DEPLOY = "deploy"
+    ROLLBACK = "rollback"
+    OPT_IN = "opt_in"
+    OPT_OUT = "opt_out"
 
 
 class EnquiryKind(StrEnum):

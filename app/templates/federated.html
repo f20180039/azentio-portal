@@ -1,0 +1,90 @@
+{% extends "base.html" %}{% from "_ui.html" import head, empty %}
+{% block title %}Federated learning · azentio.ai{% endblock %}
+{% block band %}{{ head("Federated learning programme", "An optional, separately consented track. Each client trains on its own synthetic records; only model updates are shared, then a person decides whether a candidate model is deployed.", "Advanced track · synthetic data") }}{% endblock %}
+{% block content %}
+<div class="demo-note"><b>What this is not:</b> this demonstration uses plain sample-weighted averaging. It does <b>not</b> implement secure aggregation or formal differential privacy, and model updates can still leak information. It is separate from the collective learning hub: shared observations are never used to train models.</div>
+
+{% if mine is not none or ctx.is_client_admin %}
+<section class="card">
+  <h2>{{ ctx.org.name }}: programme consent</h2>
+  <p>Status: {% if mine and not mine.withdrawn_at %}<span class="pill ok">Taking part</span> since {{ mine.consented_at|date }}{% elif mine %}<span class="pill bad">Withdrawn</span> on {{ mine.withdrawn_at|date }}{% else %}<span class="pill">Not taking part</span>{% endif %}</p>
+  <ul class="ticks"><li>Your records stay in your environment; only weight updates and a record count are sent.</li>
+    <li>This consent is separate from your workspace membership and from sharing observations.</li>
+    <li>Withdrawing stops your organisation's future participation. Models already aggregated keep their history; any use of them follows the deployment decision recorded below, and nothing promises automatic "untraining".</li></ul>
+  {% if eligible %}<form method="post" action="{{ R.FEDERATED_CONSENT }}">
+    {% if mine and not mine.withdrawn_at %}<button class="btn danger" name="action" value="{{ Action.OPT_OUT }}">Withdraw consent</button>
+    {% else %}<button class="btn" name="action" value="{{ Action.OPT_IN }}">Join the programme</button>{% endif %}</form>
+  {% else %}<p class="muted">This organisation has no synthetic dataset in the demonstration.</p>{% endif %}
+</section>
+{% endif %}
+
+{% if fl %}
+<div class="cols">
+<section class="card">
+  <h2>Participants</h2>
+  <div class="scroll"><table><tr><th>Organisation</th><th>Synthetic records</th><th>How its borrowers differ</th><th>Consent</th></tr>
+  {% for name, p in fl.profiles.items() %}{% set e = fl.enrolled|selectattr('name', 'equalto', name)|first %}
+    <tr><td>{{ name }}</td><td>{{ p.n }}</td><td class="muted">leverage {{ '%+.1f'|format(p.leverage_shift) }}, volatility {{ '%+.1f'|format(p.volatility_shift) }}</td>
+      <td>{% if e %}<span class="pill ok">opted in</span>{% else %}<span class="pill">not enrolled</span>{% endif %}</td></tr>{% endfor %}
+  </table></div>
+  <p class="hint">Task: predict default on synthetic SME loans from {{ fl.features|join(', ') }}. Evaluation uses a separate synthetic holdout of {{ fl.holdout }} records that no client trains on. Skewed populations mean a client's local model can look good on its own data and worse on the shared holdout; the round report shows that comparison.</p>
+</section>
+<aside>
+{% if ctx.has(Permission.PORTAL_ADMIN) %}
+<form method="post" action="{{ R.FEDERATED_ROUND }}" class="card">
+  <h2>Run a round</h2>
+  <p class="hint">Enrolled organisations train locally from the deployed model (or from zero). Simulate failures:</p>
+  {% for e in fl.enrolled %}<label class="check"><input type="checkbox" name="dropout" value="{{ e.name }}"> {{ e.name }} drops out</label>{% endfor %}
+  <div class="field"><label for="poisoned">Malicious participant</label><select id="poisoned" name="poisoned"><option value="">None</option>{% for e in fl.enrolled %}<option value="{{ e.name }}">{{ e.name }} sends a poisoned update</option>{% endfor %}</select></div>
+  <button class="btn">Run round</button>
+  <p class="hint">Needs at least {{ fl.min_participants }} valid participants. Updates are clipped to L2 ≤ {{ fl.clip }}; updates pointing away from the others or far larger are rejected.</p>
+</form>
+{% else %}<div class="card"><p class="muted" style="margin:0">Portal administrators run rounds and decide on deployments.</p></div>{% endif %}
+</aside>
+</div>
+
+<section class="card">
+  <h2>Model registry</h2>
+  {% for m in fl.models %}<div class="stripe {{ 'ok' if m.status == ModelStatus.DEPLOYED else ('warn' if m.status == ModelStatus.CANDIDATE else '') }}" style="padding-left:12px;margin-bottom:14px">
+    <div class="row"><b>Model v{{ m.version }}</b><span class="pill {{ 'ok' if m.status == ModelStatus.DEPLOYED else ('warn' if m.status == ModelStatus.CANDIDATE else 'bad' if m.status == ModelStatus.REJECTED else '') }}">{{ m.status }}</span>
+      <span class="muted">from round {{ m.round_id }}, {{ m.created_at|ago }}</span></div>
+    <div class="meta"><span>holdout AUC {{ m.metrics.global.auc }}</span><span>accuracy {{ m.metrics.global.accuracy }}</span><span>base-rate accuracy {{ m.metrics.base_rate.accuracy }}</span>
+      {% if m.metrics.previous %}<span>previous model AUC {{ m.metrics.previous.auc }}</span>{% endif %}</div>
+    {% if m.decision_note %}<p class="hint" style="margin:4px 0 0">Decision: {{ m.decision_note }}</p>{% endif %}
+    {% if ctx.has(Permission.PORTAL_ADMIN) and m.status in (ModelStatus.CANDIDATE, ModelStatus.DEPLOYED) %}
+    <form method="post" action="{{ R.FEDERATED_MODEL.url(mid=m.id) }}" class="row" style="margin-top:8px">
+      <input type="text" name="note" required minlength="5" maxlength="200" placeholder="Reason for the decision" style="flex:1;min-width:200px" aria-label="Decision reason">
+      {% if m.status == ModelStatus.CANDIDATE %}<button class="btn small" name="action" value="{{ Action.DEPLOY }}">Approve and deploy to sandbox</button><button class="btn small ghost" name="action" value="{{ Action.REJECT }}">Reject</button>
+      {% else %}<button class="btn small danger" name="action" value="{{ Action.ROLLBACK }}">Roll back to previous</button>{% endif %}</form>{% endif %}
+  </div>{% else %}{{ empty("No models yet. Run a round to register the first candidate.") }}{% endfor %}
+  <p class="hint">Deployment here means the Playground sandbox only. Every decision is audited; rollback restores the previously deployed version.</p>
+</section>
+
+<section class="card">
+  <h2>Round log</h2>
+  <p class="hint">Participants, update norms, the aggregation method and evaluation. No training example ever appears here.</p>
+  {% for r in fl.rounds %}<div style="margin-bottom:14px">
+    <div class="row"><b>Round {{ r.id }}</b><span class="muted">{{ r.created_at|ago }}</span><span class="pill {{ 'bad' if r.method == 'aborted' else '' }}">{{ 'aborted' if r.method == 'aborted' else 'completed' }}</span></div>
+    <div class="scroll"><table><tr><th>Participant</th><th>Records</th><th>Outcome</th><th>Update norm</th><th>Local-only model on holdout</th></tr>
+    {% for p in r.participants %}<tr><td>{{ p.org }}</td><td>{{ p.samples }}</td>
+      <td><span class="pill {{ 'ok' if p.outcome == ParticipantOutcome.ACCEPTED else 'bad' }}">{{ p.outcome }}</span>{% if p.reason %} <span class="hint">{{ p.reason }}</span>{% endif %}</td>
+      <td>{{ p.update_norm }}</td><td>{% set lo = r.metrics.get('local_only', {}).get(p.org) %}{% if lo %}AUC {{ lo.auc }}{% else %}–{% endif %}</td></tr>{% endfor %}
+    </table></div>
+    {% if r.metrics.get('global') %}<p class="hint" style="margin:4px 0 0">{{ r.method }}. Aggregate on holdout: AUC {{ r.metrics.global.auc }}, accuracy {{ r.metrics.global.accuracy }} (base rate {{ r.metrics.base_rate.accuracy }}).</p>
+    {% else %}<p class="hint" style="margin:4px 0 0">{{ r.metrics.error }}. Nothing was aggregated.</p>{% endif %}
+  </div>{% else %}<p class="muted">No rounds yet.</p>{% endfor %}
+</section>
+
+<section class="card">
+  <h2>Threat model and controls</h2>
+  <div class="scroll"><table><tr><th>Risk</th><th>In this demonstration</th><th>Production design</th></tr>
+    <tr><td>Updates leak information about training data</td><td>Updates are clipped; only aggregates are stored</td><td>Secure aggregation, and differential privacy with declared (ε, δ) accounting, before any real data</td></tr>
+    <tr><td>Malicious client poisons the model</td><td>Direction and norm checks reject outliers; clipping bounds influence</td><td>Robust aggregation (trimmed mean or median), authenticated participants with signed updates, anomaly review</td></tr>
+    <tr><td>Too few participants</td><td>Rounds abort below {{ fl.min_participants }} valid participants</td><td>Approved minimum cohort per programme</td></tr>
+    <tr><td>Skewed client populations</td><td>Local-only and global holdout results shown side by side</td><td>Per-segment evaluation and fairness review before deployment</td></tr>
+    <tr><td>Unreviewed model reaches users</td><td>Candidate status; a person approves with a recorded reason; rollback</td><td>Change board, staged rollout, monitoring</td></tr>
+    <tr><td>Withdrawal</td><td>Withdrawn organisations are excluded from later rounds</td><td>Lineage per model version; retraining policy for affected models; no promise of automatic untraining</td></tr>
+  </table></div>
+</section>
+{% endif %}
+{% endblock %}

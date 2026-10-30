@@ -36,6 +36,14 @@
   </ol>
 </section>
 <section>
+  <div class="section-title"><h2>4. Federated learning (optional advanced track)</h2><span class="hint">About 3 minutes</span></div>
+  <ol class="demo-steps">
+    {{ step("asha@kestrel.example", R.FEDERATED, "Asha · Kestrel Bank admin", "Separate programme consent", "Joining a workspace or sharing observations is not consent to train. Only the client administrator opts in or out.") }}
+    {{ step("admin@azentio.com", R.FEDERATED, "Arjun · Portal admin", "Run a round with a poisoned participant", "Pick Northwind as malicious and run: its update is rejected, the rest aggregate. Try two dropouts: the round aborts below the minimum.") }}
+    {{ step("admin@azentio.com", R.FEDERATED, "Arjun · Portal admin", "Human deployment decision and rollback", "Approve the candidate with a reason, then roll back. Every decision is audited; the threat model lists what is not implemented.") }}
+  </ol>
+</section>
+<section>
   <div class="section-title"><h2>2. Identity and access tour</h2><span class="hint">About 4 minutes</span></div>
   <ol class="demo-steps">
     {{ step("dev@azentio.com", R.ACCESS, "Dev · Employee", "Employee status implies nothing extra", "Moderation, publishing and administration all say No: each is a separate grant.") }}
@@ -86,7 +94,7 @@
       <tr><td>Comments, bookmarks, saved searches</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Private attachments on observations</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Trend changes, suggested groupings, assisted prioritisation, digests</td><td><span class="pill ok">Built</span></td></tr>
-      <tr><td>Federated model learning (P2)</td><td><span class="pill bad">Not built</span></td></tr>
+      <tr><td>Federated learning track (P2): consent, validation, FedAvg, holdout, registry</td><td><span class="pill ok">Built, labelled as a demo</span></td></tr>
     </table>
   </div>
   <p class="hint">Reset puts every organisation, person and record back to the starting state and signs everyone out. The free server also resets itself after 15 idle minutes.</p>
