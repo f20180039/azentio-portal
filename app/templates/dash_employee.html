@@ -11,10 +11,10 @@
   <h2>Themes from shared learning</h2>
   <div class="stack">{% for t in themes %}
   <div class="card stripe {{ 'ok' if t.meets_cohort else 'warn' }}">
-    <h3><a href="{{ R.THEME.url(tid=t.id) }}">{{ t.name }}</a></h3>
+    <div class="row"><h3 style="margin:0"><a href="{{ R.THEME.url(tid=t.id) }}">{{ t.name }}</a></h3>{% if t.assigned_to_me %}<span class="pill ok">Assigned to you</span>{% endif %}</div>
     <div class="row">{{ cohort(t.organisations, min_cohort) }}<span class="meta" style="margin:0"><span>{{ t.contributions }} contributions</span><span>updated {{ t.updated_at|ago }}</span></span></div>
     {% if not t.meets_cohort %}<p class="hint">Below the cohort minimum: hidden from clients.</p>{% endif %}
-    {% if ctx.has(Permission.PRODUCT_OWNER) and t.meets_cohort %}<a class="btn small ghost" href="{{ R.IDEA_NEW }}?theme={{ t.id }}">Create improvement idea</a>{% endif %}
+    {% if ctx.has(Permission.PRODUCT_OWNER) and t.meets_cohort and t.assigned_to_me %}<a class="btn small ghost" href="{{ R.IDEA_NEW }}?theme={{ t.id }}">Create improvement idea</a>{% endif %}
   </div>{% endfor %}</div>
   <h2 style="margin-top:28px">Ideas</h2>
   <div class="stack">{% for i in ideas %}<div class="card"><div class="row"><span class="pill {{ i.status }}">{{ i.status }}</span><b>{{ i.title }}</b></div><div class="meta"><span>{{ i.owner_team }}</span><span>{{ i.updated_at|ago }}</span></div></div>{% else %}<p class="muted">No ideas yet.</p>{% endfor %}</div>

@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 124 tests
+uv run pytest -q             # 125 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -203,6 +203,7 @@ stateDiagram-v2
 | Useful / needs-evidence votes, moderator evidence quality, duplicate check, ideas citing contributions | Built |
 | Prototype public routes: Solutions, AI Lab, Technology, Insights | Built |
 | Configurator: cohort minimum, small-sample warning, support duration, invitation expiry, AIRA switch and rate, publishing pause (validated, audited) | Built |
+| Product owners: moderators assign themes; owners see and cite only assigned evidence and change only their own ideas | Built |
 | Email delivery (P1), saved searches, bookmarks, comments | **Not built** |
 | Federated model-learning track (P2) | **Not built** |
 

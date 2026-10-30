@@ -20,7 +20,7 @@
     {{ step("asha@kestrel.example", R.DASHBOARD, "Asha · Kestrel Bank admin", "A theme stays hidden below three organisations", "Seasonality context has only 2 contributing organisations, so it is not on Asha's dashboard. Its items are not in her search or AIRA either.") }}
     {{ step("omar@azentio.com", R.MODERATION_REVIEW.url(oid=ids.meridian), "Omar · Moderator", "Moderator redacts and publishes", "Click Publish as is: refused because of the account number. Delete it from the text, keep the theme Seasonality context, publish.") }}
     {{ step("asha@kestrel.example", R.THEMES, "Asha · Kestrel Bank admin", "The theme appears, with a small-sample warning", "Now 3 of 3 organisations. Evidence is de-identified: coarse sector and region, no names.") }}
-    {{ step("priya@azentio.com", R.IDEA_NEW ~ "?theme=" ~ seasonality, "Priya · Product owner", "Turn the theme into an improvement idea", "Title it 'Seasonality-aware comparison explanation', status Under review. Contributors are notified.") }}
+    {{ step("priya@azentio.com", R.IDEA_NEW ~ "?theme=" ~ seasonality, "Priya · Product owner", "Turn the theme into an improvement idea", "The theme is assigned to Priya by the moderator, so she can cite its contributions. Title it 'Seasonality-aware comparison explanation', status Under review. Contributors are notified.") }}
     {{ step("asha@kestrel.example", R.IDEAS, "Asha · Kestrel Bank admin", "Clients see status, not internal detail", "Status and the public note are visible; the internal problem statement is not. Check Updates for the notification.") }}
     {{ step("sam@northwind.example", R.OBSERVATION.url(oid=ids.ramadan), "Sam · Northwind admin", "Withdraw a shared contribution", "Withdraw: it leaves search, theme counts and AIRA in the same transaction.") }}
     {{ step("ravi@kestrel.example", R.ASK, "Ravi · Kestrel Bank member", "Ask AIRA", "Ask about seasonal revenue or statement extraction. Every claim cites approved items; withdrawn ones are gone.") }}
@@ -77,6 +77,7 @@
       <tr><td>Knowledge library with owners and reviews</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>AIRA with checked citations</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Configurator: privacy, access, AI and operational settings</td><td><span class="pill ok">Built</span></td></tr>
+      <tr><td>Product owners work only with assigned themes' evidence</td><td><span class="pill ok">Built</span></td></tr>
       <tr><td>Microsoft Entra ID sign-in</td><td><span class="pill warn">Email code instead</span></td></tr>
       <tr><td>Email delivery (P1)</td><td><span class="pill warn">In-app only</span></td></tr>
       <tr><td>Guided Playground and entitled sandboxes, with feedback</td><td><span class="pill ok">Built</span></td></tr>

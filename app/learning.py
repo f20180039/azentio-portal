@@ -335,11 +335,24 @@ SHARED_FIELDS = ("s.id, s.version, s.title, s.body, s.offering, s.topic, s.perio
                  " s.attribution, s.published_at, s.evidence_quality")
 
 
-def is_staff(ctx: Ctx) -> bool:
-    return ctx.has(Permission.MODERATE) or ctx.has(Permission.PRODUCT_OWNER)
+def sees_all_themes(ctx: Ctx) -> bool:
+    """Moderators curate every theme; product owners see only what is assigned to them on top of what any participant sees."""
+    return ctx.has(Permission.MODERATE)
 
 
-def below_cohort_item_ids(conn) -> set[int]:
+def assigned_theme_ids(conn, ctx: Ctx) -> set[int]:
+    if not ctx.has(Permission.PRODUCT_OWNER):
+        return set()
+    return {r["theme_id"] for r in conn.execute("SELECT theme_id FROM theme_assignments WHERE user_id=?", (ctx.user_id,))}
+
+
+def hidden_item_ids(conn, ctx: Ctx) -> set[int]:
+    if sees_all_themes(ctx):
+        return set()
+    return below_cohort_item_ids(conn, except_themes=assigned_theme_ids(conn, ctx))
+
+
+def below_cohort_item_ids(conn, except_themes: set[int] = frozenset()) -> set[int]:
     """Published items that belong to a theme with fewer contributing organisations than the cohort minimum."""
     rows = conn.execute(
         f"SELECT ti.theme_id, s.id, o.org_id FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id AND s.status='{SharedStatus.PUBLISHED}'"
@@ -350,7 +363,8 @@ def below_cohort_item_ids(conn) -> set[int]:
     for r in rows:
         orgs.setdefault(r["theme_id"], set()).add(r["org_id"])
         items.setdefault(r["theme_id"], set()).add(r["id"])
-    return {i for t, ids in items.items() if len(orgs[t]) < min_cohort(conn) for i in ids}
+    floor = min_cohort(conn)
+    return {i for t, ids in items.items() if len(orgs[t]) < floor and t not in except_themes for i in ids}
 
 
 @dataclass(frozen=True)
@@ -379,9 +393,9 @@ def search_shared(conn, ctx: Ctx, filters: FeedFilters = FeedFilters(), limit: i
     sql = f"SELECT {SHARED_FIELDS}, o.org_id FROM shared_items s JOIN observations o ON o.id = s.observation_id"
     args: list = []
     where = [f"s.status='{SharedStatus.PUBLISHED}'"]
-    staff = is_staff(ctx)
+    staff = sees_all_themes(ctx)
     if not staff:
-        hidden = below_cohort_item_ids(conn)
+        hidden = hidden_item_ids(conn, ctx)
         if hidden:
             where.append(f"s.id NOT IN ({','.join('?' * len(hidden))})")
             args.extend(sorted(hidden))
@@ -434,7 +448,7 @@ def export_csv(conn, ctx: Ctx, filters: FeedFilters) -> str:
 def _visible_item(conn, ctx: Ctx, shared_id: int):
     item = conn.execute(f"SELECT s.*, o.org_id FROM shared_items s JOIN observations o ON o.id=s.observation_id"
                         f" WHERE s.id=? AND s.status='{SharedStatus.PUBLISHED}'", (shared_id,)).fetchone()
-    if not item or (not is_staff(ctx) and shared_id in below_cohort_item_ids(conn)):
+    if not item or shared_id in hidden_item_ids(conn, ctx):
         raise Denied(404, "Shared item not found.")
     return item
 
@@ -511,7 +525,8 @@ def _consent(conn, obs_id: int, actor_id: int, event: ConsentEvent, publish: boo
 def themes(conn, ctx: Ctx):
     """Theme statistics count distinct organisations; below the cohort minimum they are hidden from clients."""
     require_participant(ctx)
-    staff = is_staff(ctx)
+    staff = sees_all_themes(ctx)
+    assigned = assigned_theme_ids(conn, ctx)
     out = []
     for t in conn.execute("SELECT * FROM themes ORDER BY updated_at DESC").fetchall():
         rows = conn.execute(
@@ -521,7 +536,7 @@ def themes(conn, ctx: Ctx):
         ).fetchall()
         orgs = len({r["org_id"] for r in rows})
         visible = orgs >= min_cohort(conn)
-        if not visible and not staff:
+        if not visible and not staff and t["id"] not in assigned:
             continue
         items = [{k: r[k] for k in r.keys() if k != "org_id"} for r in rows]
         periods = sorted({r["period"] for r in rows})
@@ -529,6 +544,9 @@ def themes(conn, ctx: Ctx):
             "id": t["id"], "name": t["name"], "offering": t["offering"], "summary": t["summary"], "updated_at": t["updated_at"],
             "contributions": len(items), "organisations": orgs, "meets_cohort": visible,
             "small_sample": orgs < small_sample(conn), "periods": periods, "items": items,
+            "assigned_to_me": t["id"] in assigned,
+            "assignees": [dict(r) for r in conn.execute("SELECT u.id, u.name FROM theme_assignments a JOIN users u ON u.id=a.user_id"
+                                                          " WHERE a.theme_id=? ORDER BY u.name", (t["id"],))] if staff or ctx.is_employee else [],
         })
     return out
 
@@ -541,10 +559,12 @@ def theme(conn, ctx: Ctx, theme_id: int):
 
 
 def suppressed_theme_count(conn, ctx: Ctx) -> int:
-    if is_staff(ctx):
+    if sees_all_themes(ctx):
         return 0
-    n = 0
+    n, assigned = 0, assigned_theme_ids(conn, ctx)
     for t in conn.execute("SELECT id FROM themes").fetchall():
+        if t["id"] in assigned:
+            continue
         orgs = conn.execute(
             "SELECT COUNT(DISTINCT o.org_id) c FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id"
             f" JOIN observations o ON o.id=s.observation_id WHERE ti.theme_id=? AND s.status='{SharedStatus.PUBLISHED}'", (t["id"],)
@@ -552,3 +572,26 @@ def suppressed_theme_count(conn, ctx: Ctx) -> int:
         if 0 < orgs < min_cohort(conn):
             n += 1
     return n
+
+
+def product_owners(conn):
+    return conn.execute(f"SELECT u.id, u.name FROM grants g JOIN users u ON u.id=g.user_id JOIN memberships m ON m.user_id=u.id"
+                        f" JOIN orgs o ON o.id=m.org_id WHERE g.permission='{Permission.PRODUCT_OWNER}' AND o.kind='{OrgKind.AZENTIO}'"
+                        f" AND m.status='{MembershipStatus.ACTIVE}' ORDER BY u.name").fetchall()
+
+
+def assign_theme(conn, ctx: Ctx, theme_id: int, user_id: int, on: bool) -> None:
+    """Moderators decide which product owner may work with a theme's evidence."""
+    require_grant(ctx, Permission.MODERATE)
+    t = conn.execute("SELECT * FROM themes WHERE id=?", (theme_id,)).fetchone()
+    if not t:
+        raise Denied(404, "Theme not found.")
+    if user_id not in {p["id"] for p in product_owners(conn)}:
+        raise Denied(422, "Choose an Azentio employee who holds the product owner permission.")
+    with tx(conn):
+        if on:
+            conn.execute("INSERT OR IGNORE INTO theme_assignments VALUES (?,?,?,?)", (theme_id, user_id, ctx.user_id, time.time()))
+            notify(conn, user_id, f"You were assigned the theme “{t['name']}” and its evidence.", Route.THEME.url(tid=theme_id))
+        else:
+            conn.execute("DELETE FROM theme_assignments WHERE theme_id=? AND user_id=?", (theme_id, user_id))
+        audit.record(conn, ctx.user_id, "theme." + ("assigned" if on else "unassigned"), f"theme:{theme_id}", {"product_owner": user_id})

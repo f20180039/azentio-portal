@@ -16,7 +16,21 @@
 <aside class="stack"><h2>Improvement ideas</h2>
 {% for i in ideas %}<div class="card"><span class="pill {{ i.status }}">{{ i.status }}</span><h3>{{ i.title }}</h3><p class="muted">{{ i.public_note }}</p><div class="meta"><span>{{ i.owner_team }}</span><span>{{ i.updated_at|ago }}</span></div></div>
 {% else %}<p class="muted">No idea linked yet.</p>{% endfor %}
-{% if ctx.has(Permission.PRODUCT_OWNER) and t.meets_cohort %}<a class="btn" href="{{ R.IDEA_NEW }}?theme={{ t.id }}">Create improvement idea</a>{% endif %}
+{% if ctx.has(Permission.PRODUCT_OWNER) and t.meets_cohort and t.assigned_to_me %}<a class="btn" href="{{ R.IDEA_NEW }}?theme={{ t.id }}">Create improvement idea</a>{% endif %}
+{% if t.assigned_to_me %}<div class="card stripe ok"><b>Assigned to you.</b> <span class="muted">You can create improvement ideas from this theme's evidence.</span></div>{% endif %}
+{% if ctx.has(Permission.MODERATE) %}
+<div class="card">
+  <h3>Product owners</h3>
+  <p class="hint">Assignment is what lets a product owner work with this theme's evidence, including before it reaches the cohort minimum.</p>
+  {% for a in t.assignees %}
+  <form method="post" action="{{ R.THEME_ASSIGN.url(tid=t.id) }}" class="row between" style="margin-bottom:6px"><span>{{ a.name }}</span><input type="hidden" name="user_id" value="{{ a.id }}"><button class="btn small ghost" name="action" value="{{ Action.REMOVE }}">Unassign</button></form>
+  {% else %}<p class="muted">Not assigned yet.</p>{% endfor %}
+  {% set taken = t.assignees|map(attribute='id')|list %}{% set available = owners|rejectattr('id', 'in', taken)|list %}
+  {% if available %}<form method="post" action="{{ R.THEME_ASSIGN.url(tid=t.id) }}" class="row" style="margin-top:8px">
+    <select name="user_id" aria-label="Product owner" style="width:auto">{% for o in available %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select>
+    <button class="btn small" name="action" value="{{ Action.ADD }}">Assign</button></form>{% endif %}
+</div>
+{% endif %}
 <form method="post" action="{{ R.ASK }}" class="card"><input type="hidden" name="question" value="Summarise the {{ t.name }} theme"><button class="btn ghost">Summarise with AIRA</button></form>
 </aside></div>
 {% endblock %}

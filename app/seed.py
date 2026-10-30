@@ -226,6 +226,8 @@ def seed(conn) -> None:
     ).lastrowid
     conn.execute("INSERT INTO idea_themes VALUES (?,?)", (idea, themes["Scanned statement extraction"]))
     conn.execute("INSERT INTO idea_evidence SELECT ?, shared_id FROM theme_items WHERE theme_id=?", (idea, themes["Scanned statement extraction"]))
+    for theme_id in themes.values():  # Omar (moderator) has assigned both themes to Priya (product owner)
+        conn.execute("INSERT INTO theme_assignments VALUES (?,1,2,?)", (theme_id, now - 86400))
     conn.execute("INSERT INTO access_requests (user_id, reason, created_at) VALUES (12, ?, ?)",
                  ("Joined the Financial Analysis squad this week; need the employee workspace.", now - 1800))
     day = 86400

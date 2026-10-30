@@ -610,7 +610,15 @@ def theme_view(request: Request, tid: int):
     t = learning.theme(conn, ctx, tid)
     linked = [i for i in ideas.list_ideas(conn, ctx) if t["name"] in i["themes"]]
     return render(request, "theme.html", {"t": t, "ideas": linked, "min_cohort": learning.min_cohort(conn),
+                                          "owners": learning.product_owners(conn) if ctx.has(Permission.MODERATE) else [],
                                           "votes": learning.vote_summary(conn, ctx, [i["id"] for i in t["items"]])})
+
+
+@app.post(Route.THEME_ASSIGN)
+async def theme_assign(request: Request, tid: int):
+    f = await form(request)
+    learning.assign_theme(request.state.conn, request.state.ctx, tid, _int(f.get("user_id")), f.get("action") == Action.ADD)
+    return back(Route.THEME.url(tid=tid), "Assignment updated and audited.")
 
 
 @app.get(Route.IDEAS, response_class=HTMLResponse)
@@ -702,7 +710,7 @@ async def moderation_report_decide(request: Request, rid: int):
 def idea_new(request: Request, theme: int = 0):
     conn, ctx = request.state.conn, request.state.ctx
     policy.require_grant(ctx, Permission.PRODUCT_OWNER)
-    return render(request, "idea_form.html", {"themes": [t for t in learning.themes(conn, ctx) if t["meets_cohort"]], "selected": theme, "statuses": ideas.STATUSES,
+    return render(request, "idea_form.html", {"themes": [t for t in learning.themes(conn, ctx) if t["meets_cohort"] and t["assigned_to_me"]], "selected": theme, "statuses": ideas.STATUSES,
                                               "priorities": ideas.PRIORITIES, "offerings": conn.execute("SELECT * FROM offerings").fetchall()})
 
 

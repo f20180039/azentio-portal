@@ -277,3 +277,31 @@ def test_ideas_must_cite_contributions_from_their_themes(login, db):
     assert po.post("/ideas", data=base | {"shared_ids": [str(inside)]}, follow_redirects=False).status_code == 303
     idea = next(i for i in login("asha@kestrel.example").get("/api/v1/ideas").json() if i["title"] == "Better page joins")
     assert idea["evidence"] == [inside]
+
+
+def test_product_owners_work_only_with_assigned_themes(login, db):
+    admin, mod = login("admin@azentio.com"), login("omar@azentio.com")
+    dev_id = db.execute("SELECT id FROM users WHERE email='dev@azentio.com'").fetchone()["id"]
+    admin.post("/admin/grants", data={"user_id": dev_id, "permission": "product_owner", "action": "add"})
+    dev = login("dev@azentio.com")
+    seasonality = db.execute("SELECT id FROM themes WHERE name='Seasonality context'").fetchone()["id"]  # below cohort
+    scanned = db.execute("SELECT id FROM themes WHERE name='Scanned statement extraction'").fetchone()["id"]
+    assert "Seasonality context" not in {t["name"] for t in dev.get("/api/v1/themes").json()}  # unassigned, below cohort
+    assert dev.get("/api/v1/shared", params={"q": "manual overrides"}).json() == []
+    item = db.execute("SELECT shared_id FROM theme_items WHERE theme_id=?", (scanned,)).fetchone()["shared_id"]
+    idea = {"title": "Page join repair", "problem": "Transactions break at page joins.", "offering": "financial-analysis-intelligence",
+            "proposed_outcome": "Keep transactions intact.", "owner_team": "Squad", "priority": "Low", "status": "Proposed",
+            "theme_ids": [str(scanned)], "shared_ids": [str(item)]}
+    assert dev.post("/ideas", data=idea).status_code == 422  # visible theme, but not assigned to Dev
+    priya_idea = db.execute("SELECT id FROM ideas").fetchone()["id"]
+    assert dev.post(f"/ideas/{priya_idea}/status", data={"status": "Released"}).status_code == 403  # not Dev's idea
+    assert login("lena@azentio.com").post(f"/learning/themes/{scanned}/assign", data={"user_id": dev_id, "action": "add"}).status_code == 403
+    assert mod.post(f"/learning/themes/{scanned}/assign", data={"user_id": "5000", "action": "add"}).status_code == 422
+    for tid in (scanned, seasonality):
+        assert mod.post(f"/learning/themes/{tid}/assign", data={"user_id": dev_id, "action": "add"}, follow_redirects=False).status_code == 303
+    assert "Seasonality context" in {t["name"] for t in dev.get("/api/v1/themes").json()}  # assignment grants its evidence
+    assert dev.get("/api/v1/shared", params={"q": "manual overrides"}).json()
+    assert dev.post("/ideas", data=idea, follow_redirects=False).status_code == 303
+    mod.post(f"/learning/themes/{seasonality}/assign", data={"user_id": dev_id, "action": "remove"})
+    assert "Seasonality context" not in {t["name"] for t in dev.get("/api/v1/themes").json()}
+    assert db.execute("SELECT COUNT(*) FROM audit WHERE action='theme.assigned'").fetchone()[0] == 2

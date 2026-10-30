@@ -154,6 +154,11 @@ CREATE TABLE IF NOT EXISTS library_feedback (
   verdict TEXT NOT NULL CHECK (verdict IN ({sql_in(LibraryVerdict)})), comment TEXT NOT NULL DEFAULT '', created_at REAL NOT NULL,
   PRIMARY KEY (item_id, user_id)
 );
+-- a moderator assigns a theme to a product owner; assignment is what grants the owner its evidence (brief §05)
+CREATE TABLE IF NOT EXISTS theme_assignments (
+  theme_id INTEGER NOT NULL REFERENCES themes(id), user_id INTEGER NOT NULL REFERENCES users(id),
+  assigned_by INTEGER NOT NULL REFERENCES users(id), assigned_at REAL NOT NULL, PRIMARY KEY (theme_id, user_id)
+);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY CHECK (key IN ({sql_in(Setting)})), value TEXT NOT NULL,
   updated_by INTEGER REFERENCES users(id), updated_at REAL NOT NULL

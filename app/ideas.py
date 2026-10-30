@@ -19,9 +19,9 @@ def create_idea(conn, ctx: Ctx, fields: dict, theme_ids: list[int], shared_ids: 
         raise Denied(422, "Title (5–120), problem and proposed outcome (10+ characters) and owner team are required.")
     if parse(Priority, f["priority"]) is None or parse(IdeaStatus, f["status"]) is None:
         raise Denied(422, "Choose a priority and a status.")
-    allowed = {t["id"] for t in themes(conn, ctx) if t["meets_cohort"]}
+    allowed = {t["id"] for t in themes(conn, ctx) if t["meets_cohort"] and t["assigned_to_me"]}
     if not theme_ids or not set(theme_ids) <= allowed:
-        raise Denied(422, "Link at least one theme that meets the cohort minimum.")
+        raise Denied(422, "Link at least one theme assigned to you that meets the cohort minimum.")
     eligible = {r["shared_id"] for r in conn.execute(
         f"SELECT ti.shared_id FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id AND s.status='{SharedStatus.PUBLISHED}'"
         f" WHERE ti.theme_id IN ({','.join('?' * len(theme_ids))})", theme_ids)}
@@ -51,6 +51,8 @@ def update_status(conn, ctx: Ctx, idea_id: int, raw_status: str, public_note: st
     idea = conn.execute("SELECT * FROM ideas WHERE id=?", (idea_id,)).fetchone()
     if not idea:
         raise Denied(404, "Idea not found.")
+    if idea["owner_id"] != ctx.user_id:
+        raise Denied(403, "Only the idea's owner can change its status.")
     with tx(conn):
         conn.execute("UPDATE ideas SET status=?, public_note=?, updated_at=? WHERE id=?", (status, public_note.strip()[:300], time.time(), idea_id))
         audit.record(conn, ctx.user_id, "idea.status_changed", f"idea:{idea_id}", {"from": idea["status"], "to": status})
