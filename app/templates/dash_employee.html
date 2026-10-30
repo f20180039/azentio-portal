@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}Employee dashboard · azentio.ai{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon, session_list %}{% block title %}Employee dashboard · azentio.ai{% endblock %}
 {% block band %}{{ head("Good to see you, " ~ ctx.user.name.split()[0], "Internal work, approved themes and the ideas they feed.", "Azentio employee workspace") }}{% endblock %}
 {% block content %}
 <div class="kpis">
@@ -20,7 +20,8 @@
   <div class="stack">{% for i in ideas %}<div class="card"><div class="row"><span class="pill {{ i.status }}">{{ i.status }}</span><b>{{ i.title }}</b></div><div class="meta"><span>{{ i.owner_team }}</span><span>{{ i.updated_at|ago }}</span></div></div>{% else %}<p class="muted">No ideas yet.</p>{% endfor %}</div>
 </section>
 <aside class="stack">
-  <div class="card"><h3>Quick links</h3><div class="row"><a class="btn small" href="{{ R.PLAYGROUND }}">Playground</a>{% if ctx.has(Permission.MODERATE) or ctx.has(Permission.PRODUCT_OWNER) %}<a class="btn small ghost" href="{{ R.TRENDS }}">Trends</a>{% endif %}<a class="btn small ghost" href="{{ R.LEARNING }}">Shared learning</a><a class="btn small ghost" href="{{ R.ASK }}">Ask AIRA</a></div></div>
+  <div class="card"><h3>Quick links</h3><div class="row"><a class="btn small" href="{{ R.PLAYGROUND }}">Playground</a>{% if ctx.has(Permission.MODERATE) or ctx.has(Permission.PRODUCT_OWNER) %}<a class="btn small ghost" href="{{ R.TRENDS }}">Trends</a>{% endif %}<a class="btn small ghost" href="{{ R.LEARNING }}">Shared learning</a><a class="btn small ghost" href="{{ R.ASK }}">Ask AIRA</a><a class="btn small ghost" href="{{ R.LIVE }}">Live sessions</a><a class="btn small ghost" href="{{ R.EXPERIMENTS }}">Lab</a></div></div>
+  <div class="card"><h3>Internal sessions</h3>{{ session_list(sessions, "No internal sessions scheduled.") }}</div>
   <h2>Employee-only</h2>
   <p class="muted">Never shown in public or client search, or in AIRA answers.</p>
   {% for r in resources %}<div class="card"><span class="pill warn">Employees only</span> <span class="pill">{{ r.kind|capitalize }}</span><p style="margin:8px 0 0"><a href="{{ R.RESOURCE.url(rid=r.id) }}">{{ r.title }}</a></p></div>{% endfor %}

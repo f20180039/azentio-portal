@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon %}{% block title %}{{ ctx.org.name }} · azentio.ai{% endblock %}
+{% extends "base.html" %}{% from "_ui.html" import head, glyph, cohort, empty, lock_icon, share_icon, session_list %}{% block title %}{{ ctx.org.name }} · azentio.ai{% endblock %}
 {% block band %}{% call head(ctx.org.name, ctx.org.industry ~ ", " ~ ctx.org.region ~ ". Signed in as " ~ ctx.user.name ~ " (" ~ ctx.role ~ ").", "Client workspace") %}<div class="row"><a class="btn bright" href="{{ R.OBSERVATION_NEW }}">New observation</a><a class="btn ghost" href="{{ R.ASK }}">Ask AIRA</a></div>{% endcall %}{% endblock %}
 {% block content %}
 <div class="cols">
@@ -31,6 +31,8 @@
 <aside class="stack">
   <div class="card"><h2>Entitled products</h2>
   {% for e in entitlements %}<div class="row" style="margin-bottom:8px;flex-wrap:nowrap">{{ glyph(e.slug) }}<a href="{{ R.PRODUCT.url(slug=e.slug) }}">{{ e.name }}</a></div>{% else %}<p class="muted">No entitlements assigned.</p>{% endfor %}</div>
+  <div class="card"><h2>Sessions for you</h2>
+  {{ session_list(sessions, "No upcoming sessions for your organisation.") }}<a class="btn small ghost" href="{{ R.LIVE }}">All live sessions</a></div>
   <div class="card"><h2>Sandboxes</h2><p class="muted">Run guided demonstrations on synthetic data for the products you are entitled to.</p><a class="btn small" href="{{ R.PLAYGROUND }}">Open the Playground</a></div>
   <div class="card"><h2>Demos &amp; briefings</h2>
   {% for r in resources %}<div style="margin:0 0 10px"><span class="pill">{{ r.kind|capitalize }}</span><br><a href="{{ R.RESOURCE.url(rid=r.id) }}">{{ r.title }}</a></div>{% else %}<p class="muted">Nothing assigned yet.</p>{% endfor %}</div>

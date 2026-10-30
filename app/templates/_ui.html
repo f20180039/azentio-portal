@@ -1,3 +1,8 @@
+{% macro session_list(sessions, empty_text) -%}
+{% for s in sessions %}<div style="margin:0 0 10px"><span class="pill {{ 'ok' if s.status == SessionStatus.LIVE else ('' if s.status == SessionStatus.SCHEDULED else 'warn') }}">{{ 'Live now' if s.status == SessionStatus.LIVE else ('Recent' if s.status == SessionStatus.ENDED else s.starts_at|when) }}</span><br><a href="{{ R.LIVE_SESSION.url(sid=s.id) }}">{{ s.title }}</a></div>
+{% else %}<p class="muted">{{ empty_text }}</p>{% endfor %}
+{%- endmacro %}
+
 {% macro glyph(slug) -%}
 <span class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
 {%- if slug == 'credit-strategy-simulator' -%}<path d="M3 20h18"/><path d="M5 16l4-5 4 3 6-8"/><circle cx="19" cy="6" r="1.6" fill="currentColor"/>

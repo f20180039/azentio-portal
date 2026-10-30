@@ -2,7 +2,7 @@
 import time
 
 from . import audit
-from .constants import Permission, Route, SessionStatus, parse
+from .constants import Audience, Permission, Route, SessionStatus, parse
 from .auth import Ctx
 from .db import tx
 from .iam import audience_choices
@@ -13,6 +13,17 @@ def visible(conn, ctx: Ctx):
     rows = conn.execute("SELECT s.*, (SELECT COUNT(*) FROM live_registrations r WHERE r.session_id=s.id) AS registered"
                         " FROM live_sessions s ORDER BY s.starts_at").fetchall()
     return [r for r in rows if can_view_resource(conn, ctx, r)]
+
+
+RECENT = 14 * 86400
+
+
+def for_dashboard(conn, ctx: Ctx, audience: Audience | None = None, limit: int = 4) -> list:
+    """Live and upcoming sessions first, then ones ended in the last two weeks; same visibility as the Live page."""
+    now = time.time()
+    rows = [s for s in visible(conn, ctx) if s["status"] != SessionStatus.CANCELLED and (audience is None or s["audience_type"] == audience)
+            and (s["status"] != SessionStatus.ENDED or s["starts_at"] > now - RECENT)]
+    return sorted(rows, key=lambda s: (s["status"] == SessionStatus.ENDED, s["starts_at"]))[:limit]
 
 
 def get(conn, ctx: Ctx, sid: int):

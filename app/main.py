@@ -460,13 +460,14 @@ def dashboard(request: Request):
         queue = len(learning.moderation_queue(conn, ctx)) if ctx.has(Permission.MODERATE) else None
         return render(request, "dash_employee.html", {
             "resources": resources, "queue": queue, "themes": learning.themes(conn, ctx), "ideas": ideas.list_ideas(conn, ctx)[:5],
+            "sessions": live.for_dashboard(conn, ctx, Audience.EMPLOYEES),
         })
     policy.require_client(ctx)
     ents = conn.execute("SELECT o.* FROM entitlements e JOIN offerings o ON o.slug=e.offering WHERE e.org_id=?", (ctx.org_id,)).fetchall()
     resources = [r for r in conn.execute("SELECT * FROM resources WHERE audience_type IN ('entitled','org')") if policy.can_view_resource(conn, ctx, r)]
     mine = conn.execute("SELECT * FROM observations WHERE author_id=? AND org_id=? ORDER BY updated_at DESC LIMIT 6", (ctx.user_id, ctx.org_id)).fetchall()
     return render(request, "dash_client.html", {
-        "entitlements": ents, "resources": resources, "mine": mine,
+        "entitlements": ents, "resources": resources, "mine": mine, "sessions": live.for_dashboard(conn, ctx),
         "themes": learning.themes(conn, ctx), "hidden_themes": learning.suppressed_theme_count(conn, ctx), "ideas": ideas.list_ideas(conn, ctx),
     })
 

@@ -68,3 +68,17 @@ def test_live_and_library_pages_render(client, login, db):
     assert lena.get("/live").status_code == 200 and lena.get(f"/live/{sid(db, 'AI Lab demo day')}").status_code == 200
     dev = login("dev@azentio.com")
     assert dev.get("/library/1").status_code == 200
+
+
+def test_client_dashboard_lists_only_sessions_its_audience_allows(login):
+    page = login("asha@kestrel.example").get("/dashboard").text
+    assert "Sessions for you" in page and "Explainable credit decisions in practice" in page
+    assert "reporting automation roadmap" not in page and "design review" not in page
+    northwind = login("sam@northwind.example").get("/dashboard").text
+    assert "reporting automation roadmap" in northwind
+
+
+def test_employee_dashboard_links_live_and_lab_and_lists_internal_sessions(login):
+    page = login("dev@azentio.com").get("/dashboard").text
+    assert 'href="/live"' in page and 'href="/lab/experiments"' in page
+    assert "Internal sessions" in page and "Seasonality module: design review" in page and "AI Lab demo day" in page
