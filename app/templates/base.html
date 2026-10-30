@@ -87,15 +87,16 @@
   <span>azentio.ai hackathon build. Synthetic data only; every organisation shown is fictional.</span>
   <span class="row"><a href="{{ R.ABOUT }}">How shared learning works</a><a href="{{ R.API_DOCS }}">API reference</a></span>
 </div></footer>
-{% if ctx.is_participant and path != R.ASK %}
-<div class="aira-dock" id="aira-dock" data-api="{{ R.API_AIRA }}" data-page="{{ R.ASK }}" data-scope="{{ ctx.user_id }}:{{ ctx.org.id }}" hidden>
+{% if path != R.ASK %}
+<div class="aira-dock" id="aira-dock" data-api="{{ R.API_AIRA }}" data-scope="{{ (ctx.user_id ~ ':' ~ (ctx.org.id if ctx.org else 'none')) if ctx.signed_in else 'visitor' }}"
+  data-intro="{{ 'Ask about what clients report in shared learning, or where to find a page. AIRA answers only from moderator-approved items, links only pages you can open, and declines anything else.' if ctx.is_participant else 'Ask a common question about azentio.ai, or where to find a page. Shared learning is for signed-in clients and Azentio employees.' }}" hidden>
   <section class="aira-panel" id="aira-panel" role="dialog" aria-labelledby="aira-title" hidden>
-    <header><b id="aira-title">Ask AIRA</b><span class="hint">Approved shared contributions only, every claim cited</span>
+    <header><b id="aira-title">Ask AIRA</b><span class="hint">{{ 'Shared learning with citations, and pages your role can open' if ctx.is_participant else 'Common questions and public pages' }}</span>
       <button type="button" class="aira-x" id="aira-clear" title="Clear this conversation">Clear</button>
       <button type="button" class="aira-x" id="aira-close" aria-label="Close AIRA">&times;</button></header>
     <div class="aira-log" id="aira-log" aria-live="polite"></div>
     <form id="aira-form" class="aira-form"><input id="aira-q" type="text" required minlength="3" maxlength="300" autocomplete="off"
-      placeholder="e.g. What goes wrong with statement extraction?" aria-label="Question for AIRA"><button class="btn small">Ask</button></form>
+      placeholder="{{ 'e.g. What goes wrong with statement extraction?' if ctx.is_participant else 'e.g. How do I request a demo?' }}" aria-label="Question for AIRA"><button class="btn small">Ask</button></form>
   </section>
   <button type="button" class="aira-fab" id="aira-fab" aria-expanded="false" aria-controls="aira-panel"><span aria-hidden="true">✦</span> AIRA</button>
 </div>

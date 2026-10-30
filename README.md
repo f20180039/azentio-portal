@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 
 | Rule | Where it is covered |
 |---|---|
-| 1. Working prototype | Live URL above; 187 automated tests; one-click demo guide at `/demo` |
+| 1. Working prototype | Live URL above; 206 automated tests; one-click demo guide at `/demo` |
 | 3. Built during the challenge; reuse declared | [Reused components](#reused-components-declared) |
 | 4. Repo, README, architecture, models and tools, key prompts and workflows, dependencies, run instructions | [Architecture](#architecture-overview), [Models, tools and dependencies](#models-tools-and-dependencies), [Key prompts and workflows](#key-prompts-and-workflows), [Run it](#run-it) |
 | 5. No customer or production data | All data is synthetic and generated in `app/seed.py`; organisations are fictional |
@@ -60,6 +60,7 @@ flowchart LR
 | `playground.py` | Deterministic sandboxes on synthetic data, AIRA explanations, anonymous feedback |
 | `live.py`, `library.py`, `innovation.py` | Sessions and recordings, knowledge library, experiments, team spaces, release notes |
 | `aira.py` | Retrieval over approved items, prompt, citation check, rate limit |
+| `assist.py` | AIRA's page finder and public FAQ: keyword matching, each page tied to its handler's guard |
 | `llm.py` | Provider chain: Groq then Gemini, several keys each, skipping rejected keys |
 | `static/aira.js` | Floating AIRA panel: open state and conversation kept across pages for the current tab |
 | `audit.py` | Hash-chained audit log and verification |
@@ -70,7 +71,7 @@ flowchart LR
 
 - **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1, PyJWT 2.10.1 (with cryptography) for Entra ID tokens.
 - **Database:** SQLite with FTS5, from the Python standard library.
-- **Tests:** pytest 8.3.4 (187 tests). The browser checks used Playwright with local Chrome during development.
+- **Tests:** pytest 8.3.4 (206 tests). The browser checks used Playwright with local Chrome during development.
 - **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then Google `gemini-2.5-flash` and `gemini-2.5-flash-lite`, then to a non-AI listing. Each provider accepts several keys.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
@@ -111,7 +112,7 @@ Built solely by **Anshuman Singh**, using Claude Code as an AI pair programmer (
 | Architecture and security | Server-side policy layer, tenant and audience model, cohort and differencing safeguards, typed routes and states (`constants.py`); commissioned two independent security reviews and had all 14 findings fixed with tests |
 | Product and UX | Azentio-themed design, role-aware navigation, demo guide and "View as" switcher, two-column forms, accessible dropdowns |
 | Features | Collective learning lifecycle, moderation, themes, ideas, AIRA, Playground, live sessions, library, Lab, Configurator, outbox, Trends, Entra ID sign-in, federated-learning track |
-| Quality and delivery | 187 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
+| Quality and delivery | 206 automated tests, browser checks across personas and screen sizes, GitHub repo, Render deployment |
 
 Anshuman can explain any part of the code. The quickest tour: `policy.py` (who can see what), `learning.py` (lifecycle, cohort rules, search), `constants.py` (routes and states), then the Technology page.
 
@@ -120,7 +121,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 | Criterion | Evidence |
 |---|---|
 | Problem understanding | The brief's own seasonality scenario runs end to end; two kinds of learning are kept apart (collective learning hub, not federated learning) |
-| Working functionality | Live site; 187 tests; every persona can be tried from the demo guide |
+| Working functionality | Live site; 206 tests; every persona can be tried from the demo guide |
 | Intelligence and reasoning | AIRA with checked citations; evidence-backed Playground results; duplicate detection; distinct-organisation theme statistics |
 | Architecture | Typed routes and states in one place; services behind one policy layer; schema checks generated from enums |
 | Security | Server-side checks on every page, API and media route; least-privilege grants; client-approved, time-boxed support access; hash-chained audit; differencing-safe filters; prompt-injection guard |
@@ -133,7 +134,7 @@ Anshuman can explain any part of the code. The quickest tour: `policy.py` (who c
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 187 tests
+uv run pytest -q             # 206 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -307,15 +308,21 @@ stateDiagram-v2
 
 ### Floating AIRA panel
 
-- **Where:** a **✦ AIRA** button in the bottom-right corner of every page, for signed-in employees and client members. It is left off the full **Ask AIRA** page (`/learning/ask`), which has its own form.
+- **Where:** a **✦ AIRA** button in the bottom-right corner of every page, for everyone, including public visitors. It is left off the full **Ask AIRA** page (`/learning/ask`), which has its own form.
 - **Use:** click the button (or Tab to it and press Enter), type a question, press **Ask**. Answers show their cited items (`S5 · title`) and the model used. **Clear** empties the conversation; **×** or Esc closes the panel.
 - **Kept across pages:** the panel's open state and the last 20 messages survive navigation, so a question can be asked on the dashboard and read on the feed.
-- **Who gets it:** the server renders the panel only when `Ctx.is_participant` is true. That is the same property `require_participant` uses for the API, so the button and the access rule cannot drift apart. Public visitors and signed-in users without a participant workspace never receive it, and every question still goes through `POST /api/v1/aira` with the full server-side checks.
+- **What each person gets** (all decided on the server in `POST /api/v1/aira`):
+  - **Everyone:** answers to common questions (a fixed FAQ in `app/assist.py`) and help finding pages.
+  - **Signed-in clients and employees** (`Ctx.is_participant`): also answers from moderator-approved shared learning, with citations.
+  - Visitors who ask about shared learning are told it needs sign-in; nothing from shared learning reaches them (tested).
+- **Finding pages:** "where do I invite a colleague?" or "open moderation" is matched by keyword against a list of pages, with no AI call. Each page in the list names the **same guard function its handler runs**, and AIRA offers an **Open** button only when that guard passes for the asker. Otherwise it says who the page is for ("You don't have access to Moderation. It is for moderators.") and gives no link; visitors are told to sign in. AIRA never navigates by itself.
+- **No drift:** `tests/test_assist.py` loads every page in the list as every demo persona and as a visitor, and fails if AIRA's verdict differs from what the server actually serves.
 - **Where the conversation lives:** in the browser tab's `sessionStorage`, under a key made of the user and workspace. The portal never stores it, and other tabs cannot see it. It is wiped on sign-out, and switching persona or workspace removes the previous identity's conversation, so one persona never sees another's answers.
 - **Safe rendering:** answers and titles are inserted as text, never as HTML, so a contribution cannot inject markup into the page.
+- **Visitors' rate limit:** 8 questions a minute per IP address.
 - **Errors:** rate limits, a session that has ended and network failures are shown as plain messages in the panel.
 - **Accessibility:** the panel is a labelled dialog, new answers are announced (`aria-live`), focus is visible and moves to the question box when opened; it is hidden when printing and fits phone widths.
-- Tested: the panel is present for a participant and absent for public visitors and on the full AIRA page (`tests/test_aira.py`). Checked in Chrome on desktop and phone width, including that the conversation survives moving between pages.
+- Tested: the panel is present for visitors and participants with a separate conversation scope, and absent on the full AIRA page (`tests/test_aira.py`). Checked in Chrome on desktop and phone width, including that the conversation survives moving between pages.
 
 ## Requirement coverage
 
@@ -334,7 +341,9 @@ stateDiagram-v2
 | Sharing choices, separate consents, de-identified shared copy, cohort threshold | Built |
 | Themes, improvement ideas, audited status, contributor updates | Built |
 | AIRA with checked citations | Built |
-| AIRA reachable from every page (floating panel, participants only, conversation kept across pages) | Built |
+| AIRA reachable from every page (floating panel, conversation kept across pages) | Built |
+| AIRA for visitors: FAQ answers and public pages only | Built |
+| AIRA finds pages, linking only pages the user's role can open and refusing others | Built |
 | Employee dashboard, employee-only content excluded from client search and AIRA | Built (internal notes, recordings, release notes) |
 | Guided Playground (employees: all sandboxes; clients: entitled only), evidence, AIRA explanation, structured feedback | Built |
 | Sandbox saved scenarios (private or organisation) and CSV uploads (type, size, declaration, restricted-data screen; private to the uploader) | Built |

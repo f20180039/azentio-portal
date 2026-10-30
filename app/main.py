@@ -705,9 +705,7 @@ async def team_post(request: Request, tid: int):
 @app.get(Route.FEDERATED, response_class=HTMLResponse)
 def federated_page(request: Request):
     conn, ctx = request.state.conn, request.state.ctx
-    policy.require_workspace(ctx)
-    if not (ctx.is_employee or ctx.is_client_admin):
-        raise Denied(403, "The federated programme page is for Azentio employees and client administrators.")
+    federated.require_viewer(ctx)
     my_enrollment = None
     if ctx.is_client_admin:
         my_enrollment = conn.execute("SELECT * FROM fl_enrollments WHERE org_id=?", (ctx.org_id,)).fetchone()
@@ -907,6 +905,7 @@ def idea_list(request: Request):
 
 @app.post(Route.ASK, response_class=HTMLResponse)
 async def learning_ask(request: Request):
+    policy.require_participant(request.state.ctx)
     f = await form(request)
     result = aira.ask(request.state.conn, request.state.ctx, f.get("question") or "")
     return render(request, "aira.html", {"question": f.get("question"), "r": result})
@@ -1269,7 +1268,7 @@ def api_resource(request: Request, rid: int):
 @app.post(Route.API_AIRA)
 async def api_aira(request: Request):
     body = await request.json()
-    return aira.ask(request.state.conn, request.state.ctx, str(body.get("question", "")))
+    return aira.ask(request.state.conn, request.state.ctx, str(body.get("question", "")), request.client.host if request.client else "")
 
 
 @app.get(Route.API_MODERATION_QUEUE)

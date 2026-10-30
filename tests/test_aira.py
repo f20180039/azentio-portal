@@ -28,8 +28,12 @@ def test_aira_only_sees_approved_shared_text(login, monkeypatch):
     assert all("org_id" not in i for i in seen["items"])
 
 
-def test_public_cannot_ask_aira(client):
-    assert client.post("/api/v1/aira", json={"question": "anything"}).status_code == 401
+def test_visitors_get_faq_and_public_pages_but_never_shared_learning(client, monkeypatch):
+    never_called(monkeypatch)
+    r = client.post("/api/v1/aira", json={"question": "statement extraction problems"}).json()
+    assert r["mode"] == "public" and r["citations"] == [] and "Extraction" not in r["answer"]
+    assert client.get("/learning/ask", follow_redirects=False).status_code == 303
+    assert client.post("/learning/ask", data={"question": "statement extraction"}, follow_redirects=False).status_code == 303
 
 
 def never_called(monkeypatch):
@@ -74,9 +78,9 @@ def test_refusals_and_uncited_answers_are_not_shown(login, monkeypatch):
         assert r["mode"] == "no answer" and r["citations"] == [] and "poem" not in r["answer"]
 
 
-def test_floating_panel_is_rendered_only_for_participants(client, login):
-    assert 'id="aira-dock"' not in client.get("/").text  # public visitors
+def test_floating_panel_is_on_every_page_with_a_scope_per_identity(client, login):
+    assert 'data-scope="visitor"' in client.get("/").text
     ravi = login("ravi@kestrel.example")
     page = ravi.get("/learning").text
-    assert 'id="aira-dock"' in page and 'data-api="/api/v1/aira"' in page
+    assert 'id="aira-dock"' in page and 'data-api="/api/v1/aira"' in page and 'data-scope="visitor"' not in page
     assert 'id="aira-dock"' not in ravi.get("/learning/ask").text  # the full page already has the form

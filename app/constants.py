@@ -368,6 +368,10 @@ class AiraMode(StrEnum):
     DISABLED = "disabled"
     NO_MATCH = "no match"
     NO_ANSWER = "no answer"
+    NAVIGATE = "navigate"
+    DENIED = "denied"
+    FAQ = "faq"
+    PUBLIC = "public"
 
 
 class ParticipantOutcome(StrEnum):

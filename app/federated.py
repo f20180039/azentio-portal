@@ -16,7 +16,13 @@ from . import audit
 from .auth import Ctx
 from .constants import Action, ModelStatus, ParticipantOutcome, Permission, Role
 from .db import tx
-from .policy import Denied, require_client, require_grant
+from .policy import Denied, require_client, require_grant, require_workspace
+
+
+def require_viewer(ctx: Ctx) -> None:
+    require_workspace(ctx)
+    if not (ctx.is_employee or ctx.is_client_admin):
+        raise Denied(403, "The federated programme page is for Azentio employees and client administrators.")
 
 FEATURES = ["DSCR", "Leverage", "Current ratio", "Years trading", "Revenue volatility"]
 MIN_PARTICIPANTS = 2
