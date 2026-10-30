@@ -4,6 +4,10 @@
 <div class="cols">
 <div>
 {% if step == 'email' %}
+{% if entra_enabled %}<div class="card" style="margin-bottom:14px">
+  <a class="btn" href="{{ R.ENTRA_START }}?next={{ next }}">Sign in with Microsoft</a>
+  <p class="hint" style="margin:8px 0 0">For Azentio employees: your verified @azentio.com work account. Access still needs an approved employee membership.</p>
+</div>{% endif %}
 <form method="post" action="{{ R.SIGNIN }}" class="card">
   <input type="hidden" name="next" value="{{ next }}">
   <div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" value="{{ email }}" required autocomplete="email"></div>

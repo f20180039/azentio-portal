@@ -14,7 +14,7 @@ All organisations, people and figures are fictional. Synthetic data only.
 
 | Rule | Where it is covered |
 |---|---|
-| 1. Working prototype | Live URL above; 155 automated tests; one-click demo guide at `/demo` |
+| 1. Working prototype | Live URL above; 164 automated tests; one-click demo guide at `/demo` |
 | 3. Built during the challenge; reuse declared | [Reused components](#reused-components-declared) |
 | 4. Repo, README, architecture, models and tools, key prompts and workflows, dependencies, run instructions | [Architecture](#architecture-overview), [Models, tools and dependencies](#models-tools-and-dependencies), [Key prompts and workflows](#key-prompts-and-workflows), [Run it](#run-it) |
 | 5. No customer or production data | All data is synthetic and generated in `app/seed.py`; organisations are fictional |
@@ -64,9 +64,9 @@ flowchart LR
 
 ## Models, tools and dependencies
 
-- **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1.
+- **Language and framework:** Python 3.12, FastAPI 0.115.6, Uvicorn 0.32.1, Jinja2 3.1.4, python-multipart 0.0.20, httpx 0.28.1, PyJWT 2.10.1 (with cryptography) for Entra ID tokens.
 - **Database:** SQLite with FTS5, from the Python standard library.
-- **Tests:** pytest 8.3.4 (155 tests). The browser checks used Playwright with local Chrome during development.
+- **Tests:** pytest 8.3.4 (164 tests). The browser checks used Playwright with local Chrome during development.
 - **AI at runtime:** Groq-hosted `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b`, then to a non-AI listing.
   - Only approved shared copies, or one synthetic Playground run, are ever sent to the model.
   - No Anthropic or other paid model is called by the app.
@@ -110,7 +110,7 @@ After the answer comes back, any `[S<id>]` that was not retrieved is stripped, s
 | Criterion | Evidence |
 |---|---|
 | Problem understanding | The brief's own seasonality scenario runs end to end; two kinds of learning are kept apart (collective learning hub, not federated learning) |
-| Working functionality | Live site; 155 tests; every persona can be tried from the demo guide |
+| Working functionality | Live site; 164 tests; every persona can be tried from the demo guide |
 | Intelligence and reasoning | AIRA with checked citations; evidence-backed Playground results; duplicate detection; distinct-organisation theme statistics |
 | Architecture | Typed routes and states in one place; services behind one policy layer; schema checks generated from enums |
 | Security | Server-side checks on every page, API and media route; least-privilege grants; client-approved, time-boxed support access; hash-chained audit; differencing-safe filters; prompt-injection guard |
@@ -123,7 +123,7 @@ After the answer comes back, any `[S<id>]` that was not retrieved is stripped, s
 ```bash
 uv sync                      # or: pip install -r requirements.txt
 uv run uvicorn app.main:app --port 8090
-uv run pytest -q             # 155 tests
+uv run pytest -q             # 164 tests
 ```
 
 - Open http://localhost:8090 and choose **Sign in**, then a demo persona.
@@ -139,6 +139,7 @@ Settings (environment variables):
 | `SMALL_SAMPLE` | `5` | Below this, themes carry a "small sample" warning. |
 | `DEMO_MAILBOX` | `1` | Show codes and invitations on screen instead of emailing them. |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `PUBLIC_URL` | none | Optional email provider for the outbox; without them emails stay queued. `PUBLIC_URL` builds links in emails. |
+| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_ALLOWED_DOMAIN` | none; domain `azentio.com` | Microsoft sign-in. Register a web app in Entra ID with redirect URI `<PUBLIC_URL>/auth/entra/callback` and scopes `openid email profile`. |
 | `GROQ_API_KEY`, `AIRA_MODELS` | none; `openai/gpt-oss-120b,openai/gpt-oss-20b` | AIRA provider and the order in which models are tried. |
 
 ## Demo guide
@@ -297,7 +298,7 @@ stateDiagram-v2
 | IAM-01/02: RBAC, tenant membership, audience, entitlements, active workspace, least privilege | Built and tested through the API and media routes |
 | Portal admin: organisations, grants, employee provisioning, client-approved support access | Built |
 | Client admin role changes; content publisher resource audiences | Built |
-| Sign-in | Email one-time code with expiry and a 5-attempt lock; codes shown in the demo mailbox. **Entra ID OIDC is not integrated.** |
+| Sign-in | Email one-time code (expiry, attempt lock, rate limit), plus Microsoft Entra ID OpenID Connect with PKCE: signature, issuer, audience, nonce, tenant and @azentio.com domain checked; membership rules still apply. Entra turns on when its three settings are present. |
 | Client invitation journey and terms | Built |
 | Client dashboard, entitled demos, My and organisation observations, shared feed with filters | Built |
 | Observation capture, validation (client and server), draft / submit / edit-returned / withdraw | Built |

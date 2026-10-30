@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import aira, attachments, audit, auth, outbox, trends, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
+from . import aira, attachments, audit, auth, entra, outbox, trends, content, discussion, iam, innovation, settings, ideas, learning, library, live, orgadmin, playground, policy
 from . import constants
 from .constants import Action, Audience, EvidenceQuality, EnquiryKind, Permission, Route, SessionStatus
 from .db import connect, tx
@@ -76,7 +76,7 @@ def _wants_json(request: Request) -> bool:
 async def _denied(request: Request, exc: Denied):
     if _wants_json(request):
         return JSONResponse({"error": exc.message, "status": exc.status}, status_code=exc.status)
-    if exc.status == 401:
+    if exc.status == 401 and request.url.path != Route.ENTRA_CALLBACK:  # a failed Microsoft sign-in shows its reason instead
         return RedirectResponse(f"{Route.SIGNIN}?next={request.url.path}", status_code=303)
     if exc.status == 403 and request.method == "GET" and request.state.ctx.needs_workspace:
         return RedirectResponse(f"{Route.WORKSPACE}?next={request.url.path}", status_code=303)
@@ -90,7 +90,7 @@ def render(request: Request, name: str, data: dict | None = None, status: int = 
         unread = conn.execute("SELECT COUNT(*) FROM notifications WHERE user_id=? AND read=0", (ctx.user_id,)).fetchone()[0]
     base = {"request": request, "ctx": ctx, "unread": unread, "demo_mailbox": auth.demo_mailbox_enabled(),
             "offering_names": {r["slug"]: r["name"] for r in conn.execute("SELECT slug, name FROM offerings")},
-            "min_cohort": learning.min_cohort(conn), "personas": DEMO_PERSONAS}
+            "min_cohort": learning.min_cohort(conn), "personas": DEMO_PERSONAS, "entra_enabled": entra.enabled()}
     return templates.TemplateResponse(request, name, base | (data or {}), status_code=status)
 
 
@@ -239,6 +239,26 @@ async def signin_verify(request: Request):
     resp = RedirectResponse(nxt, status_code=303)
     resp.set_cookie(auth.COOKIE, token, httponly=True, samesite="lax", secure=request.url.scheme == "https" or os.environ.get("SECURE_COOKIES") == "1", max_age=auth.SESSION_TTL)
     return resp
+
+
+def _session_redirect(request: Request, conn, user_id: int, nxt: str) -> RedirectResponse:
+    token = auth.create_session(conn, user_id)
+    resp = RedirectResponse(_safe_next(nxt, Route.DASHBOARD), status_code=303)
+    resp.set_cookie(auth.COOKIE, token, httponly=True, samesite="lax",
+                    secure=request.url.scheme == "https" or os.environ.get("SECURE_COOKIES") == "1", max_age=auth.SESSION_TTL)
+    return resp
+
+
+@app.get(Route.ENTRA_START)
+def entra_start(request: Request, next: str = Route.DASHBOARD):
+    return RedirectResponse(entra.start(request.state.conn, _safe_next(next, Route.DASHBOARD)), status_code=303)
+
+
+@app.get(Route.ENTRA_CALLBACK)
+def entra_callback(request: Request, code: str = "", state: str = ""):
+    conn = request.state.conn
+    email, nxt = entra.finish(conn, code, state)
+    return _session_redirect(request, conn, entra.sign_in(conn, email), nxt)
 
 
 @app.post(Route.SIGNOUT)

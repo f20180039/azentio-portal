@@ -225,6 +225,10 @@ CREATE TABLE IF NOT EXISTS email_outbox (
   status TEXT NOT NULL DEFAULT '{EmailStatus.QUEUED}' CHECK (status IN ({sql_in(EmailStatus)})),
   attempts INTEGER NOT NULL DEFAULT 0, provider_id TEXT, last_error TEXT, created_at REAL NOT NULL, sent_at REAL
 );
+-- short-lived OIDC login attempts: state, nonce and PKCE verifier, single use
+CREATE TABLE IF NOT EXISTS oidc_attempts (
+  state TEXT PRIMARY KEY, nonce TEXT NOT NULL, verifier TEXT NOT NULL, next TEXT NOT NULL, expires_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY CHECK (key IN ({sql_in(Setting)})), value TEXT NOT NULL,
   updated_by INTEGER REFERENCES users(id), updated_at REAL NOT NULL

@@ -23,6 +23,8 @@ class Route(StrEnum):
     SIGNIN = "/signin"
     SIGNIN_VERIFY = "/signin/verify"
     SIGNOUT = "/signout"
+    ENTRA_START = "/auth/entra/start"
+    ENTRA_CALLBACK = "/auth/entra/callback"
     WORKSPACE = "/workspace"
     MAILBOX = "/mailbox"
     INVITE = "/invite/{token}"
