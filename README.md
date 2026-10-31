@@ -146,7 +146,7 @@ Settings (environment variables):
 | Setting | Default | Meaning |
 |---|---|---|
 | `PORTAL_DB` | `portal.db` | SQLite file. It is created and seeded on first start. |
-| `MIN_COHORT` | `3` | Distinct organisations a theme needs before clients see it. |
+| `MIN_COHORT` | `3` | Distinct organisations a theme needs before clients see it. A contribution can sit in several themes; clients see it only if every one of them meets this. |
 | `SMALL_SAMPLE` | `5` | Below this, themes carry a "small sample" warning. |
 | `DEMO_MODE` | `1` | Demo shortcuts: the "View as" switcher, the demo guide, on-screen sign-in codes and invitation links for seeded personas, the demo mailbox, and demo reset. Set `0` on any deployment that is not a public sandbox: those routes return 404, the sign-in page drops the persona list, and nothing is written to the demo mailbox. `DEMO_MAILBOX` is accepted as the older name. |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `PUBLIC_URL` | none | Optional email provider for the outbox; without them emails stay queued. `EMAIL_FROM` must be on a domain verified in Resend, otherwise Resend delivers only to the Resend account owner's address. `PUBLIC_URL` builds links in emails and the Entra redirect URI. |

@@ -29,8 +29,11 @@
   <div class="field"><label for="p">Period</label><input id="p" name="period" type="text" value="{{ draft.period or o.period }}"></div></div>
   <div class="field"><label for="eq">Evidence quality</label><select id="eq" name="evidence_quality">{% for q in qualities %}<option value="{{ q }}" {% if q == EvidenceQuality.MODERATE %}selected{% endif %}>{{ q }}</option>{% endfor %}</select>
     <p class="hint">Your assessment, shown next to the contribution. Readers can also mark it useful or needing evidence.</p></div>
-  <div class="field"><label for="th">Theme</label><select id="th" name="theme_id"><option value="">No theme</option>{% for t in themes %}<option value="{{ t.id }}" {% if t.name.lower().startswith(o.topic.lower()[:6]) %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="nt">…or new theme</label><input id="nt" name="new_theme" type="text" maxlength="80"></div>
+  {% set ticked = draft.theme_ids|map('int')|list if draft.theme_ids is defined else current_themes %}
+  <fieldset class="field theme-pick"><legend>Themes <span class="hint">(tick every theme this fits)</span></legend>
+    {% for t in themes %}<label class="check"><input type="checkbox" name="theme_id" value="{{ t.id }}" {% if t.id in ticked or (not ticked and not draft and t.name.lower().startswith(o.topic.lower()[:6])) %}checked{% endif %}> {{ t.name }}</label>{% endfor %}
+    <p class="hint">Other organisations see this contribution only when every theme it is in has at least the minimum number of contributing organisations.</p></fieldset>
+  <div class="field"><label for="nt">New theme (optional, added alongside any ticked)</label><input id="nt" name="new_theme" type="text" maxlength="80" value="{{ draft.new_theme or '' }}"></div>
   {% if o.consent_attribution %}<label class="check"><input type="checkbox" name="attribute"> Show the organisation's name (contributor opted in)</label>{% endif %}
   <label class="check"><input type="checkbox" name="override_flags"> Publish even if the scan still flags something (I checked it)</label>
   <p></p><button class="btn">Publish shared copy</button>

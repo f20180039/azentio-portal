@@ -235,32 +235,42 @@ def publish(conn, ctx: Ctx, obs_id: int, edits: dict) -> int:
              obs["evidence_type"], obs["confidence"], sector, region, attribution, SharedStatus.PUBLISHED, now, ctx.user_id, quality),
         ).lastrowid
         conn.execute("INSERT INTO shared_fts (rowid, title, body, topic) VALUES (?,?,?,?)", (sid, title, body, edits.get("topic") or obs["topic"]))
-        theme_id = _theme_for(conn, edits, obs, now)
-        if theme_id:
+        theme_ids = _themes_for(conn, edits, obs, now)
+        for theme_id in theme_ids:
             conn.execute("INSERT OR IGNORE INTO theme_items (theme_id, shared_id) VALUES (?,?)", (theme_id, sid))
-            for old in previous:
-                conn.execute("DELETE FROM theme_items WHERE shared_id=?", (old,))
             conn.execute("UPDATE themes SET updated_at=? WHERE id=?", (now, theme_id))
+        for old in previous:
+            conn.execute("DELETE FROM theme_items WHERE shared_id=?", (old,))
         conn.execute(f"UPDATE observations SET share_state='{ShareState.PUBLISHED}', moderator_note=NULL, updated_at=? WHERE id=?", (now, obs_id))
         audit.record(conn, ctx.user_id, "moderation.published", f"observation:{obs_id}",
-                     {"shared_item": sid, "version": version, "theme": theme_id, "attributed": attribution is not None})
+                     {"shared_item": sid, "version": version, "themes": theme_ids, "attributed": attribution is not None})
         notify(conn, obs["author_id"], f"Your contribution “{obs['title']}” was published to shared learning (version {version}).", Route.OBSERVATION.url(oid=obs_id))
     return sid
 
 
-def _theme_for(conn, edits: dict, obs, now: float):
-    if edits.get("theme_id"):
-        if not str(edits["theme_id"]).isdigit():
-            raise Denied(422, "Choose a valid theme.")
-        row = conn.execute("SELECT id FROM themes WHERE id=?", (int(edits["theme_id"]),)).fetchone()
-        return row["id"] if row else None
+def _themes_for(conn, edits: dict, obs, now: float) -> list[int]:
+    """A shared copy can sit in several themes: any ticked existing themes plus an optional new one."""
+    picked = edits.get("theme_ids")
+    if picked is None:
+        picked = [edits["theme_id"]] if edits.get("theme_id") else []
+    picked = [t for t in picked if t]
+    if any(not str(t).isdigit() for t in picked):
+        raise Denied(422, "Choose valid themes.")
+    wanted = {int(t) for t in picked}
+    ids = sorted(r["id"] for r in conn.execute(f"SELECT id FROM themes WHERE id IN ({','.join('?' * len(wanted))})", tuple(wanted))) if wanted else []
     name = (edits.get("new_theme") or "").strip()
     if name:
-        return conn.execute(
+        ids.append(conn.execute(
             "INSERT INTO themes (name, offering, summary, updated_at) VALUES (?,?,?,?)",
             (name[:80], obs["offering"], (edits.get("new_theme_summary") or "").strip()[:400] or name, now),
-        ).lastrowid
-    return None
+        ).lastrowid)
+    return ids
+
+
+def current_theme_ids(conn, obs_id: int) -> set[int]:
+    return {r["theme_id"] for r in conn.execute(
+        f"SELECT ti.theme_id FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id WHERE s.observation_id=?"
+        f" AND s.status IN ('{SharedStatus.PUBLISHED}','{SharedStatus.SUSPENDED}')", (obs_id,))}
 
 
 def return_for_clarification(conn, ctx: Ctx, obs_id: int, note: str, reject: bool = False) -> None:
@@ -407,18 +417,27 @@ def hidden_item_ids(conn, ctx: Ctx) -> set[int]:
 
 
 def below_cohort_item_ids(conn, except_themes: set[int] = frozenset()) -> set[int]:
-    """Published items that belong to a theme with fewer contributing organisations than the cohort minimum."""
+    return _cohort_cut(conn, except_themes)[1]
+
+
+def _cohort_cut(conn, except_themes: set[int] = frozenset()) -> tuple[set[int], set[int]]:
+    """(themes hidden from this reader, items hidden from this reader). An item is hidden when any theme it sits in has fewer
+    contributing organisations than the cohort minimum, unless it also sits in one of `except_themes`. A theme is then counted
+    over its remaining items only, so one that clears the minimum just because of held-back items stays hidden too; its other
+    items are not, since they reveal nothing outside it."""
     rows = conn.execute(
         f"SELECT ti.theme_id, s.id, o.org_id FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id AND s.status='{SharedStatus.PUBLISHED}'"
         " JOIN observations o ON o.id=s.observation_id"
     ).fetchall()
-    orgs: dict[int, set] = {}
+    org_of = {r["id"]: r["org_id"] for r in rows}
     items: dict[int, set] = {}
     for r in rows:
-        orgs.setdefault(r["theme_id"], set()).add(r["org_id"])
         items.setdefault(r["theme_id"], set()).add(r["id"])
     floor = min_cohort(conn)
-    return {i for t, ids in items.items() if len(orgs[t]) < floor and t not in except_themes for i in ids}
+    kept = set().union(*(ids for t, ids in items.items() if t in except_themes))
+    hidden = {i for t, ids in items.items() if t not in except_themes and len({org_of[i] for i in ids}) < floor for i in ids} - kept
+    small = {t for t, ids in items.items() if t not in except_themes and len({org_of[i] for i in ids - hidden}) < floor}
+    return small, hidden
 
 
 @dataclass(frozen=True)
@@ -587,13 +606,14 @@ def themes(conn, ctx: Ctx):
     require_participant(ctx)
     staff = sees_all_themes(ctx)
     assigned = assigned_theme_ids(conn, ctx)
+    hidden = hidden_item_ids(conn, ctx)
     out = []
     for t in conn.execute("SELECT * FROM themes ORDER BY updated_at DESC").fetchall():
-        rows = conn.execute(
+        rows = [r for r in conn.execute(
             f"SELECT {SHARED_FIELDS}, o.org_id FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id"
             f" JOIN observations o ON o.id=s.observation_id WHERE ti.theme_id=? AND s.status='{SharedStatus.PUBLISHED}' ORDER BY s.published_at DESC",
             (t["id"],),
-        ).fetchall()
+        ).fetchall() if r["id"] not in hidden]  # an item held back by another, smaller theme is not counted here either
         orgs = len({r["org_id"] for r in rows})
         visible = orgs >= min_cohort(conn)
         if not visible and not staff and t["id"] not in assigned:
@@ -621,17 +641,7 @@ def theme(conn, ctx: Ctx, theme_id: int):
 def suppressed_theme_count(conn, ctx: Ctx) -> int:
     if sees_all_themes(ctx):
         return 0
-    n, assigned = 0, assigned_theme_ids(conn, ctx)
-    for t in conn.execute("SELECT id FROM themes").fetchall():
-        if t["id"] in assigned:
-            continue
-        orgs = conn.execute(
-            "SELECT COUNT(DISTINCT o.org_id) c FROM theme_items ti JOIN shared_items s ON s.id=ti.shared_id"
-            f" JOIN observations o ON o.id=s.observation_id WHERE ti.theme_id=? AND s.status='{SharedStatus.PUBLISHED}'", (t["id"],)
-        ).fetchone()["c"]
-        if 0 < orgs < min_cohort(conn):
-            n += 1
-    return n
+    return len(_cohort_cut(conn, except_themes=assigned_theme_ids(conn, ctx))[0])
 
 
 def product_owners(conn):

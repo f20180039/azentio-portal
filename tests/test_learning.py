@@ -1,5 +1,6 @@
 """The governed learning lifecycle, including the brief's end-to-end seasonality scenario."""
 from app import audit, learning
+from app.auth import load_ctx_for_user
 
 OBS = {"category": "Product gap", "offering": "riva", "topic": "Validation", "title": "Validation rules miss blank totals",
        "body": "Blank subtotal rows pass validation and only fail at the regulator's portal.", "period": "Q3 2026",
@@ -322,3 +323,41 @@ def test_a_refused_publish_keeps_the_moderators_edits(login, db):
 
 def test_team_spaces_address_redirects_to_the_lab(client):
     assert client.get("/hackathon/teams", follow_redirects=False).headers["location"] == "/lab/experiments"
+
+
+def _shared_id(db, title):
+    return db.execute("SELECT id FROM shared_items WHERE title=? AND status='published'", (title,)).fetchone()["id"]
+
+
+def test_a_contribution_can_be_published_into_several_themes(login, db):
+    mod = login("omar@azentio.com")
+    oid = submitted_meridian(db)
+    assert mod.post(f"/moderation/{oid}/publish", data=publish_form(theme_id=["1", "2"]), follow_redirects=False).status_code == 303
+    sid = _shared_id(db, publish_form()["title"])
+    assert {r["theme_id"] for r in db.execute("SELECT theme_id FROM theme_items WHERE shared_id=?", (sid,))} == {1, 2}
+    themes = theme_names(login("asha@kestrel.example"))
+    assert all(sid in {it["id"] for it in themes[n]["items"]} for n in ("Seasonality context", "Scanned statement extraction"))
+
+
+def test_a_contribution_in_any_below_cohort_theme_stays_hidden_from_clients(login, db):
+    seasonal = _shared_id(db, "Seasonal SME cash flow is read as decline")  # Seasonality context: two organisations
+    db.execute("INSERT INTO theme_items VALUES (2, ?)", (seasonal,))
+    db.commit()
+    kestrel, mod = login("asha@kestrel.example"), login("omar@azentio.com")
+    extraction = theme_names(kestrel)["Scanned statement extraction"]
+    assert seasonal not in {it["id"] for it in extraction["items"]} and extraction["organisations"] == 3
+    assert seasonal not in {it["id"] for it in kestrel.get("/api/v1/shared").json()}
+    assert seasonal in {it["id"] for it in theme_names(mod)["Scanned statement extraction"]["items"]}
+
+
+def test_a_theme_that_falls_below_the_minimum_once_held_items_are_removed_is_hidden(login, db):
+    tid = db.execute("INSERT INTO themes (name, offering, summary, updated_at) VALUES ('Mixed evidence', 'riva', 'Mixed', 0)").lastrowid
+    for title in ("Seasonal SME cash flow is read as decline", "Multi-page statements break at page joins", "Phone-photo statements fail extraction"):
+        db.execute("INSERT INTO theme_items VALUES (?, ?)", (tid, _shared_id(db, title)))
+    db.commit()  # three organisations on paper, but the seasonal item is held back by its two-organisation theme
+    kestrel = login("asha@kestrel.example")
+    assert "Mixed evidence" not in theme_names(kestrel)
+    assert learning.suppressed_theme_count(db, load_ctx_for_user(db, db.execute("SELECT id FROM users WHERE email='asha@kestrel.example'").fetchone()["id"])) == 2
+    assert theme_names(login("omar@azentio.com"))["Mixed evidence"]["organisations"] == 3
+    extraction = theme_names(kestrel)["Scanned statement extraction"]  # its items stay visible: they are safe in their own theme
+    assert extraction["organisations"] == 3 and len(extraction["items"]) == 3

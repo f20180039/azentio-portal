@@ -1057,7 +1057,7 @@ def moderation_review(request: Request, oid: int, draft: dict | None = None, err
     obs = learning.get_observation(conn, ctx, oid)
     org = conn.execute("SELECT industry, region FROM orgs WHERE id=?", (obs["org_id"],)).fetchone()
     return render(request, "moderation_review.html", {"files": attachments.listing(conn, oid), "o": obs, "org": org, "themes": conn.execute("SELECT id, name FROM themes").fetchall(),
-                                                       "similar": learning.similar_published(conn, obs), "qualities": list(EvidenceQuality),
+                                                       "current_themes": learning.current_theme_ids(conn, oid), "similar": learning.similar_published(conn, obs), "qualities": list(EvidenceQuality),
                                                        "flags_now": learning.scan_sensitive(obs["title"], obs["body"]),
                                                        "sectors": learning.SECTORS, "default_sector": learning.SECTOR_OF.get(org["industry"], "Financial services"),
                                                        "draft": draft or {}, "error": error}, status=status)
@@ -1068,6 +1068,7 @@ async def moderation_publish(request: Request, oid: int):
     f = await form(request)
     f["attribute"] = f.get("attribute") == "on"
     f["override_flags"] = f.get("override_flags") == "on"
+    f["theme_ids"] = f["_multi"].getlist("theme_id")
     try:
         learning.publish(request.state.conn, request.state.ctx, oid, f)
     except Denied as e:
